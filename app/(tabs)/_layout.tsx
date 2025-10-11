@@ -1,7 +1,6 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Tabs, useRouter } from 'expo-router';
+import React, { useState } from 'react';
 import { Pressable } from 'react-native';
-
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
@@ -11,13 +10,29 @@ import { useToggleTheme } from '@/hooks/use-toggle-theme';
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const toggleTheme = useToggleTheme();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const router = useRouter();
+
+  React.useEffect(() => {
+    // Example: listen for login event (replace with your actual login logic)
+    const handleLoginSuccess = () => {
+      setIsAuthenticated(true);
+      router.replace('/(tabs)');
+    };
+    window.addEventListener('loginSuccess', handleLoginSuccess);
+    return () => {
+      window.removeEventListener('loginSuccess', handleLoginSuccess);
+    };
+  }, [router]);
 
   return (
     <Tabs
+      initialRouteName="login"
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
+  tabBarButton: HapticTab, // Removed to use default tab bar button for icons
+        // Use default tabBarButton to display icons from icon-symbol.tsx
         headerRight: () => (
           <Pressable
             onPress={toggleTheme}
@@ -30,38 +45,48 @@ export default function TabLayout() {
             />
           </Pressable>
         ),
+        tabBarStyle: !isAuthenticated ? { display: 'none' } : {},
       }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="payments"
-        options={{
-          title: 'Payments',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="payment.fill" color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="issues"
-        options={{
-          title: 'Issues',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="note.fill" color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
-        }}
-      />
+      {isAuthenticated ? (
+        <>
+          <Tabs.Screen
+            name="index"
+            options={{
+              title: 'Home',
+              tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+            }}
+          />
+          <Tabs.Screen
+            name="payments"
+            options={{
+              title: 'Payments',
+              tabBarIcon: ({ color }) => <IconSymbol size={28} name="payment.fill" color={color} />,
+            }}
+          />
+          <Tabs.Screen
+            name="issues"
+            options={{
+              title: 'Issues',
+              tabBarIcon: ({ color }) => <IconSymbol size={28} name="note.fill" color={color} />,
+            }}
+          />
+          <Tabs.Screen
+            name="profile"
+            options={{
+              title: 'Profile',
+              tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
+            }}
+          />
+        </>
+      ) : (
+        <Tabs.Screen
+          name="login"
+          options={{
+            title: 'Login',
+            tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
+          }}
+        />
+      )}
     </Tabs>
   );
 }
