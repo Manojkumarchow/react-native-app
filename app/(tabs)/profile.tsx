@@ -1,180 +1,332 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  ImageBackground,
+  Animated,
+  Easing,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+} from 'react-native';
 
-export default function HomeScreen() {
-  const [form, setForm] = useState({
-    fullName: '',
-    dob: '',
-    gender: '',
-    mobile: '',
+const backgroundImage = require('../../assets/images/home.jpg');
+const BASE_URL = 'http://localhost:8080/whistleup/profile';
+
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+export default function ProfileScreen() {
+  const [fetchForm, setFetchForm] = useState({ userId: '' });
+  const [updateForm, setUpdateForm] = useState({
+    userId: '',
+    name: '',
     email: '',
-    address: '',
-    city: '',
-    state: '',
-    pincode: '',
-    altNumber: '',
-    occupation: '',
-    company: '',
-    emergencyContact: '',
-    emergencyRelation: '',
+    phone: '',
+    password: '',
+    role: '',
   });
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    role: '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [showUpdateSection, setShowUpdateSection] = useState(false);
+  const [showCreateSection, setShowCreateSection] = useState(false);
 
-  const [errors, setErrors] = useState({});
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  // Success popup animation
+  const [successMessage, setSuccessMessage] = useState('');
+  const successOpacity = useRef(new Animated.Value(0)).current;
 
-  const validate = () => {
-    const errs = {};
-
-    if (!form.fullName) errs.fullName = 'Full Name is required';
-    if (!form.dob) errs.dob = 'Date of Birth is required';
-    if (!form.gender) errs.gender = 'Gender is required';
-    if (!form.mobile || !/^[0-9]{10}$/.test(form.mobile)) errs.mobile = 'Valid Mobile Number is required';
-    if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Valid Email is required';
-
-    if (!form.address) errs.address = 'Current Address is required';
-    if (!form.city) errs.city = 'City is required';
-    if (!form.state) errs.state = 'State is required';
-    if (!form.pincode || !/^[0-9]{6}$/.test(form.pincode)) errs.pincode = 'Valid Pincode is required';
-    if (form.altNumber && !/^[0-9]{10}$/.test(form.altNumber)) errs.altNumber = 'Alternate Number must be 10 digits';
-
-    if (!form.occupation) errs.occupation = 'Occupation is required';
-    if (!form.company) errs.company = 'Company Name is required';
-    if (!form.emergencyContact) errs.emergencyContact = 'Emergency Contact Name is required';
-    if (!form.emergencyRelation) errs.emergencyRelation = 'Relationship with Emergency Contact is required';
-
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+  const showSuccessPopup = (message) => {
+    setSuccessMessage(message);
+    Animated.timing(successOpacity, {
+      toValue: 1,
+      duration: 400,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start(() => {
+      setTimeout(() => {
+        Animated.timing(successOpacity, {
+          toValue: 0,
+          duration: 400,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        }).start(() => setSuccessMessage(''));
+      }, 1800);
+    });
   };
 
-  const handleChange = (field, value) => setForm({ ...form, [field]: value });
+  const handleChange = (formSetter, field, value) => {
+    formSetter((prev) => ({ ...prev, [field]: value }));
+  };
 
-  const handleSubmit = () => {
-    if (validate()) {
-      setIsSubmitted(true);
+  // Fetch Profile
+  const handleFetch = async () => {
+    if (!fetchForm.userId.trim()) return alert('⚠️ Enter User ID to fetch');
+    try {
+      setLoading(true);
+      const res = await fetch(`${BASE_URL}/${fetchForm.userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setUpdateForm({
+          userId: data.userId || '',
+          name: data.name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          password: '',
+          role: data.role || '',
+        });
+        setShowUpdateSection(true);
+        setShowCreateSection(false);
+      } else alert('❌ Profile not found');
+    } catch (e) {
+      alert('⚠️ Network Error');
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (isSubmitted) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.submitMessage}>Thank you! Form submitted successfully.</Text>
-      </View>
-    );
-  }
+  // Update Profile
+  const handleUpdate = async () => {
+    if (!updateForm.password.trim()) return alert('⚠️ Password required');
+    try {
+      setLoading(true);
+      const res = await fetch(`${BASE_URL}/update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateForm),
+      });
+      if (res.ok) {
+        showSuccessPopup('🎉 Profile Updated Successfully!');
+        setUpdateForm({ userId: '', name: '', email: '', phone: '', password: '', role: '' });
+        setFetchForm({ userId: '' });
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setShowUpdateSection(false);
+      } else alert('❌ Failed to update profile');
+    } catch (e) {
+      alert('⚠️ Network Error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Create Profile
+  const handleCreate = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${BASE_URL}/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(createForm),
+      });
+      if (res.ok) {
+        showSuccessPopup('🎉 Profile Created Successfully!');
+        setCreateForm({ name: '', email: '', phone: '', password: '', role: '' });
+      } else alert('❌ Failed to create profile');
+    } catch (e) {
+      alert('⚠️ Network Error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Slide animation for Create section
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(slideAnim, {
+      toValue: showCreateSection ? 1 : 0,
+      duration: 400,
+      easing: Easing.inOut(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  }, [showCreateSection]);
+
+  const slideStyle = {
+    opacity: slideAnim,
+    transform: [
+      {
+        translateY: slideAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [50, 0],
+        }),
+      },
+    ],
+  };
 
   return (
-    <ScrollView style={styles.scroll}>
-      <View style={styles.container}>
-        <Text style={styles.sectionTitle}>Personal Information</Text>
+    <ImageBackground source={backgroundImage} style={styles.background}>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.card}>
+          <Text style={styles.header}>👤 Profile Management</Text>
 
-        <Text style={styles.label}>Full Name</Text>
-        <TextInput style={styles.input} value={form.fullName} onChangeText={val => handleChange('fullName', val)} />
-        {errors.fullName && <Text style={styles.error}>{errors.fullName}</Text>}
+          {/* Fetch Section */}
+          <Text style={styles.sectionTitle}>Fetch Profile by User ID</Text>
+          <TextInput
+            style={styles.input}
+            value={fetchForm.userId}
+            onChangeText={(val) => handleChange(setFetchForm, 'userId', val)}
+            placeholder="Enter User ID"
+            keyboardType="number-pad"
+          />
 
-        <Text style={styles.label}>Date of Birth</Text>
-        <TextInput style={styles.input} value={form.dob} placeholder="YYYY-MM-DD" onChangeText={val => handleChange('dob', val)} />
-        {errors.dob && <Text style={styles.error}>{errors.dob}</Text>}
+          <TouchableOpacity style={styles.smallButtonFetch} onPress={handleFetch}>
+            <Text style={styles.smallButtonText}>Fetch Profile</Text>
+          </TouchableOpacity>
 
-        <Text style={styles.label}>Gender</Text>
-        <TextInput style={styles.input} value={form.gender} onChangeText={val => handleChange('gender', val)} />
-        {errors.gender && <Text style={styles.error}>{errors.gender}</Text>}
+          {showUpdateSection && (
+            <View style={{ marginTop: 15 }}>
+              <Text style={styles.sectionTitle}>Update Profile</Text>
+              {['name', 'email', 'phone', 'password', 'role'].map((key) => (
+                <TextInput
+                  key={key}
+                  style={styles.input}
+                  placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
+                  value={updateForm[key]}
+                  onChangeText={(v) => handleChange(setUpdateForm, key, v)}
+                  secureTextEntry={key === 'password'}
+                />
+              ))}
+              <TouchableOpacity style={styles.smallButtonUpdate} onPress={handleUpdate}>
+                <Text style={styles.smallButtonText}>Update Profile</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
 
-        <Text style={styles.label}>Mobile Number</Text>
-        <TextInput style={styles.input} keyboardType="number-pad" value={form.mobile} onChangeText={val => handleChange('mobile', val)} />
-        {errors.mobile && <Text style={styles.error}>{errors.mobile}</Text>}
+        {/* Create Section */}
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.toggleHeader}
+            onPress={() => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setShowCreateSection(!showCreateSection);
+              setShowUpdateSection(false);
+            }}
+          >
+            <Text style={styles.toggleText}>
+              {showCreateSection ? '⬆️ Hide Create User' : '➕ Create New User'}
+            </Text>
+          </TouchableOpacity>
 
-        <Text style={styles.label}>Email Address</Text>
-        <TextInput style={styles.input} keyboardType="email-address" value={form.email} onChangeText={val => handleChange('email', val)} />
-        {errors.email && <Text style={styles.error}>{errors.email}</Text>}
+          {showCreateSection && (
+            <Animated.View style={[slideStyle, { marginTop: 10 }]}>
+              {['name', 'email', 'phone', 'password', 'role'].map((key) => (
+                <TextInput
+                  key={key}
+                  style={styles.input}
+                  placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
+                  value={createForm[key]}
+                  onChangeText={(v) => handleChange(setCreateForm, key, v)}
+                  secureTextEntry={key === 'password'}
+                />
+              ))}
+              <TouchableOpacity style={styles.smallButtonCreate} onPress={handleCreate}>
+                <Text style={styles.smallButtonText}>Create Profile</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+        </View>
+      </ScrollView>
 
-        <Text style={styles.sectionTitle}>Current Address and Contact</Text>
-
-        <Text style={styles.label}>Current Address</Text>
-        <TextInput style={styles.input} value={form.address} onChangeText={val => handleChange('address', val)} />
-        {errors.address && <Text style={styles.error}>{errors.address}</Text>}
-
-        <Text style={styles.label}>City</Text>
-        <TextInput style={styles.input} value={form.city} onChangeText={val => handleChange('city', val)} />
-        {errors.city && <Text style={styles.error}>{errors.city}</Text>}
-
-        <Text style={styles.label}>State</Text>
-        <TextInput style={styles.input} value={form.state} onChangeText={val => handleChange('state', val)} />
-        {errors.state && <Text style={styles.error}>{errors.state}</Text>}
-
-        <Text style={styles.label}>Pincode</Text>
-        <TextInput style={styles.input} keyboardType="number-pad" value={form.pincode} onChangeText={val => handleChange('pincode', val)} />
-        {errors.pincode && <Text style={styles.error}>{errors.pincode}</Text>}
-
-        <Text style={styles.label}>Alternate Number</Text>
-        <TextInput style={styles.input} keyboardType="number-pad" value={form.altNumber} onChangeText={val => handleChange('altNumber', val)} />
-        {errors.altNumber && <Text style={styles.error}>{errors.altNumber}</Text>}
-
-        <Text style={styles.sectionTitle}>Emergency / Professional Details</Text>
-
-        <Text style={styles.label}>Occupation</Text>
-        <TextInput style={styles.input} value={form.occupation} onChangeText={val => handleChange('occupation', val)} />
-        {errors.occupation && <Text style={styles.error}>{errors.occupation}</Text>}
-
-        <Text style={styles.label}>Company Name</Text>
-        <TextInput style={styles.input} value={form.company} onChangeText={val => handleChange('company', val)} />
-        {errors.company && <Text style={styles.error}>{errors.company}</Text>}
-
-        <Text style={styles.label}>Emergency Contact Name</Text>
-        <TextInput style={styles.input} value={form.emergencyContact} onChangeText={val => handleChange('emergencyContact', val)} />
-        {errors.emergencyContact && <Text style={styles.error}>{errors.emergencyContact}</Text>}
-
-        <Text style={styles.label}>Relationship with Emergency Contact</Text>
-        <TextInput style={styles.input} value={form.emergencyRelation} onChangeText={val => handleChange('emergencyRelation', val)} />
-        {errors.emergencyRelation && <Text style={styles.error}>{errors.emergencyRelation}</Text>}
-
-        <Button title="Submit" onPress={handleSubmit} color="#007AFF" />
-      </View>
-    </ScrollView>
+      {/* Success Popup */}
+      {successMessage !== '' && (
+        <Animated.View style={[styles.successPopup, { opacity: successOpacity }]}>
+          <Text style={styles.successEmoji}>🎉</Text>
+          <Text style={styles.successText}>{successMessage}</Text>
+        </Animated.View>
+      )}
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { backgroundColor: '#f5f7fa' },
-  container: {
-    flex: 1,
+  background: { flex: 1, width: '100%', height: '100%' },
+  scrollContainer: { padding: 20 },
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
     padding: 20,
-    margin: 12,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    elevation: 3,
+    borderRadius: 12,
+    marginBottom: 20,
+    elevation: 4,
   },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    marginTop: 20,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  label: {
-    marginTop: 12,
-    fontWeight: '600',
-    fontSize: 16,
-    color: '#333',
-  },
+  header: { fontSize: 22, fontWeight: 'bold', color: '#007AFF', textAlign: 'center', marginBottom: 15 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#007AFF', marginTop: 10 },
   input: {
     borderWidth: 1,
-    borderColor: '#bbb',
+    borderColor: '#ccc',
     borderRadius: 8,
     padding: 10,
     backgroundColor: '#fafafa',
-    marginTop: 6,
-    fontSize: 16,
+    marginTop: 8,
   },
-  error: {
-    color: 'red',
-    marginTop: 4,
-    fontSize: 12,
+  toggleHeader: {
+    backgroundColor: '#E8F0FE',
+    borderRadius: 8,
+    padding: 10,
+    alignItems: 'center',
   },
-  submitMessage: {
-    textAlign: 'center',
-    fontSize: 24,
+  toggleText: { fontSize: 16, fontWeight: 'bold', color: '#007AFF' },
+
+  // Buttons
+  smallButtonFetch: {
+    backgroundColor: '#1E90FF',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    elevation: 3,
+    marginTop: 12,
+  },
+  smallButtonUpdate: {
+    backgroundColor: '#FFA500',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    elevation: 3,
+    marginTop: 12,
+  },
+  smallButtonCreate: {
+    backgroundColor: '#32CD32',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    elevation: 3,
+    marginTop: 12,
+  },
+  smallButtonText: {
+    color: '#fff',
     fontWeight: 'bold',
-    color: '#4CAF50',
-  }
+    fontSize: 14,
+  },
+
+  // Success Popup
+  successPopup: {
+    position: 'absolute',
+    top: '40%',
+    left: '10%',
+    right: '10%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    elevation: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 30,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  successEmoji: { fontSize: 48 },
+  successText: { fontSize: 18, fontWeight: 'bold', color: '#28a745', marginTop: 8 },
 });
