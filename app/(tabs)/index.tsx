@@ -1,194 +1,155 @@
-import React from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
-  Image,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Image,
   ScrollView,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+} from "react-native";
+import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage"; 
+const BASE_URL = "http://localhost:8080/whistleup";
 
+export default function LoginScreen() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-export default function HomeScreen({ navigation }) {
+  const handleLogin = async () => {
+    if (!username || !password) {
+      Alert.alert("Missing Fields", "Enter username and password");
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(`${BASE_URL}/users/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          email: username.trim(),
+          password: password.trim(),
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // ✅ Save user + token to local storage
+        await AsyncStorage.setItem("user", JSON.stringify(data.user));
+        await AsyncStorage.setItem("token", data.jwtToken);
+
+        router.replace("/home"); // navigate to home
+      } else {
+        const errorData = await response.text();
+        throw new Error(errorData || "Login failed");
+      }
+    } catch (err) {
+      Alert.alert("Login Error", err.message || "Server error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Image
-          source={require('../../assets/images/user.png')}
-          style={styles.profileImage}
-        />
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>RAMANA</Text>
-          <Text style={styles.apartment}>CSK</Text>
-          <Text style={styles.flat}>Flat, 007</Text>
-        </View>
-        <View style={styles.headerIcons}>
-          <Ionicons name="notifications" size={22} color="#fff" />
-          <Ionicons name="menu" size={22} color="#fff" style={{ marginLeft: 10 }} />
-        </View>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Product Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Product</Text>
-          <View style={styles.iconGrid}>
-            {[
-              { name: 'Residents', icon: 'home' },
-              { name: 'Maintenance', icon: 'build' },
-              { name: 'Whistle up', icon: 'megaphone' },
-              { name: 'Rise Ticket', icon: 'clipboard' },
-              { name: 'Chat', icon: 'chatbubbles' },
-              { name: 'Watch Man', icon: 'shield' },
-              { name: 'Home services', icon: 'people' },
-              { name: 'Renting', icon: 'business' },
-              { name: 'CC Tv', icon: 'videocam' },
-            ].map((item, i) => (
-              <TouchableOpacity
-                key={i}
-                style={styles.iconCard}
-                onPress={() => alert(`${item.name} clicked`)}
-              >
-                <Ionicons name={item.icon} size={28} color="#fff" />
-                <Text style={styles.iconLabel}>{item.name}</Text>
-              </TouchableOpacity>
-            ))}
+    <View style={styles.root}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Image
+            source={require("../../assets/images/nestity-logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <View style={styles.centerBox}>
+            <Text style={styles.title}>Login</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={username}
+              onChangeText={setUsername}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Best Sales Section */}
-        <View style={styles.salesSection}>
-          <Text style={styles.sectionTitle}>Best Sales</Text>
-          <View style={styles.salesRow}>
-            <View style={styles.saleCard}>
-              <Image
-                source={require('../../assets/images/sofa1.png')}
-                style={styles.sofaImage}
-              />
-              <Text style={styles.price}>7,000</Text>
-              <Text style={styles.itemName}>Borcell Sofa</Text>
-              <Text style={styles.subTitle}>Luxury / Premium Tone</Text>
-              <TouchableOpacity style={styles.addBtn}>
-                <Text style={styles.addText}>+</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.saleCard}>
-              <Image
-                source={require('../../assets/images/sofa2.png')}
-                style={styles.sofaImage}
-              />
-              <Text style={styles.price}>3,000</Text>
-              <Text style={styles.itemName}>Fauget Sofa</Text>
-              <Text style={styles.subTitle}>Comfort meets style</Text>
-              <TouchableOpacity style={styles.addBtn}>
-                <Text style={styles.addText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Bottom Navigation */}
-
-
-      <View style={styles.bottomNav}>
-        {[
-          { name: 'Profile', icon: 'person' },
-          { name: 'Market Place', icon: 'storefront' },
-          { name: 'Home', icon: 'home' },
-          { name: 'Cart', icon: 'cart' },
-          { name: 'Ledger', icon: 'book' },
-        ].map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.navItem}
-            onPress={() => {
-              if (item.name === 'Profile') {
-                router.push('/(tabs)/profile');
-              } else {
-                alert(`${item.name} clicked`);
-              }
-            }}
-          >
-            <Ionicons name={item.icon} size={22} color="#000" />
-            <Text style={styles.navText}>{item.name}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
+// same styles as before
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-
-  header: {
-    backgroundColor: '#008C9E',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 15,
+  root: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flex: 1, justifyContent: "center", alignItems: "center" },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
   },
-  profileImage: { width: 60, height: 60, borderRadius: 30 },
-  userInfo: { flex: 1, marginLeft: 10 },
-  userName: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  apartment: { color: '#fff', fontSize: 13 },
-  flat: { color: '#fff', fontSize: 13 },
-  headerIcons: { flexDirection: 'row', alignItems: 'center' },
-
-  section: { padding: 16 },
-  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#3A2D2D', marginBottom: 10 },
-
-  iconGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  logo: { width: 200, height: 110, marginBottom: 30 },
+  centerBox: {
+    backgroundColor: "#fff",
+    padding: 70,
+    borderRadius: 16,
+    width: "98%",
+    maxWidth: 440,
+    alignItems: "center",
+    elevation: 8,
   },
-  iconCard: {
-    backgroundColor: '#F89C1C',
-    width: '30%',
-    borderRadius: 12,
-    alignItems: 'center',
-    paddingVertical: 15,
-    marginBottom: 12,
+  title: { fontSize: 26, fontWeight: "bold", marginBottom: 24, color: "#008C9E" },
+  input: {
+    width: "100%",
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#008C9E",
+    marginBottom: 16,
+    paddingLeft: 12,
+    backgroundColor: "#F8F8F8",
+    fontSize: 16,
+    color: "#222",
   },
-  iconLabel: { color: '#fff', marginTop: 6, fontSize: 13, textAlign: 'center' },
-
-  salesSection: { padding: 16, backgroundColor: '#fff' },
-  salesRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  saleCard: {
-    width: '48%',
-    backgroundColor: '#008C9E',
-    borderRadius: 15,
-    alignItems: 'center',
-    paddingVertical: 15,
+  button: {
+    width: "100%",
+    height: 44,
+    backgroundColor: "#008C9E",
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  sofaImage: { width: 100, height: 80, resizeMode: 'contain' },
-  price: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
-  itemName: { color: '#fff', fontSize: 13 },
-  subTitle: { color: '#fff', fontSize: 12, fontStyle: 'italic' },
-  addBtn: {
-    marginTop: 8,
-    backgroundColor: '#000',
-    width: 25,
-    height: 25,
-    borderRadius: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#F89C1C',
-    paddingVertical: 10,
-  },
-  navItem: { alignItems: 'center' },
-  navText: { fontSize: 11, color: '#000', marginTop: 2 },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
 });
