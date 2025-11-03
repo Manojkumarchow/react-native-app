@@ -21,31 +21,29 @@ export default function HomeScreen({ navigation }) {
           style={styles.profileImage}
         />
         <View style={styles.userInfo}>
-          <Text style={styles.userName}>RAMANA</Text>
-          <Text style={styles.apartment}>CSK</Text>
-          <Text style={styles.flat}>Flat, 007</Text>
+          <Text style={styles.userName}>Hello, User</Text>
+          {/* <Text style={styles.apartment}>CSK</Text> */}
+          {/* <Text style={styles.flat}>Flat, 007</Text> */}
         </View>
-        <View style={styles.headerIcons}>
-          <Ionicons name="notifications" size={22} color="#fff" />
-          <Ionicons name="menu" size={22} color="#fff" style={{ marginLeft: 10 }} />
-        </View>
+        {/* <View style={styles.headerIcons}> */}
+          {/* <Ionicons name="notifications" size={22} color="#fff" /> */}
+          {/* <Ionicons name="person" size={22} color="#fff" style={{marginLeft: 10}} /> */}
+          {/* <Ionicons name="menu" size={22} color="#fff" style={{ marginLeft: 10 }} /> */}
+        {/* </View> */}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Product Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Product</Text>
+          {/* <Text style={styles.sectionTitle}>Product</Text> */}
           <View style={styles.iconGrid}>
             {[
               { name: 'Residents', icon: 'home' },
               { name: 'Maintenance', icon: 'build' },
-              { name: 'Whistle up', icon: 'megaphone' },
-              { name: 'Rise Ticket', icon: 'clipboard' },
-              { name: 'Chat', icon: 'chatbubbles' },
-              { name: 'Watch Man', icon: 'shield' },
-              { name: 'Home services', icon: 'people' },
+              { name: 'Raise a Ticket', icon: 'clipboard' },
               { name: 'Renting', icon: 'business' },
-              { name: 'CC Tv', icon: 'videocam' },
+              { name: 'View Payments', icon: 'cash' },
+              { name: 'Create a Poll', icon: 'people' }
             ].map((item, i) => (
               <TouchableOpacity
                 key={i}
@@ -60,7 +58,7 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         {/* Best Sales Section */}
-        <View style={styles.salesSection}>
+        {/* <View style={styles.salesSection}>
           <Text style={styles.sectionTitle}>Best Sales</Text>
           <View style={styles.salesRow}>
             <View style={styles.saleCard}>
@@ -89,7 +87,7 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </View> */}
       </ScrollView>
 
       {/* Bottom Navigation */}
@@ -97,11 +95,12 @@ export default function HomeScreen({ navigation }) {
 
       <View style={styles.bottomNav}>
         {[
-          { name: 'Profile', icon: 'person' },
-          { name: 'Market Place', icon: 'storefront' },
+          // { name: 'Market Place', icon: 'storefront' },
           { name: 'Home', icon: 'home' },
-          { name: 'Cart', icon: 'cart' },
-          { name: 'Ledger', icon: 'book' },
+          { name: 'Profile', icon: 'person' },
+          { name: 'Notifications', icon: 'notifications' },
+          // { name: 'Cart', icon: 'cart' },
+          // { name: 'Ledger', icon: 'book' },
         ].map((item, index) => (
           <TouchableOpacity
             key={index}
@@ -128,7 +127,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
 
   header: {
-    backgroundColor: '#008C9E',
+    backgroundColor: '#0e59e5ff',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -150,14 +149,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   iconCard: {
-    backgroundColor: '#F89C1C',
+    backgroundColor: '#0cf1deff',
     width: '30%',
     borderRadius: 12,
     alignItems: 'center',
     paddingVertical: 15,
     marginBottom: 12,
   },
-  iconLabel: { color: '#fff', marginTop: 6, fontSize: 13, textAlign: 'center' },
+  iconLabel: { color: '#180f0fff', marginTop: 6, fontSize: 13, textAlign: 'center' },
 
   salesSection: { padding: 16, backgroundColor: '#fff' },
   salesRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -186,9 +185,9 @@ const styles = StyleSheet.create({
   bottomNav: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: '#F89C1C',
+    backgroundColor: '#0e59e5ff',
     paddingVertical: 10,
   },
-  navItem: { alignItems: 'center' },
-  navText: { fontSize: 11, color: '#000', marginTop: 2 },
+  navItem: { color: '#fff', alignItems: 'center' },
+  navText: { fontSize: 11, color: '#fff', marginTop: 2 },
 });
