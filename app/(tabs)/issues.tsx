@@ -51,7 +51,7 @@ export default function Issues() {
     }
   };
 
-  // Register a new complaint using backend endpoint
+  // Register a new complaint using backend endpoint with ID returned
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -60,7 +60,6 @@ export default function Issues() {
       title: form.title,
       description: form.description,
       status: 'Raised'
-      // Extend with other fields as needed
     };
 
     try {
@@ -70,8 +69,11 @@ export default function Issues() {
         body: JSON.stringify(complaintData)
       });
 
-      if (response.status === 201 || response.status === 200) {
-        alert("Complaint registered successfully!");
+      if (response.ok) {
+        // Parse JSON response including complaintId
+        const savedComplaint = await response.json();
+        alert(`Complaint registered successfully! Complaint ID: ${savedComplaint.complaintId}`);
+
         setForm({
           type: '',
           title: '',
@@ -80,7 +82,9 @@ export default function Issues() {
           photoName: '',
           status: 'Raised'
         });
+
         if (fileInputRef.current) fileInputRef.current.value = "";
+
         fetchComplaints();
       } else {
         alert("Registration failed. Please try again.");
