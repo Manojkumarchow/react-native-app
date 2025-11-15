@@ -124,6 +124,7 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
+// same styles as before
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
 
