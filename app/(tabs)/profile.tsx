@@ -1,118 +1,180 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import React, { useState } from 'react';
+import { View, Text, TextInput, Button, StyleSheet, ScrollView } from 'react-native';
 
-export default function ProfileScreen() {
-  const [user, setUser] = useState<any>(null);
+export default function HomeScreen() {
+  const [form, setForm] = useState({
+    fullName: '',
+    dob: '',
+    gender: '',
+    mobile: '',
+    email: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    altNumber: '',
+    occupation: '',
+    company: '',
+    emergencyContact: '',
+    emergencyRelation: '',
+  });
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const storedUser = await AsyncStorage.getItem("user");
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-      }
-    };
-    fetchUser();
-  }, []);
+  const [errors, setErrors] = useState({});
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem("user");
-    router.replace("/signin");
+  const validate = () => {
+    const errs = {};
+
+    if (!form.fullName) errs.fullName = 'Full Name is required';
+    if (!form.dob) errs.dob = 'Date of Birth is required';
+    if (!form.gender) errs.gender = 'Gender is required';
+    if (!form.mobile || !/^[0-9]{10}$/.test(form.mobile)) errs.mobile = 'Valid Mobile Number is required';
+    if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Valid Email is required';
+
+    if (!form.address) errs.address = 'Current Address is required';
+    if (!form.city) errs.city = 'City is required';
+    if (!form.state) errs.state = 'State is required';
+    if (!form.pincode || !/^[0-9]{6}$/.test(form.pincode)) errs.pincode = 'Valid Pincode is required';
+    if (form.altNumber && !/^[0-9]{10}$/.test(form.altNumber)) errs.altNumber = 'Alternate Number must be 10 digits';
+
+    if (!form.occupation) errs.occupation = 'Occupation is required';
+    if (!form.company) errs.company = 'Company Name is required';
+    if (!form.emergencyContact) errs.emergencyContact = 'Emergency Contact Name is required';
+    if (!form.emergencyRelation) errs.emergencyRelation = 'Relationship with Emergency Contact is required';
+
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
-  if (!user) {
+  const handleChange = (field, value) => setForm({ ...form, [field]: value });
+
+  const handleSubmit = () => {
+    if (validate()) {
+      setIsSubmitted(true);
+    }
+  };
+
+  if (isSubmitted) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={{ fontSize: 16 }}>Loading user data...</Text>
+      <View style={styles.container}>
+        <Text style={styles.submitMessage}>Thank you! Form submitted successfully.</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Ionicons name="arrow-back" size={26} color="#fff" onPress={() => router.back()} />
-        <Text style={styles.headerTitle}>Profile</Text>
-      </View>
+    <ScrollView style={styles.scroll}>
+      <View style={styles.container}>
+        <Text style={styles.sectionTitle}>Personal Information</Text>
 
-      <View style={styles.profileContainer}>
-        <Image
-          source={require("../../assets/images/user.png")}
-          style={styles.profileImage}
-        />
-        <Text style={styles.name}>{user.name}</Text>
-        <Text style={styles.role}>{user.role}</Text>
-      </View>
+        <Text style={styles.label}>Full Name</Text>
+        <TextInput style={styles.input} value={form.fullName} onChangeText={val => handleChange('fullName', val)} />
+        {errors.fullName && <Text style={styles.error}>{errors.fullName}</Text>}
 
-      <View style={styles.detailsContainer}>
-        <View style={styles.row}>
-          <Text style={styles.label}>📧 Email:</Text>
-          <Text style={styles.value}>{user.email}</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>📞 Phone:</Text>
-          <Text style={styles.value}>{user.phone}</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>🔒 Password:</Text>
-          <Text style={styles.value}>{user.password}</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>🎭 Role:</Text>
-          <Text style={styles.value}>{user.role}</Text>
-        </View>
-      </View>
+        <Text style={styles.label}>Date of Birth</Text>
+        <TextInput style={styles.input} value={form.dob} placeholder="YYYY-MM-DD" onChangeText={val => handleChange('dob', val)} />
+        {errors.dob && <Text style={styles.error}>{errors.dob}</Text>}
 
-      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
-    </View>
+        <Text style={styles.label}>Gender</Text>
+        <TextInput style={styles.input} value={form.gender} onChangeText={val => handleChange('gender', val)} />
+        {errors.gender && <Text style={styles.error}>{errors.gender}</Text>}
+
+        <Text style={styles.label}>Mobile Number</Text>
+        <TextInput style={styles.input} keyboardType="number-pad" value={form.mobile} onChangeText={val => handleChange('mobile', val)} />
+        {errors.mobile && <Text style={styles.error}>{errors.mobile}</Text>}
+
+        <Text style={styles.label}>Email Address</Text>
+        <TextInput style={styles.input} keyboardType="email-address" value={form.email} onChangeText={val => handleChange('email', val)} />
+        {errors.email && <Text style={styles.error}>{errors.email}</Text>}
+
+        <Text style={styles.sectionTitle}>Current Address and Contact</Text>
+
+        <Text style={styles.label}>Current Address</Text>
+        <TextInput style={styles.input} value={form.address} onChangeText={val => handleChange('address', val)} />
+        {errors.address && <Text style={styles.error}>{errors.address}</Text>}
+
+        <Text style={styles.label}>City</Text>
+        <TextInput style={styles.input} value={form.city} onChangeText={val => handleChange('city', val)} />
+        {errors.city && <Text style={styles.error}>{errors.city}</Text>}
+
+        <Text style={styles.label}>State</Text>
+        <TextInput style={styles.input} value={form.state} onChangeText={val => handleChange('state', val)} />
+        {errors.state && <Text style={styles.error}>{errors.state}</Text>}
+
+        <Text style={styles.label}>Pincode</Text>
+        <TextInput style={styles.input} keyboardType="number-pad" value={form.pincode} onChangeText={val => handleChange('pincode', val)} />
+        {errors.pincode && <Text style={styles.error}>{errors.pincode}</Text>}
+
+        <Text style={styles.label}>Alternate Number</Text>
+        <TextInput style={styles.input} keyboardType="number-pad" value={form.altNumber} onChangeText={val => handleChange('altNumber', val)} />
+        {errors.altNumber && <Text style={styles.error}>{errors.altNumber}</Text>}
+
+        <Text style={styles.sectionTitle}>Emergency / Professional Details</Text>
+
+        <Text style={styles.label}>Occupation</Text>
+        <TextInput style={styles.input} value={form.occupation} onChangeText={val => handleChange('occupation', val)} />
+        {errors.occupation && <Text style={styles.error}>{errors.occupation}</Text>}
+
+        <Text style={styles.label}>Company Name</Text>
+        <TextInput style={styles.input} value={form.company} onChangeText={val => handleChange('company', val)} />
+        {errors.company && <Text style={styles.error}>{errors.company}</Text>}
+
+        <Text style={styles.label}>Emergency Contact Name</Text>
+        <TextInput style={styles.input} value={form.emergencyContact} onChangeText={val => handleChange('emergencyContact', val)} />
+        {errors.emergencyContact && <Text style={styles.error}>{errors.emergencyContact}</Text>}
+
+        <Text style={styles.label}>Relationship with Emergency Contact</Text>
+        <TextInput style={styles.input} value={form.emergencyRelation} onChangeText={val => handleChange('emergencyRelation', val)} />
+        {errors.emergencyRelation && <Text style={styles.error}>{errors.emergencyRelation}</Text>}
+
+        <Button title="Submit" onPress={handleSubmit} color="#007AFF" />
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  header: {
-    backgroundColor: "#008C9E",
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 15,
-  },
-  headerTitle: { color: "#fff", fontSize: 18, fontWeight: "bold", marginLeft: 10 },
-  profileContainer: {
-    alignItems: "center",
-    marginTop: 20,
-  },
-  profileImage: { width: 100, height: 100, borderRadius: 50 },
-  name: { fontSize: 20, fontWeight: "bold", marginTop: 10 },
-  role: { fontSize: 15, color: "gray", marginTop: 2 },
-  detailsContainer: {
-    marginTop: 30,
-    paddingHorizontal: 20,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: "#ddd",
-  },
-  label: { fontWeight: "bold", color: "#333" },
-  value: { color: "#555", textAlign: "right" },
-  logoutBtn: {
-    backgroundColor: "#F89C1C",
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-    alignSelf: "center",
-    marginTop: 40,
-  },
-  logoutText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  loadingContainer: {
+  scroll: { backgroundColor: '#f5f7fa' },
+  container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    padding: 20,
+    margin: 12,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    elevation: 3,
   },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    marginTop: 20,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  label: {
+    marginTop: 12,
+    fontWeight: '600',
+    fontSize: 16,
+    color: '#333',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#bbb',
+    borderRadius: 8,
+    padding: 10,
+    backgroundColor: '#fafafa',
+    marginTop: 6,
+    fontSize: 16,
+  },
+  error: {
+    color: 'red',
+    marginTop: 4,
+    fontSize: 12,
+  },
+  submitMessage: {
+    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+  }
 });
