@@ -27,20 +27,23 @@ export default function SignupScreen() {
       setError("All fields are required");
       return;
     }
-    alert("Signup successful!");
+    router.push({
+      pathname: "/otp",
+      params: { phone },
+    });
   };
 
-  const validatePassword = (pwd:string) => {
-  const isValid =
-    /[A-Z]/.test(pwd) &&       // uppercase
-    /[a-z]/.test(pwd) &&       // lowercase
-    /[0-9]/.test(pwd) &&       // number
-    /[^A-Za-z0-9]/.test(pwd) &&// special char
-    pwd.length >= 8;           // min length
+  const validatePassword = (pwd: string) => {
+    const isValid =
+      /[A-Z]/.test(pwd) && // uppercase
+      /[a-z]/.test(pwd) && // lowercase
+      /[0-9]/.test(pwd) && // number
+      /[^A-Za-z0-9]/.test(pwd) && // special char
+      pwd.length >= 8; // min length
 
-  setIsPasswordValid(isValid);
-  return isValid;
-};
+    setIsPasswordValid(isValid);
+    return isValid;
+  };
 
   return (
     <>
