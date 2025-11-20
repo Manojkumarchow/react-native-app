@@ -5,18 +5,23 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import FrostedCard from "./components/FrostedCard";
+import { sendOTP, verifyOTP } from "./services/otp.service";
+import { createProfile } from "./services/profile.service";
 
 export default function OTPVerify() {
   const router = useRouter();
-  const { phone } = useLocalSearchParams(); // optional phone from signup
+  const { phone, name, password } = useLocalSearchParams();
 
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
   const inputs = [
     useRef<TextInput>(null),
     useRef<TextInput>(null),
@@ -24,48 +29,76 @@ export default function OTPVerify() {
     useRef<TextInput>(null),
   ];
 
-  const handleChange = (text: string, index: number) => {
-    if (/[^0-9]/.test(text)) return;
-
-    const updated = [...otp];
-    updated[index] = text;
-    setOtp(updated);
-
-    // Move to next box
-    if (text && index < 3) {
-      inputs[index + 1].current?.focus();
-    }
-
-    // Move back when deleting
-    if (!text && index > 0) {
-      inputs[index - 1].current?.focus();
-    }
-
-    // Auto-verify when all 4 digits are filled
-    const finalOtp = updated.join("");
-    if (finalOtp.length === 4) {
-      setTimeout(() => handleVerify(finalOtp), 100);
-    }
-  };
-
-  const handleVerify = (enteredOtp = otp.join("")) => {
-    if (enteredOtp.length < 4) {
-      setError("Please enter the full 4-digit code");
-      return;
-    }
-
-    if (enteredOtp === "1234") {
-      setError("");
-      router.push("/otp-success");
-    } else {
-      setError("Invalid Code, Try Again");
-    }
-  };
-
   const resetOtp = () => {
     setOtp(["", "", "", ""]);
     setError("");
     inputs[0].current?.focus();
+  };
+
+  const handleResend = async () => {
+    try {
+      setIsLoading(true);
+      setError("");
+      await sendOTP(Array.isArray(phone) ? phone[0] : phone);
+      resetOtp();
+    } catch (e) {
+      setError("Failed to resend OTP");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerify = async (enteredOtp = otp.join("")) => {
+    if (enteredOtp.length < 4) {
+      setError("Please enter all 4 digits");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError("");
+
+      const verification = await verifyOTP(Array.isArray(phone) ? phone[0] : phone, enteredOtp);
+
+      if (!verification.verified) {
+        setError(verification.message || "Invalid Code, Try Again");
+        return;
+      }
+
+      // OTP verified → Create profile now
+      await createProfile(
+        Array.isArray(name) ? name[0] : name,
+        Array.isArray(phone) ? phone[0] : phone,
+        Array.isArray(password) ? password[0] : password
+      );
+
+      router.push("/otp-success");
+    } catch (e) {
+      setError("Verification failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleChange = (text: string, index: number) => {
+    if (/[^0-9]/.test(text)) return;
+
+    const newOtp = [...otp];
+    newOtp[index] = text;
+    setOtp(newOtp);
+
+    if (text && index < 3) {
+      inputs[index + 1].current?.focus();
+    }
+
+    if (!text && index > 0) {
+      inputs[index - 1].current?.focus();
+    }
+
+    const finalOtp = newOtp.join("");
+    if (finalOtp.length === 4) {
+      setTimeout(() => handleVerify(finalOtp), 150);
+    }
   };
 
   return (
@@ -80,7 +113,7 @@ export default function OTPVerify() {
           <FrostedCard>
             <Text style={styles.title}>Verify your Phone Number</Text>
             <Text style={styles.subtitle}>
-              Please enter the 4-digit code sent to your phone Number
+              Please enter the 4-digit code sent to your phone number
             </Text>
 
             <View style={styles.otpRow}>
@@ -88,7 +121,10 @@ export default function OTPVerify() {
                 <TextInput
                   key={index}
                   ref={inputs[index]}
-                  style={[styles.otpBox, error ? styles.otpError : null]}
+                  style={[
+                    styles.otpBox,
+                    error ? styles.otpError : null,
+                  ]}
                   maxLength={1}
                   keyboardType="number-pad"
                   value={digit}
@@ -99,32 +135,24 @@ export default function OTPVerify() {
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            {/* <TouchableOpacity onPress={() => alert("Resend clicked")}>
+            <TouchableOpacity onPress={handleResend} disabled={isLoading}>
               <Text style={styles.resend}>
-                Haven’t Receive Code? <Text style={{ fontWeight: "700" }}>Resend</Text>
-              </Text>
-            </TouchableOpacity> */}
-
-            <TouchableOpacity onPress={resetOtp}>
-              <Text style={styles.resend}>
-                Haven’t Receive Code?{" "}
-                <Text style={{ fontWeight: "700" }}>Resend</Text>
+                Haven’t received code? <Text style={{ fontWeight: "700" }}>Resend</Text>
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.button}
+              style={[styles.button, isLoading && styles.buttonDisabled]}
               onPress={() => handleVerify()}
+              disabled={isLoading}
             >
-              <Text style={styles.buttonText}>Verify</Text>
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Verify</Text>
+              )}
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => router.replace("/login")}>
-              <Text style={styles.signinText}>
-                Already have an account?{" "}
-                <Text style={styles.signinLink}>Sign in</Text>
-              </Text>
-            </TouchableOpacity>
           </FrostedCard>
         </KeyboardAvoidingView>
       </View>
@@ -184,18 +212,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
   buttonText: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "600",
-  },
-  signinText: {
-    textAlign: "center",
-    color: "#222",
-  },
-  signinLink: {
-    color: "#0A174E",
-    fontWeight: "700",
-    textDecorationLine: "underline",
   },
 });
