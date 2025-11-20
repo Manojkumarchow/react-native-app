@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import FrostedCard from "./components/FrostedCard";
+import { sendOTP } from "./services/otp.service";
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -21,17 +22,32 @@ export default function SignupScreen() {
   const [isPhoneValid, setIsPhoneValid] = useState(true);
   const [isPasswordValid, setIsPasswordValid] = useState(true);
   const passwordRef = useRef<TextInput>(null);
-  const handleSignup = () => {
-    setError("");
-    if (!fullName || !phone || !password) {
-      setError("All fields are required");
-      return;
-    }
+
+  const handleSignup = async () => {
+  setError("");
+
+  if (!fullName || !phone || !password) {
+    setError("All fields are required");
+    return;
+  }
+
+  try {
+    const otpRes = await sendOTP(phone);
+
     router.push({
       pathname: "/otp",
-      params: { phone },
+      params: {
+        phone,
+        otp: otpRes.otp, // backend code (for debugging only)
+        name: fullName,
+        password,
+      },
     });
-  };
+  } catch (err) {
+    setError("Error sending OTP. Try again.");
+  }
+};
+
 
   const validatePassword = (pwd: string) => {
     const isValid =
@@ -187,6 +203,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 20,
     color: "#222",
+    outlineColor: "transparent",
   },
 
   button: {

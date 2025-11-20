@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { router } from "expo-router";
-const BASE_URL = "http://localhost:8080/whistleup";
 
 export default function SignInScreen() {
   const [username, setUsername] = useState("");
@@ -16,8 +15,7 @@ export default function SignInScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/users/login`, {
-
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BASE_URL}/users/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
