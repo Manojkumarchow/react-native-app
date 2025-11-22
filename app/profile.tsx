@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 
@@ -15,28 +14,13 @@ import AppPreferencesSection from "./profile/AppPreferencesSection";
 import SecurityPrivacySection from "./profile/SecurityPrivacySection";
 import ProfileAvatar from "./components/ProfileAvatar";
 import BottomNav from "./components/BottomNav";
+import useProfileStore from "./store/profileStore";
+import useAuthStore from "./store/authStore";
+import CustomAlert from "./components/CustomAlert";
 
 export default function ProfileScreen() {
   const router = useRouter();
-
-  // Static profile data for now (backend integration later)
-  const [profile, setProfile] = useState<{
-    name: string;
-    phone: string;
-    email: string;
-    flat: string;
-    building: string;
-    address: string;
-    avatarUri: string | null;
-  }>({
-    name: "John Doe William",
-    phone: "+1 (555) 123-4567",
-    email: "john.anderson@email.com",
-    flat: "Flat No: 301",
-    building: "Mahadev Apartments",
-    address: "Some address line, City, State",
-    avatarUri: require("./../assets/images/hero.png"),
-  });
+  const profile = useProfileStore();
 
   const onEditAccount = () => {
     router.push({
@@ -52,18 +36,10 @@ export default function ProfileScreen() {
     });
   };
 
-  const onLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: () => {
-          router.replace("/login");
-        },
-      },
-    ]);
-  };
+  const resetProfile = useProfileStore((s) => s.setProfile);
+  const resetAuth = useAuthStore((s) => s.reset);
+  const [showAlert, setShowAlert] = useState(false);
+  const onLogout = () => setShowAlert(true);
 
   return (
     <>
@@ -81,23 +57,36 @@ export default function ProfileScreen() {
             {/* Avatar */}
             <ProfileAvatar
               avatarUri={profile.avatarUri}
-              onAvatarChange={(uri: string | null) =>
-                setProfile((prev) => ({ ...prev, avatarUri: uri }))
-              }
+              onAvatarChange={(uri) => {
+                if (typeof profile.setProfile === "function") {
+                  profile.setProfile({
+                    name: profile.name,
+                    phone: profile.phone,
+                    email: profile.email,
+                    flat: profile.flat,
+                    building: profile.building,
+                    address: profile.address,
+                    avatarUri: uri,
+                  });
+                }
+              }}
             />
-
             {/* Name */}
             <Text style={styles.name}>{profile.name}</Text>
             <View style={{ height: 20 }} />
 
             {/* ACCOUNT DETAILS CARD */}
             <SectionCard title="Account Details" onEdit={onEditAccount}>
-              <Row icon="account" label={profile.name} />
-              <Row icon="phone" label={profile.phone} />
-              <Row icon="email" label={profile.email} />
-              <Row icon="home" label={profile.flat} />
-              <Row icon="office-building" label={profile.building} />
-              <Row icon="map-marker" label={profile.address} />
+              {profile.name && <Row icon="account" label={profile.name} />}
+              {profile.phone && <Row icon="phone" label={profile.phone} />}
+              {profile.email && <Row icon="email" label={profile.email} />}
+              {profile.flat && <Row icon="home" label={profile.flat} />}
+              {profile.building && (
+                <Row icon="office-building" label={profile.building} />
+              )}
+              {profile.address && (
+                <Row icon="map-marker" label={profile.address} />
+              )}
             </SectionCard>
 
             {/* APP PREFERENCES */}
@@ -122,6 +111,27 @@ export default function ProfileScreen() {
             </Text>
           </View>
         </ScrollView>
+        <CustomAlert
+          visible={showAlert}
+          title="Logout"
+          message="Are you sure you want to logout?"
+          onCancel={() => setShowAlert(false)}
+          onConfirm={() => {
+            resetProfile({
+              userId: null,
+              name: null,
+              email: null,
+              phone: null,
+              flat: null,
+              building: null,
+              address: null,
+              avatarUri: null,
+            });
+            resetAuth();
+            setShowAlert(false);
+            router.replace("/login");
+          }}
+        />
         <BottomNav />
       </View>
     </>
