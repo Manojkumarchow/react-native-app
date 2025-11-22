@@ -1,261 +1,160 @@
-import React, { useRef, useState } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
+  StyleSheet,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
 } from "react-native";
-import { Stack, useRouter } from "expo-router";
-import FrostedCard from "./components/FrostedCard";
-import { sendOTP } from "./services/otp.service";
+import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 
-export default function SignupScreen() {
+export default function LoginPage() {
   const router = useRouter();
-  const [fullName, setFullName] = useState("");
+
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [isPhoneValid, setIsPhoneValid] = useState(true);
-  const [isPasswordValid, setIsPasswordValid] = useState(true);
-  const passwordRef = useRef<TextInput>(null);
 
-  const handleSignup = async () => {
-  setError("");
-
-  if (!fullName || !phone || !password) {
-    setError("All fields are required");
-    return;
-  }
-
-  try {
-    const otpRes = await sendOTP(phone);
-
-    router.push({
-      pathname: "/otp",
-      params: {
-        phone,
-        otp: otpRes.otp, // backend code (for debugging only)
-        name: fullName,
-        password,
-      },
-    });
-  } catch (err) {
-    setError("Error sending OTP. Try again.");
-  }
-};
-
-
-  const validatePassword = (pwd: string) => {
-    const isValid =
-      /[A-Z]/.test(pwd) && // uppercase
-      /[a-z]/.test(pwd) && // lowercase
-      /[0-9]/.test(pwd) && // number
-      /[^A-Za-z0-9]/.test(pwd) && // special char
-      pwd.length >= 8; // min length
-
-    setIsPasswordValid(isValid);
-    return isValid;
+  const handleLogin = () => {
+    if (phone === "9999" && password === "8888") {
+      setError("erroe"); 
+      router.replace("/home"); 
+    } else {
+      setError("Invalid Credentials"); 
+    }
   };
 
   return (
-    <>
-      <Stack.Screen options={{ headerShown: false }} />
+    <View style={styles.container}>
+      <View style={styles.circle} />
 
-      <View style={styles.bg}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ flex: 1 }}
-        >
-          <ScrollView
-            contentContainerStyle={{ flexGrow: 1 }}
-            bounces={false}
-            showsVerticalScrollIndicator={false}
+      <LinearGradient colors={["#ffffff", "#dfeffc"]} style={styles.card}>
+        <Text style={styles.title}>Welcome!</Text>
+        <Text style={styles.subtitle}>Login to your account</Text>
+
+        <Text style={styles.label}>Phone Number</Text>
+        <TextInput
+          style={styles.input}
+          keyboardType="numeric"
+          value={phone}
+          onChangeText={setPhone}
+          placeholder="Enter phone number"
+          placeholderTextColor="#888"
+        />
+
+        <Text style={styles.label}>Password</Text>
+        <TextInput
+          style={styles.input}
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Enter password"
+          placeholderTextColor="#888"
+        />
+
+        <TouchableOpacity onPress={() => router.push("/forgot")}>
+          <Text style={styles.forgot}>Forget Password</Text>
+        </TouchableOpacity>
+
+        {/* 🔴 Error message appears now */}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <TouchableOpacity style={styles.button} onPress={handleLogin}>
+          <Text style={styles.buttonText}>Login</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.signupText}>
+          Don’t have an account?{" "}
+          <Text
+            style={styles.signupLink}
+            onPress={() => router.push("/signup")}
           >
-            <FrostedCard>
-              <Text style={styles.title}>Create an account!!</Text>
-              <Text style={styles.subtitle}>Register your account</Text>
-
-              <TextInput
-                style={styles.input}
-                placeholder="Full Name"
-                placeholderTextColor="#555"
-                value={fullName}
-                onChangeText={setFullName}
-              />
-
-              <TextInput
-                style={[
-                  styles.input,
-                  isPhoneValid === false && styles.inputError,
-                  isPhoneValid === true &&
-                    phone.length === 10 &&
-                    styles.inputSuccess,
-                ]}
-                placeholder="Phone Number"
-                placeholderTextColor="#555"
-                keyboardType="number-pad"
-                maxLength={10}
-                value={phone}
-                onChangeText={(text) => {
-                  const cleaned = text.replace(/[^0-9]/g, "");
-                  setPhone(cleaned);
-
-                  if (cleaned.length === 10) {
-                    setIsPhoneValid(true);
-                    passwordRef.current?.focus();
-                  } else {
-                    setIsPhoneValid(false);
-                  }
-                }}
-              />
-
-              {isPhoneValid === false && phone.length > 0 && (
-                <Text style={styles.validationError}>
-                  Phone number must be 10 digits
-                </Text>
-              )}
-
-              {/* <TextInput
-                ref={passwordRef}
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#555"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-              /> */}
-
-              <TextInput
-                ref={passwordRef}
-                style={[
-                  styles.input,
-                  isPasswordValid === false && styles.inputError,
-                  isPasswordValid === true &&
-                    password.length > 0 &&
-                    styles.inputSuccess,
-                ]}
-                placeholder="Password"
-                placeholderTextColor="#555"
-                secureTextEntry
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  validatePassword(text);
-                }}
-              />
-
-              {isPasswordValid === false && password.length > 0 && (
-                <Text style={styles.validationError}>
-                  Password must include uppercase, lowercase, number, special
-                  character and be at least 8 characters.
-                </Text>
-              )}
-
-              {/* ERROR message for missing fields */}
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-
-              {/* SIGNUP BUTTON — this was missing */}
-              <TouchableOpacity style={styles.button} onPress={handleSignup}>
-                <Text style={styles.buttonText}>Signup</Text>
-              </TouchableOpacity>
-
-              {/* SIGN-IN LINK */}
-              <View style={styles.signinRow}>
-                <Text style={styles.signinText}>Already have an account?</Text>
-                <TouchableOpacity onPress={() => router.replace("/login")}>
-                  <Text style={styles.signinLink}> Sign in</Text>
-                </TouchableOpacity>
-              </View>
-            </FrostedCard>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
-    </>
+            Sign up
+          </Text>
+        </Text>
+      </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  bg: {
+  container: {
     flex: 1,
-    backgroundColor: "#B3D6F7",
+    backgroundColor: "#1C98ED66",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
   },
 
+  circle: {
+    position: "absolute",
+    width: 700,
+    height: 700,
+    borderRadius: 350,
+    backgroundColor: "#1C98ED",
+    top: -420,
+    left: -250,
+  },
+
+  card: {
+    width: "85%",
+    paddingVertical: 40,
+    paddingHorizontal: 25,
+    borderRadius: 25,
+  },
   title: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: "#0A174E",
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#0D1A2E",
   },
-
   subtitle: {
-    fontSize: 14,
-    color: "#444",
-    marginBottom: 25,
+    fontSize: 16,
+    color: "#555",
+    marginBottom: 30,
   },
-
+  label: {
+    fontSize: 16,
+    color: "#444",
+    marginTop: 10,
+  },
   input: {
     borderBottomWidth: 1,
-    borderBottomColor: "#6C63FF",
+    borderColor: "#6478F2",
+    paddingVertical: 8,
     fontSize: 16,
-    paddingVertical: 10,
-    marginBottom: 20,
-    color: "#222",
-    outlineColor: "transparent",
   },
-
-  button: {
-    backgroundColor: "#3B5BFE",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 14,
-  },
-
-  buttonText: {
-    color: "#fff",
-    fontSize: 18,
+  forgot: {
+    alignSelf: "flex-end",
+    marginTop: 5,
+    color: "#6478F2",
     fontWeight: "600",
   },
-
-  signinRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 10,
-  },
-
-  signinText: {
-    color: "#222",
-    fontSize: 14,
-  },
-
-  signinLink: {
-    color: "#0A174E",
-    fontSize: 14,
-    fontWeight: "700",
-    textDecorationLine: "underline",
-  },
-
   error: {
     color: "red",
+    fontSize: 14,
+    marginTop: 10,
+  },
+  button: {
+    backgroundColor: "#0C88E8",
+    marginTop: 30,
+    paddingVertical: 15,
+    borderRadius: 30,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  signupText: {
     textAlign: "center",
-    marginBottom: 10,
+    marginTop: 20,
+    fontSize: 16,
+    color: "#333",
   },
-  inputError: {
-    borderBottomColor: "red",
-  },
-
-  inputSuccess: {
-    borderBottomColor: "green",
-  },
-
-  validationError: {
-    color: "red",
-    fontSize: 12,
-    marginTop: -15,
-    marginBottom: 10,
+  signupLink: {
+    color: "#6478F2",
+    fontWeight: "600",
   },
 });
