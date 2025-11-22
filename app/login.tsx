@@ -15,6 +15,8 @@ import Toast from "react-native-toast-message";
 import axios from "axios";
 import FrostedCard from "./components/FrostedCard";
 import useAuthStore from "./store/authStore";
+import { getProfile } from "./services/profile.service";
+import useProfileStore from "./store/profileStore";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -23,6 +25,7 @@ export default function LoginScreen() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const setProfile = useProfileStore((state) => state.setProfile);
 
   const handleLogin = async () => {
     if (!phone || !password) {
@@ -47,7 +50,10 @@ export default function LoginScreen() {
       setAuth(jwtToken, phone);
 
       Toast.show({ type: "success", text1: "Login Successful" });
-
+      
+      const profileData = await getProfile(phone);
+      setProfile(profileData);
+      
       setTimeout(() => router.replace("/home"), 1000);
     } catch (err: any) {
       Toast.show({

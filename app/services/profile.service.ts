@@ -33,3 +33,10 @@ export const updateProfile = async (phone: string, password: string) => {
   );
   return res.data; // ProfileResponseResource
 };
+
+export const getProfile = async (phone: string) => {
+  const res = await api.get(
+    `${process.env.EXPO_PUBLIC_BASE_URL}/profile/${phone}`
+  );
+  return res.data;
+};

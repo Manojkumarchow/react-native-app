@@ -1,8 +1,11 @@
 import React from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import useAuthStore from "../store/authStore";
+import useProfileStore from "../store/profileStore";
 
 export default function Header() {
+  const name = useProfileStore((state) => state.name);
   return (
     <View style={styles.header}>
       <View style={styles.left}>
@@ -11,7 +14,7 @@ export default function Header() {
           style={styles.avatar}
         />
         <View>
-          <Text style={styles.greeting}>Hello Sarah</Text>
+          <Text style={styles.greeting}>Hello {name?.split(" ")[0]}</Text>
           <Text style={styles.sub}>Welcome Back........!</Text>
         </View>
       </View>
