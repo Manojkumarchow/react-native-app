@@ -1,30 +1,36 @@
-import { useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { useRouter } from "expo-router";
+import { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
 
 export default function LoginScreen() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showMobileBlock, setShowMobileBlock] = useState(false);
-  const [mobileNumber, setMobileNumber] = useState('');
+  const [mobileNumber, setMobileNumber] = useState("");
   const [showOtpBlock, setShowOtpBlock] = useState(false);
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState("");
   const [showPasswordBlock, setShowPasswordBlock] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const router = useRouter();
 
   const handleLogin = () => {
     // Dummy credentials
-    if (username === 'user' && password === 'pass') {
+    if (username === "user" && password === "pass") {
       // Trigger login event for tab layout
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('loginSuccess'));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("loginSuccess"));
       }
-      router.replace('/(tabs)');
+      router.replace("/home");
     } else {
-      alert('Invalid credentials. Use user/pass');
+      alert("Invalid credentials. Use user/pass");
     }
   };
 
@@ -52,12 +58,12 @@ export default function LoginScreen() {
         setShowMobileBlock(false);
         setShowOtpBlock(false);
         setShowPasswordBlock(false);
-        setNewPassword('');
-        setConfirmPassword('');
-        setOtp('');
-        setMobileNumber('');
+        setNewPassword("");
+        setConfirmPassword("");
+        setOtp("");
+        setMobileNumber("");
         // Redirect to login page
-        router.replace('/(tabs)/login');
+        router.replace("/login");
       }, 2000);
       return () => clearTimeout(timer);
     }
@@ -138,14 +144,20 @@ export default function LoginScreen() {
             secureTextEntry
           />
           {newPassword.length > 0 && confirmPassword.length > 0 && (
-            <TouchableOpacity style={styles.button} onPress={handlePasswordSubmit}>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handlePasswordSubmit}
+            >
               <Text style={styles.buttonText}>Submit</Text>
             </TouchableOpacity>
           )}
         </View>
       ) : (
         <View style={styles.successBlock}>
-          <Text style={styles.successText}>You have successfully changed your password. Redirecting you to login</Text>
+          <Text style={styles.successText}>
+            You have successfully changed your password. Redirecting you to
+            login
+          </Text>
         </View>
       )}
     </View>
@@ -155,20 +167,20 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 24,
   },
   input: {
-    width: '100%',
+    width: "100%",
     height: 48,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
@@ -176,66 +188,66 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    width: '100%',
+    width: "100%",
     height: 48,
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
     borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 12,
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   forgotText: {
-    color: '#007AFF',
+    color: "#007AFF",
     fontSize: 16,
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
   },
   mobileBlock: {
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
     marginTop: 12,
   },
   mobileLabel: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 12,
-    color: '#333',
+    color: "#333",
   },
   otpBlock: {
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
     marginTop: 12,
   },
   otpLabel: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 12,
-    color: '#333',
+    color: "#333",
   },
   passwordBlock: {
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
     marginTop: 12,
   },
   passwordLabel: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 12,
-    color: '#333',
+    color: "#333",
   },
   successBlock: {
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
     marginTop: 24,
   },
   successText: {
     fontSize: 18,
-    color: 'green',
-    fontWeight: 'bold',
-    textAlign: 'center',
+    color: "green",
+    fontWeight: "bold",
+    textAlign: "center",
   },
 });
