@@ -14,6 +14,22 @@ export const createProfile = async (
     role: "ADMIN",
   };
 
-  const res = await api.post(`${process.env.EXPO_PUBLIC_BASE_URL}/profile/create`, body);
+  const res = await api.post(
+    `${process.env.EXPO_PUBLIC_BASE_URL}/profile/create`,
+    body
+  );
+  return res.data; // ProfileResponseResource
+};
+
+export const updateProfile = async (phone: string, password: string) => {
+  const body = {
+    phone,
+    password,
+  };
+
+  const res = await api.patch(
+    `${process.env.EXPO_PUBLIC_BASE_URL}/profile/update`,
+    body
+  );
   return res.data; // ProfileResponseResource
 };

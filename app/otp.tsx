@@ -16,7 +16,7 @@ import { createProfile } from "./services/profile.service";
 
 export default function OTPVerify() {
   const router = useRouter();
-  const { phone, name, password } = useLocalSearchParams();
+  const { phone, name, password, resetFlow } = useLocalSearchParams();
 
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
@@ -58,14 +58,25 @@ export default function OTPVerify() {
       setIsLoading(true);
       setError("");
 
-      const verification = await verifyOTP(Array.isArray(phone) ? phone[0] : phone, enteredOtp);
+      const verification = await verifyOTP(
+        Array.isArray(phone) ? phone[0] : phone,
+        enteredOtp
+      );
 
       if (!verification.verified) {
         setError(verification.message || "Invalid Code, Try Again");
         return;
       }
 
-      // OTP verified → Create profile now
+      // NEW FLOW CONTROL
+      if (resetFlow === "true") {
+        // FORGOT PASSWORD FLOW → Redirect to login
+         router.replace(`/reset-password?phone=${phone}`);
+         return;
+        return;
+      }
+
+      // ORIGINAL SIGNUP FLOW
       await createProfile(
         Array.isArray(name) ? name[0] : name,
         Array.isArray(phone) ? phone[0] : phone,
@@ -121,10 +132,7 @@ export default function OTPVerify() {
                 <TextInput
                   key={index}
                   ref={inputs[index]}
-                  style={[
-                    styles.otpBox,
-                    error ? styles.otpError : null,
-                  ]}
+                  style={[styles.otpBox, error ? styles.otpError : null]}
                   maxLength={1}
                   keyboardType="number-pad"
                   value={digit}
@@ -137,7 +145,8 @@ export default function OTPVerify() {
 
             <TouchableOpacity onPress={handleResend} disabled={isLoading}>
               <Text style={styles.resend}>
-                Haven’t received code? <Text style={{ fontWeight: "700" }}>Resend</Text>
+                Haven’t received code?{" "}
+                <Text style={{ fontWeight: "700" }}>Resend</Text>
               </Text>
             </TouchableOpacity>
 
@@ -152,7 +161,6 @@ export default function OTPVerify() {
                 <Text style={styles.buttonText}>Verify</Text>
               )}
             </TouchableOpacity>
-
           </FrostedCard>
         </KeyboardAvoidingView>
       </View>
