@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import useAuthStore from "./store/authStore";
 import useProfileStore from "./store/profileStore";
 import { Stack } from "expo-router";
 import api from "./services/api";
+import Toast from "react-native-toast-message";
 
 export default function RootLayout() {
   const username = useAuthStore((state: { username: any }) => state.username);
@@ -27,5 +28,10 @@ export default function RootLayout() {
     fetchProfile();
   }, []);
 
-  return <Stack />;
+  return (
+    <>
+      <Stack initialRouteName="splash" screenOptions={{ headerShown: false }} />
+      <Toast />
+    </>
+  );
 }

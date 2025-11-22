@@ -22,6 +22,7 @@ export default function EditAccount() {
   const [flat, setFlat] = useState(params.flat as string);
   const [building, setBuilding] = useState(params.building as string);
   const [address, setAddress] = useState(params.address as string);
+  const [role, setRole] = useState(params.address as string);
   
   const [loading, setLoading] = useState(false);
   const [popupVisible, setPopupVisible] = useState(false);
@@ -52,6 +53,7 @@ export default function EditAccount() {
           flat,
           building,
           address,
+          role
         });
         setPopupVisible(true);
 

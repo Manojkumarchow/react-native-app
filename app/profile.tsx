@@ -126,6 +126,7 @@ export default function ProfileScreen() {
               building: null,
               address: null,
               avatarUri: null,
+              role: null,
             });
             resetAuth();
             setShowAlert(false);
