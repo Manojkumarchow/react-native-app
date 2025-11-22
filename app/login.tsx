@@ -1,253 +1,200 @@
 import { useRouter } from "expo-router";
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  ScrollView,
 } from "react-native";
+import Toast from "react-native-toast-message";
+import axios from "axios";
+import FrostedCard from "./components/FrostedCard";
+import useAuthStore from "./store/authStore";
 
 export default function LoginScreen() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [showMobileBlock, setShowMobileBlock] = useState(false);
-  const [mobileNumber, setMobileNumber] = useState("");
-  const [showOtpBlock, setShowOtpBlock] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [showPasswordBlock, setShowPasswordBlock] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showSuccess, setShowSuccess] = useState(false);
   const router = useRouter();
+  const setAuth = useAuthStore((state) => state.setAuth);
 
-  const handleLogin = () => {
-    // Dummy credentials
-    if (username === "user" && password === "pass") {
-      // Trigger login event for tab layout
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("loginSuccess"));
-      }
-      router.replace("/home");
-    } else {
-      alert("Invalid credentials. Use user/pass");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!phone || !password) {
+      Toast.show({
+        type: "error",
+        text1: "Missing Fields",
+        text2: "Phone number and password are required",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const payload = { phone, password };
+
+      const response = await axios.post(
+        `${process.env.EXPO_PUBLIC_BASE_URL}/users/login`,
+        payload
+      );
+
+      const { jwtToken } = response.data;
+      setAuth(jwtToken, phone);
+
+      Toast.show({ type: "success", text1: "Login Successful" });
+
+      setTimeout(() => router.replace("/home"), 1000);
+    } catch (err: any) {
+      Toast.show({
+        type: "error",
+        text1: "Login Failed",
+        text2: err?.response?.data?.message ?? "Invalid credentials",
+      });
+    } finally {
+      setLoading(false);
     }
   };
-
-  const handleForgotPassword = () => {
-    setShowMobileBlock(true);
-  };
-
-  const handleMobileSubmit = () => {
-    setShowOtpBlock(true);
-  };
-
-  const handleOtpSubmit = () => {
-    setShowPasswordBlock(true);
-  };
-
-  const handlePasswordSubmit = () => {
-    // You can add password validation here
-    setShowSuccess(true);
-  };
-
-  useEffect(() => {
-    if (showSuccess) {
-      const timer = setTimeout(() => {
-        setShowSuccess(false);
-        setShowMobileBlock(false);
-        setShowOtpBlock(false);
-        setShowPasswordBlock(false);
-        setNewPassword("");
-        setConfirmPassword("");
-        setOtp("");
-        setMobileNumber("");
-        // Redirect to login page
-        router.replace("/login");
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [showSuccess]);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
-      {!showMobileBlock ? (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder="Username"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-          <TouchableOpacity style={styles.button} onPress={handleLogin}>
-            <Text style={styles.buttonText}>Login</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleForgotPassword}>
-            <Text style={styles.forgotText}>Forgot Password?</Text>
-          </TouchableOpacity>
-        </>
-      ) : !showOtpBlock ? (
-        <View style={styles.mobileBlock}>
-          <Text style={styles.mobileLabel}>Registered Mobile Number</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter mobile number"
-            value={mobileNumber}
-            onChangeText={setMobileNumber}
-            keyboardType="phone-pad"
-          />
-          <TouchableOpacity style={styles.button} onPress={handleMobileSubmit}>
-            <Text style={styles.buttonText}>Submit</Text>
-          </TouchableOpacity>
-        </View>
-      ) : !showPasswordBlock ? (
-        <View style={styles.otpBlock}>
-          <Text style={styles.otpLabel}>Enter OTP</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter OTP"
-            value={otp}
-            onChangeText={setOtp}
-            keyboardType="number-pad"
-            maxLength={4}
-          />
-          {otp.length === 4 && (
-            <TouchableOpacity style={styles.button} onPress={handleOtpSubmit}>
-              <Text style={styles.buttonText}>Submit</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      ) : !showSuccess ? (
-        <View style={styles.passwordBlock}>
-          <Text style={styles.passwordLabel}>Set New Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="New Password"
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secureTextEntry
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Confirm Password"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-          {newPassword.length > 0 && confirmPassword.length > 0 && (
-            <TouchableOpacity
-              style={styles.button}
-              onPress={handlePasswordSubmit}
-            >
-              <Text style={styles.buttonText}>Submit</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      ) : (
-        <View style={styles.successBlock}>
-          <Text style={styles.successText}>
-            You have successfully changed your password. Redirecting you to
-            login
-          </Text>
-        </View>
-      )}
-    </View>
+    <>
+      <View style={styles.bg}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
+        >
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+            showsVerticalScrollIndicator={false}
+          >
+            <FrostedCard>
+              <Text style={styles.title}>Welcome!</Text>
+              <Text style={styles.subtitle}>Login to your account</Text>
+
+              <TextInput
+                style={styles.input}
+                placeholder="Phone Number"
+                placeholderTextColor="#555"
+                keyboardType="phone-pad"
+                maxLength={10}
+                value={phone}
+                onChangeText={(t) => setPhone(t.replace(/[^0-9]/g, ""))}
+              />
+
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor="#555"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+
+              <TouchableOpacity style={styles.forgotContainer}>
+                <Text style={styles.forgotText}>Forget Password</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.button}
+                onPress={handleLogin}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Login</Text>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.signinRow}>
+                <Text style={styles.signinText}>Don’t have an account?</Text>
+                <TouchableOpacity onPress={() => router.replace("/signup")}>
+                  <Text style={styles.signinLink}> Sign up</Text>
+                </TouchableOpacity>
+              </View>
+            </FrostedCard>
+          </ScrollView>
+        </KeyboardAvoidingView>
+
+        <Toast />
+      </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  bg: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-    backgroundColor: "#fff",
+    backgroundColor: "#B3D6F7",
   },
+
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 24,
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#0A174E",
   },
+
+  subtitle: {
+    fontSize: 14,
+    color: "#444",
+    marginBottom: 25,
+  },
+
   input: {
-    width: "100%",
-    height: 48,
-    borderColor: "#ccc",
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#6C63FF",
     fontSize: 16,
+    paddingVertical: 10,
+    marginBottom: 20,
+    color: "#222",
+    outlineColor: "transparent",
   },
+
+  forgotContainer: {
+    alignSelf: "flex-end",
+    marginBottom: 18,
+  },
+
+  forgotText: {
+    fontSize: 14,
+    color: "#5956E9",
+    fontWeight: "600",
+  },
+
   button: {
-    width: "100%",
-    height: 48,
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-    justifyContent: "center",
+    backgroundColor: "#3B5BFE",
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: "center",
-    marginBottom: 12,
+    marginTop: 10,
+    marginBottom: 14,
   },
+
   buttonText: {
     color: "#fff",
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "600",
   },
-  forgotText: {
-    color: "#007AFF",
-    fontSize: 16,
+
+  signinRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 10,
+  },
+
+  signinText: {
+    color: "#222",
+    fontSize: 14,
+  },
+
+  signinLink: {
+    color: "#0A174E",
+    fontSize: 14,
+    fontWeight: "700",
     textDecorationLine: "underline",
-  },
-  mobileBlock: {
-    width: "100%",
-    alignItems: "center",
-    marginTop: 12,
-  },
-  mobileLabel: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 12,
-    color: "#333",
-  },
-  otpBlock: {
-    width: "100%",
-    alignItems: "center",
-    marginTop: 12,
-  },
-  otpLabel: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 12,
-    color: "#333",
-  },
-  passwordBlock: {
-    width: "100%",
-    alignItems: "center",
-    marginTop: 12,
-  },
-  passwordLabel: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 12,
-    color: "#333",
-  },
-  successBlock: {
-    width: "100%",
-    alignItems: "center",
-    marginTop: 24,
-  },
-  successText: {
-    fontSize: 18,
-    color: "green",
-    fontWeight: "bold",
-    textAlign: "center",
   },
 });
