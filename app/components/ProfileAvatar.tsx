@@ -69,7 +69,7 @@ export default function ProfileAvatar({ avatarUri, onAvatarChange }: Props) {
           source={
             avatarUri
               ? { uri: avatarUri }
-              : require("./../../assets/images/hero.png")
+              : require("./../../assets/images/nestity.jpeg")
           }
           style={styles.avatar}
         />
