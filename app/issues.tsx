@@ -18,21 +18,19 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter, Stack } from "expo-router";
 import Toast from "react-native-toast-message";
 import useProfileStore from "./store/profileStore";
-import api from "./services/api"; // axios instance
 import axios from "axios";
 
 const { width } = Dimensions.get("window");
+const MAX_IMAGES = 5;
 
 export default function RaiseIssueScreen() {
   const router = useRouter();
-  const username = useProfileStore((s) => s.phone); // username = phone number
+  const username = useProfileStore((s) => s.phone);
 
   const [issue, setIssue] = useState("");
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const MAX_IMAGES = 5;
 
   const pickFile = async () => {
     if (files.length >= MAX_IMAGES) {
@@ -93,10 +91,11 @@ export default function RaiseIssueScreen() {
     };
 
     try {
-      const response = await axios.post(
+      await axios.post(
         `${process.env.EXPO_PUBLIC_BASE_URL}/issues/register`,
         payload
       );
+
       Toast.show({
         type: "success",
         text1: "Issue Submitted",
@@ -118,8 +117,10 @@ export default function RaiseIssueScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
+
       <SafeAreaView style={styles.safe}>
         <View style={styles.bg}>
+          {/* HEADER */}
           <View style={styles.headerRow}>
             <TouchableOpacity
               onPress={() => router.back()}
@@ -130,10 +131,18 @@ export default function RaiseIssueScreen() {
             <Text style={styles.headerTitle}>Raise Issue</Text>
           </View>
 
-          <ScrollView
-            contentContainerStyle={styles.scrollContainer}
-            keyboardShouldPersistTaps="handled"
-          >
+          <ScrollView contentContainerStyle={styles.scrollContainer}>
+            {/* TOP BUTTONS */}
+            <View style={styles.topButtons}>
+              <TouchableOpacity
+                style={styles.tabButton}
+                onPress={() => router.push("/all-tickets")}
+              >
+                <Text style={styles.tabButtonText}>All Tickets</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* CARD */}
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Issue</Text>
               <TextInput
@@ -156,6 +165,7 @@ export default function RaiseIssueScreen() {
                 multiline
               />
 
+              {/* UPLOAD ROW */}
               <View style={styles.uploadRow}>
                 <Text style={styles.uploadLabel}>Upload Photos</Text>
                 <TouchableOpacity style={styles.uploadBtn} onPress={pickFile}>
@@ -163,6 +173,7 @@ export default function RaiseIssueScreen() {
                 </TouchableOpacity>
               </View>
 
+              {/* IMAGE PREVIEW GRID */}
               <View style={styles.previewGrid}>
                 {files.map((f, idx) => (
                   <View key={idx} style={styles.previewItem}>
@@ -177,6 +188,7 @@ export default function RaiseIssueScreen() {
                 ))}
               </View>
 
+              {/* SUBMIT BUTTON */}
               <TouchableOpacity
                 style={[styles.submitBtn, loading && { opacity: 0.6 }]}
                 onPress={handleSubmit}
@@ -192,12 +204,11 @@ export default function RaiseIssueScreen() {
           </ScrollView>
         </View>
       </SafeAreaView>
+
       <Toast />
     </>
   );
 }
-
-const { width: screenWidth } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#A3C9FF" },
@@ -224,6 +235,43 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
+  /* NEW BUTTON STYLES */
+  topButtons: {
+    width: "90%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+
+  tabButton: {
+    backgroundColor: "#1C98ED",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+
+  tabButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  tabButtonSecondary: {
+    backgroundColor: "#fff",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#1C98ED",
+  },
+
+  tabButtonSecondaryText: {
+    color: "#1C98ED",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  /* CARD */
   card: {
     width: "90%",
     backgroundColor: "#F6FAFF",
@@ -267,7 +315,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 18,
   },
-  uploadLabel: { fontSize: 14, fontWeight: "600" },
+
+  uploadLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
 
   uploadBtn: {
     backgroundColor: "#1C98ED",
@@ -275,11 +327,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 10,
   },
-  uploadBtnText: { color: "#fff", fontWeight: "700" },
+
+  uploadBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
 
   previewGrid: {
     marginTop: 14,
-    width: screenWidth * 0.8,
+    width: width * 0.8,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
@@ -290,11 +346,14 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 10,
     overflow: "hidden",
-    position: "relative",
     backgroundColor: "#eee",
+    position: "relative",
   },
 
-  previewImg: { width: "100%", height: "100%" },
+  previewImg: {
+    width: "100%",
+    height: "100%",
+  },
 
   removeBadge: {
     position: "absolute",
@@ -304,8 +363,8 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     backgroundColor: "rgba(0,0,0,0.6)",
-    alignItems: "center",
     justifyContent: "center",
+    alignItems: "center",
   },
 
   submitBtn: {
@@ -315,5 +374,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
-  submitText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+
+  submitText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+  },
 });
