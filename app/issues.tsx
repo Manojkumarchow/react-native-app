@@ -75,7 +75,7 @@ export default function RaiseIssueScreen() {
       Toast.show({
         type: "error",
         text1: "User Error",
-        text2: "No username found",
+        text2: "No username found in store",
       });
       return;
     }
@@ -90,23 +90,29 @@ export default function RaiseIssueScreen() {
       type: "GENERAL",
     };
 
+    console.log("Sending Payload → ", payload);
+
     try {
-      await axios.post(
+      const response = await axios.post(
         `${process.env.EXPO_PUBLIC_BASE_URL}/issues/register`,
         payload
       );
 
+      console.log("Response: ", response.data);
+
       Toast.show({
         type: "success",
         text1: "Issue Submitted",
-        text2: "Your request has been registered successfully",
+        text2: "Your issue has been created",
       });
 
-      setTimeout(() => router.back(), 1200);
+      setTimeout(() => router.back(), 1000);
     } catch (err: any) {
+      console.log("Error: ", err);
+
       Toast.show({
         type: "error",
-        text1: "Failed",
+        text1: "Failed to Submit",
         text2: err?.response?.data?.message ?? "Something went wrong",
       });
     } finally {
