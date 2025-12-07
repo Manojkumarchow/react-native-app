@@ -11,15 +11,17 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
+import useBuildingStore from "./store/buildingStore";
 
 export default function WatchmenScreen() {
   const router = useRouter();
 
-  // TODO: later replace with backend call
-  const watchmanPhone = "9666499643";
+  // Dynamic watchman details from backend store
+  const watchman = useBuildingStore((s) => s.watchmen);
+  const phoneNumber = watchman?.phone ?? "9666499643";
 
   const callWatchman = () => {
-    Linking.openURL(`tel:${watchmanPhone}`);
+    Linking.openURL(`tel:${phoneNumber}`);
   };
 
   return (
@@ -33,7 +35,7 @@ export default function WatchmenScreen() {
             <Feather name="arrow-left" size={24} color="#fff" />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Watch men</Text>
+          <Text style={styles.headerTitle}>Watchmen</Text>
 
           <View style={styles.headerIcons}>
             <Feather name="search" size={22} color="#fff" />
@@ -58,7 +60,7 @@ export default function WatchmenScreen() {
               />
             </View>
 
-            {/* SECURITY EMOJI */}
+            {/* SECURITY EMOJI or icon */}
             <Text style={styles.securityEmoji}>👮‍♂️</Text>
 
             {/* DESCRIPTION */}
@@ -71,7 +73,7 @@ export default function WatchmenScreen() {
             {/* CALL BUTTON */}
             <TouchableOpacity style={styles.callBtn} onPress={callWatchman}>
               <Feather name="phone" size={18} color="#1C98ED" />
-              <Text style={styles.callText}>Call Watch Men</Text>
+              <Text style={styles.callText}>Call Watchman</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
