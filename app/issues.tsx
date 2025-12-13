@@ -82,23 +82,44 @@ export default function RaiseIssueScreen() {
 
     setLoading(true);
 
-    const payload = {
+    const complaintPayload = {
       title: issue,
       description,
       username,
       timestamp: new Date().toISOString(),
       type: "GENERAL",
+      isResolved: false,
     };
 
-    console.log("Sending Payload → ", payload);
-
     try {
-      const response = await axios.post(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/issues/register`,
-        payload
+      const formData = new FormData();
+
+      // ✅ IMPORTANT FIX
+      formData.append(
+        "complaint",
+        new Blob([JSON.stringify(complaintPayload)], {
+          type: "application/json",
+        }) as any
       );
 
-      console.log("Response: ", response.data);
+      // Attach images
+      files.forEach((file, index) => {
+        formData.append("files", {
+          uri: file.uri,
+          name: `complaint_${username}_${index}.jpg`,
+          type: file.mimeType || "image/jpeg",
+        } as any);
+      });
+
+      const response = await axios.post(
+        `${process.env.EXPO_PUBLIC_BASE_URL}/issues/register`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
 
       Toast.show({
         type: "success",
@@ -108,12 +129,12 @@ export default function RaiseIssueScreen() {
 
       setTimeout(() => router.back(), 1000);
     } catch (err: any) {
-      console.log("Error: ", err);
+      console.error("Submit error:", err);
 
       Toast.show({
         type: "error",
         text1: "Failed to Submit",
-        text2: err?.response?.data?.message ?? "Something went wrong",
+        text2: err?.response?.data?.details ?? "Something went wrong",
       });
     } finally {
       setLoading(false);
