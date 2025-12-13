@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
+import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import useAuthStore from "../store/authStore";
 import useProfileStore from "../store/profileStore";
+import { router } from "expo-router";
 
 export default function Header() {
   const name = useProfileStore((state) => state.name);
@@ -20,18 +21,18 @@ export default function Header() {
       </View>
 
       <View style={styles.right}>
-        <MaterialCommunityIcons
-          name="magnify"
-          size={22}
-          color="#fff"
-          style={{ marginRight: 12 }}
-        />
-        <View style={{ position: "relative" }}>
-          <MaterialCommunityIcons name="bell-outline" size={22} color="#fff" />
-          <View style={styles.dot}>
-            <Text style={styles.dotText}></Text>
+        <TouchableOpacity onPress={() => router.push("/notifications")}>
+          <View style={{ position: "relative" }}>
+            <MaterialCommunityIcons
+              name="bell-outline"
+              size={22}
+              color="#fff"
+            />
+            <View style={styles.dot}>
+              <Text style={styles.dotText}></Text>
+            </View>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
     </View>
   );
