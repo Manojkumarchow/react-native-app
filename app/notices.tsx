@@ -1,264 +1,224 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import axios from "axios";
+import useAuthStore from "./store/authStore";
 
-const STATIC_NOTIFICATIONS = [
-  {
-    id: 1,
-    title: "Maintenance Bill",
-    message: "Hi, greeting from Maintes. We noticed your bill is not paid yet!",
-    timestamp: "2025-11-20 14:30",
-    read: false,
-  },
-  {
-    id: 2,
-    title: "Upcoming Maintenance",
-    message: "Scheduled water maintenance in your building tomorrow.",
-    timestamp: "2025-11-21 09:12",
-    read: false,
-  },
-  {
-    id: 3,
-    title: "Apartment Updates",
-    message: "New visitor gate pass feature is live. Check it out!",
-    timestamp: "2025-11-19 17:50",
-    read: false,
-  },
-  // Add more notifications if needed
-];
+interface Notice {
+  noticeId: string;
+  title: string;
+  description: string;
+  type: "ALERT" | "INFO";
+  createdAt: string;
+}
 
-export default function Notices() {
-  const [selected, setSelected] = useState(null);
-  const [notifications, setNotifications] = useState(STATIC_NOTIFICATIONS);
-  const [searchVisible, setSearchVisible] = useState(false);
-  const [searchText, setSearchText] = useState("");
+export default function Notices({ navigation }: any) {
+  const { username } = useAuthStore();
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mark notification as read & open modal
-  const handleNotificationPress = (item) => {
-    setSelected(item);
-    if (!item.read) {
-      setNotifications((prev) =>
-        prev.map((n) => n.id === item.id ? { ...n, read: true } : n)
-      );
-    }
+  useEffect(() => {
+    if (!username) return;
+
+    const fetchNotices = async () => {
+      try {
+        const res = await axios.get(
+          `${process.env.EXPO_PUBLIC_BASE_URL}/notices/${username}`
+        );
+        setNotices(res.data);
+      } catch (error) {
+        console.error("Failed to fetch notices", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotices();
+  }, [username]);
+
+  const getDaysAgo = (dateStr: string) => {
+    const created = new Date(dateStr).getTime();
+    const now = Date.now();
+    const diffDays = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+    return diffDays === 0 ? "Today" : `${diffDays} Days Ago`;
   };
 
-  // Filtered and highlighted notifications for search
-  const filteredNotifications = notifications.filter(
-    n =>
-      n.title.toLowerCase().includes(searchText.toLowerCase()) ||
-      n.message.toLowerCase().includes(searchText.toLowerCase())
-  );
-
-  // Render notification card (highlights if search matches)
-  const renderCard = ({ item }) => {
-    // Is search active + does this card match?
-    const isMatch = searchText && (
-      item.title.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.message.toLowerCase().includes(searchText.toLowerCase())
-    );
+  const renderItem = ({ item }: { item: Notice }) => {
+    const isAlert = item.type === "ALERT";
 
     return (
-      <TouchableOpacity onPress={() => handleNotificationPress(item)}>
-        <View style={[
-          styles.card, 
-          item.read ? styles.cardRead : styles.cardUnread,
-          isMatch && styles.cardHighlighted
-        ]}>
-          {item.read && (
-            <View style={styles.greenDot} />
-          )}
-
-          <Text style={[styles.cardTitle, !item.read && styles.unreadTitle]}>
-            {item.title}
-          </Text>
-          <Text style={styles.cardBody}>{item.message}</Text>
-          <Text style={styles.timestamp}>{item.timestamp}</Text>
+      <View style={[styles.card, isAlert ? styles.alertCard : styles.infoCard]}>
+        <View style={styles.iconWrapper}>
+          <Ionicons
+            name="alert-circle-outline"
+            size={22}
+            color={isAlert ? "#c62828" : "#1b5e20"}
+          />
         </View>
-      </TouchableOpacity>
+
+        <View style={styles.content}>
+          <View style={styles.row}>
+            <Text
+              style={[
+                styles.title,
+                isAlert ? styles.alertTitle : styles.infoTitle,
+              ]}
+            >
+              {item.title}
+            </Text>
+            <Text style={styles.daysAgo}>{getDaysAgo(item.createdAt)}</Text>
+          </View>
+
+          <Text style={styles.description}>{item.description}</Text>
+        </View>
+      </View>
     );
   };
 
   return (
     <View style={styles.container}>
-      {/* Header with bell and search */}
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notification</Text>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity onPress={() => setSearchVisible(!searchVisible)}>
-            <Ionicons name="search-outline" size={22} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity style={{ marginLeft: 18 }}>
-            <Ionicons name="notifications-outline" size={22} color="#fff" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>Notices</Text>
+
+        <View style={{ width: 24 }} />
       </View>
-      
-      {/* Search input bar */}
-      {searchVisible && (
-        <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={20} color="#1C98ED" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search notifications..."
-            value={searchText}
-            onChangeText={setSearchText}
-            autoFocus
-          />
-          {searchText ? (
-            <TouchableOpacity onPress={() => setSearchText("")}>
-              <Ionicons name="close-circle-outline" size={20} color="#1C98ED" />
-            </TouchableOpacity>
-          ) : null}
-        </View>
+
+      {/* Loader */}
+      {loading ? (
+        <ActivityIndicator
+          size="large"
+          color="#4c97e8"
+          style={{ marginTop: 40 }}
+        />
+      ) : (
+        <FlatList
+          data={notices}
+          keyExtractor={(item) => item.noticeId}
+          renderItem={renderItem}
+          contentContainerStyle={{ paddingBottom: 120 }}
+        />
       )}
 
-      {/* Notification List (filtered if searching) */}
-      <FlatList
-        data={searchText ? filteredNotifications : notifications}
-        keyExtractor={item => item.id.toString()}
-        renderItem={renderCard}
-        contentContainerStyle={{ paddingBottom: 90 }}
-      />
-      
-      {/* Modal for notification detail */}
-      <Modal visible={!!selected} transparent animationType="slide">
-        <View style={styles.modalBackground}>
-          <View style={styles.modalContent}>
-            <TouchableOpacity onPress={() => setSelected(null)} style={styles.closeBtn}>
-              <Ionicons name="close" size={30} color="#1C98ED" />
-            </TouchableOpacity>
-            {selected && (
-              <>
-                <Text style={styles.modalTitle}>{selected.title}</Text>
-                <Text style={styles.modalBody}>{selected.message}</Text>
-                <Text style={styles.modalTimestamp}>{selected.timestamp}</Text>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Bottom Navigation Bar, NO bell icon */}
+      {/* Bottom Navigation */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity>
-          <Ionicons name="home-outline" size={27} color="#1C98ED" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="grid-outline" size={27} color="#1C98ED" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="person-outline" size={27} color="#1C98ED" />
-        </TouchableOpacity>
+        <Ionicons name="home-outline" size={26} color="#fff" />
+        <Ionicons name="grid-outline" size={26} color="#fff" />
+        <View style={styles.fab}>
+          <Ionicons name="layers-outline" size={28} color="#fff" />
+        </View>
+        <Ionicons name="chatbubble-outline" size={26} color="#fff" />
+        <Ionicons name="person-outline" size={26} color="#fff" />
       </View>
     </View>
   );
 }
 
+/* ================== STYLES ================== */
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#e3f1fe" },
+  container: {
+    flex: 1,
+    backgroundColor: "#eaf4ff",
+  },
+
   header: {
-    backgroundColor: "#1C98ED",
+    backgroundColor: "#4c97e8",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 18,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
-  headerTitle: { color: "#fff", fontSize: 22, fontWeight: "bold" },
-  headerIcons: { flexDirection: "row", alignItems: "center" },
-
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    margin: 12,
-    paddingHorizontal: 12,
-    borderRadius: 24,
-    shadowColor: "#000",
-    shadowOpacity: 0.09,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    marginHorizontal: 8,
-    color: "#1C98ED",
-    paddingVertical: 8,
+  headerTitle: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "bold",
   },
 
   card: {
-    borderRadius: 12,
-    marginVertical: 8,
+    flexDirection: "row",
     marginHorizontal: 16,
+    marginVertical: 10,
+    borderRadius: 22,
     padding: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.07,
-    shadowRadius: 5,
-    elevation: 2,
-    position: "relative",
   },
-  cardUnread: { backgroundColor: "#fff", borderLeftWidth: 5, borderLeftColor: "#1C98ED" },
-  cardRead:   { backgroundColor: "#f1f1f1", borderLeftWidth: 5, borderLeftColor: "#b1b1b1" },
-  cardHighlighted: { borderColor: "#1C98ED", borderWidth: 2 },
-  cardTitle:  { fontWeight: "bold", fontSize: 16, color: "#258cff" },
-  unreadTitle: { color: "#1C98ED" },
-  cardBody:   { fontSize: 14, color: "#444", marginTop: 6 },
-  timestamp:  { fontSize: 12, color: "#b1b1b1", textAlign: "right", marginTop: 8 },
-  greenDot: {
-    position: "absolute",
-    top: 12,
-    right: 14,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#00C853",
-    borderWidth: 2,
-    borderColor: "#fff",
-    zIndex: 10,
+  alertCard: {
+    backgroundColor: "#fdecea",
+  },
+  infoCard: {
+    backgroundColor: "#e8f5e9",
+  },
+
+  iconWrapper: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+
+  content: {
+    flex: 1,
+  },
+
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
+  title: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  alertTitle: {
+    color: "#c62828",
+  },
+  infoTitle: {
+    color: "#1b5e20",
+  },
+
+  description: {
+    marginTop: 6,
+    fontSize: 14,
+    color: "#555",
+  },
+
+  daysAgo: {
+    fontSize: 12,
+    color: "#777",
   },
 
   bottomBar: {
     position: "absolute",
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    backgroundColor: "#1C98ED",
+    height: 70,
+    backgroundColor: "#4c97e8",
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
-    paddingVertical: 12,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    height: 56,
-    elevation: 10,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
   },
-
-  modalBackground: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.25)",
+  fab: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#4256ff",
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center"
+    marginBottom: 30,
   },
-  modalContent: {
-    width: "80%",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 24,
-    alignItems: "flex-start",
-    position: "relative",
-    elevation: 10,
-  },
-  closeBtn: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    zIndex: 2,
-  },
-  modalTitle: { fontSize: 20, fontWeight: "bold", color: "#1C98ED", marginBottom: 12 },
-  modalBody: { fontSize: 15, color: "#333", marginBottom: 10 },
-  modalTimestamp: { fontSize: 13, color: "#b1b1b1", alignSelf: "flex-end" },
 });

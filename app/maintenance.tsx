@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,116 +6,98 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
+import axios from "axios";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import { Alert, Platform } from "react-native";
+import useAuthStore from "./store/authStore";
+
+type MaintenanceItem = {
+  id: number;
+  monthLabel: string;
+  amount: number;
+  dueDate?: string;
+  paidDate?: string;
+  status: "PAID" | "UNPAID";
+  invoiceAvailable: boolean;
+};
 
 export default function MaintenanceScreen() {
   const router = useRouter();
+  const { username } = useAuthStore();
 
-  // Dropdown lists
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => `${currentYear - i}`);
 
-  const months = [
-    "Select",
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-
   const [selectedYear, setSelectedYear] = useState(`${currentYear}`);
-  const [selectedMonth, setSelectedMonth] = useState("Select");
   const [showYearDropdown, setShowYearDropdown] = useState(false);
-  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
 
-  // Popup state
-  const [confirmVisible, setConfirmVisible] = useState(false);
-  const [activeId, setActiveId] = useState<number | null>(null);
-
-  // Mock maintenance data
-  type MaintenanceItem = {
-    id: number;
-    title: string;
-    amount: number;
-    dueDate?: string;
-    paidDate?: string;
-    month: string;
-    status: "PAID" | "UNPAID";
-    date: string;
+  /* ---------------- FETCH DATA ---------------- */
+  const fetchMaintenance = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(
+        `${process.env.EXPO_PUBLIC_BASE_URL}/maintenance/${username}`
+      );
+      setMaintenance(res.data);
+    } catch (e) {
+      console.error("Failed to fetch maintenance", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const mockMaintenance: MaintenanceItem[] = [
-    {
-      id: 1,
-      title: "April Maintenance",
-      amount: 2000,
-      dueDate: "05-04-2025",
-      month: "April",
-      status: "UNPAID",
-      date: "1 Apr 2025",
-    },
-    {
-      id: 2,
-      title: "March Maintenance",
-      amount: 2000,
-      paidDate: "02-03-2025",
-      month: "March",
-      status: "PAID",
-      date: "2 Mar 2025",
-    },
-    {
-      id: 3,
-      title: "February Maintenance",
-      amount: 2000,
-      paidDate: "02-02-2025",
-      month: "February",
-      status: "PAID",
-      date: "2 Feb 2025",
-    },
-  ];
+  useEffect(() => {
+    fetchMaintenance();
+  }, []);
 
-  const [maintenance, setMaintenance] =
-    useState<MaintenanceItem[]>(mockMaintenance);
+  /* ---------------- FILTER BY YEAR ---------------- */
+  const filteredMaintenance = maintenance.filter((m) =>
+    (m.paidDate || m.dueDate || "").startsWith(selectedYear)
+  );
 
-  const filteredMaintenance =
-    selectedMonth === "Select"
-      ? maintenance
-      : maintenance.filter((m) => m.month === selectedMonth);
-
-  // Show confirmation popup
-  const markAsPaid = (id: number) => {
-    setActiveId(id);
-    setConfirmVisible(true);
-  };
-
-  // Confirm & update UI
-  const confirmPayment = () => {
-    if (!activeId) return;
-
-    const today = new Date();
-    const paidDate = today.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-
-    const updated = maintenance.map((m) =>
-      m.id === activeId ? { ...m, status: "PAID", paidDate } : m
+  /* ---------------- ACTIONS ---------------- */
+  const markAsPaid = async (id: number) => {
+    await axios.patch(
+      `${process.env.EXPO_PUBLIC_BASE_URL}/maintenance/${id}/pay`
     );
+    fetchMaintenance();
+  };
 
-    setMaintenance(updated);
-    setConfirmVisible(false);
-    setActiveId(null);
+  const downloadInvoice = async (id: number) => {
+    try {
+      const response = await axios.get(
+        `${process.env.EXPO_PUBLIC_BASE_URL}/maintenance/${id}/invoice`,
+        {
+          responseType: "arraybuffer", // 🔑 VERY IMPORTANT
+        }
+      );
+
+      // Convert arraybuffer → base64
+      const base64 = Buffer.from(response.data, "binary").toString("base64");
+
+      const fileUri = `${FileSystem.documentDirectory}invoice_${id}.pdf`;
+
+      await FileSystem.writeAsStringAsync(fileUri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Open share / download dialog
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri);
+      } else {
+        Alert.alert("Downloaded", "Invoice saved to device.");
+      }
+    } catch (err) {
+      console.error("Invoice download failed", err);
+      Alert.alert("Error", "Unable to download invoice");
+    }
   };
 
   return (
@@ -128,42 +110,27 @@ export default function MaintenanceScreen() {
           <TouchableOpacity onPress={() => router.back()}>
             <Feather name="arrow-left" size={26} color="#fff" />
           </TouchableOpacity>
-
           <Text style={styles.headerTitle}>Maintenance</Text>
-
-          <View style={{ flexDirection: "row", marginLeft: "auto" }}>
-            <Feather
-              name="search"
-              size={22}
-              color="#fff"
-              style={{ marginRight: 20 }}
-            />
-            <Feather name="bell" size={22} color="#fff" />
-          </View>
         </View>
 
-        {/* WHITE CONTENT AREA */}
+        {/* CONTENT */}
         <View style={styles.container}>
-          {/* DROPDOWNS */}
-          <View style={styles.dropdownRow}>
-            {/* YEAR */}
-            <View style={styles.dropdownWrapper}>
-              <TouchableOpacity
-                style={styles.dropdown}
-                onPress={() => {
-                  setShowYearDropdown(!showYearDropdown);
-                  setShowMonthDropdown(false);
-                }}
-              >
-                <Text style={styles.dropdownText}>{selectedYear}</Text>
-                <Feather name="chevron-down" size={18} color="#1C98ED" />
-              </TouchableOpacity>
+          {/* YEAR DROPDOWN */}
+          <View style={styles.dropdownWrapper}>
+            <TouchableOpacity
+              style={styles.dropdown}
+              onPress={() => setShowYearDropdown(!showYearDropdown)}
+            >
+              <Text style={styles.dropdownText}>{selectedYear}</Text>
+              <Feather name="chevron-down" size={18} color="#1C98ED" />
+            </TouchableOpacity>
 
-              {showYearDropdown && (
-                <View style={styles.dropdownList}>
-                  {years.map((year, i) => (
+            {showYearDropdown && (
+              <View style={styles.dropdownList}>
+                <ScrollView>
+                  {years.map((year) => (
                     <TouchableOpacity
-                      key={i}
+                      key={year}
                       onPress={() => {
                         setSelectedYear(year);
                         setShowYearDropdown(false);
@@ -172,146 +139,76 @@ export default function MaintenanceScreen() {
                       <Text style={styles.dropdownItem}>{year}</Text>
                     </TouchableOpacity>
                   ))}
-                </View>
-              )}
-            </View>
-
-            {/* MONTH */}
-            <View style={styles.dropdownWrapper}>
-              <TouchableOpacity
-                style={styles.dropdown}
-                onPress={() => {
-                  setShowMonthDropdown(!showMonthDropdown);
-                  setShowYearDropdown(false);
-                }}
-              >
-                <Text style={styles.dropdownText}>{selectedMonth}</Text>
-                <Feather name="chevron-down" size={18} color="#1C98ED" />
-              </TouchableOpacity>
-
-              {showMonthDropdown && (
-                <View style={styles.dropdownList}>
-                  {months.map((month, i) => (
-                    <TouchableOpacity
-                      key={i}
-                      onPress={() => {
-                        setSelectedMonth(month);
-                        setShowMonthDropdown(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownItem}>{month}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
+                </ScrollView>
+              </View>
+            )}
           </View>
 
-          {/* LIST OF MAINTENANCE ITEMS */}
-          <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
-            {filteredMaintenance.map((m) => (
-              <View
-                key={m.id}
-                style={[
-                  styles.card,
-                  m.status === "UNPAID" ? styles.unpaidCard : styles.paidCard,
-                ]}
-              >
-                {/* TOP ROW */}
-                <View style={styles.cardTop}>
-                  <Feather
-                    name="alert-circle"
-                    size={20}
-                    color={m.status === "UNPAID" ? "#C1282D" : "#08401E"}
-                  />
+          {/* LIST */}
+          {loading ? (
+            <ActivityIndicator size="large" color="#1C98ED" />
+          ) : (
+            <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
+              {filteredMaintenance.map((m) => {
+                const isPaid = m.status === "PAID";
 
-                  <Text
+                return (
+                  <View
+                    key={m.id}
                     style={[
-                      styles.cardTitle,
-                      { color: m.status === "UNPAID" ? "#C1282D" : "#08401E" },
+                      styles.card,
+                      isPaid ? styles.paidCard : styles.unpaidCard,
                     ]}
                   >
-                    {m.title}
-                  </Text>
+                    <View style={styles.cardTop}>
+                      <Feather
+                        name="alert-circle"
+                        size={20}
+                        color={isPaid ? "#08401E" : "#C1282D"}
+                      />
+                      <Text
+                        style={[
+                          styles.cardTitle,
+                          { color: isPaid ? "#08401E" : "#C1282D" },
+                        ]}
+                      >
+                        {m.monthLabel}
+                      </Text>
+                    </View>
 
-                  <Text style={styles.cardDate}>{m.date}</Text>
-                </View>
+                    <Text style={styles.amount}>₹ {m.amount}</Text>
 
-                <Text style={styles.amount}>₹ {m.amount}</Text>
+                    {isPaid ? (
+                      <Text style={styles.subText}>Paid on {m.paidDate}</Text>
+                    ) : (
+                      <Text style={styles.subText}>Due Date {m.dueDate}</Text>
+                    )}
 
-                {/* DUE DATE OR PAID DATE */}
-                {m.status === "UNPAID" ? (
-                  <Text style={styles.subText}>Due Date {m.dueDate}</Text>
-                ) : (
-                  <Text style={styles.subText}>Paid on {m.paidDate}</Text>
-                )}
+                    <View style={styles.line} />
 
-                {/* LINE */}
-                <View style={styles.line} />
-
-                {/* ACTIONS */}
-                {m.status === "UNPAID" ? (
-                  <View style={styles.rowBetween}>
-                    <TouchableOpacity onPress={() => markAsPaid(m.id)}>
-                      <Text style={styles.unpaidAction}>I Already Paid</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() =>
-                        router.push({
-                          pathname: "/payments",
-                          params: { amount: m.amount, month: m.month },
-                        })
-                      }
-                    >
-                      <Text style={styles.unpaidAction}>Pay Now</Text>
-                    </TouchableOpacity>
+                    {isPaid ? (
+                      m.invoiceAvailable && (
+                        <TouchableOpacity onPress={() => downloadInvoice(m.id)}>
+                          <Text style={styles.download}>Download Invoice</Text>
+                        </TouchableOpacity>
+                      )
+                    ) : (
+                      <TouchableOpacity onPress={() => markAsPaid(m.id)}>
+                        <Text style={styles.unpaidAction}>I Already Paid</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
-                ) : (
-                  <TouchableOpacity>
-                    <Text style={styles.download}>Download Invoice</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))}
-          </ScrollView>
+                );
+              })}
+            </ScrollView>
+          )}
         </View>
-
-        {/* POPUP OVERLAY */}
-        {confirmVisible && (
-          <View style={styles.popupOverlay}>
-            <View style={styles.popupBox}>
-              <Text style={styles.popupTitle}>Confirm Payment</Text>
-              <Text style={styles.popupMsg}>
-                Mark this maintenance as paid?
-              </Text>
-
-              <View style={styles.popupActions}>
-                <TouchableOpacity
-                  onPress={() => setConfirmVisible(false)}
-                  style={[styles.popupBtn, { backgroundColor: "#ccc" }]}
-                >
-                  <Text>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={confirmPayment}
-                  style={[styles.popupBtn, { backgroundColor: "#1C98ED" }]}
-                >
-                  <Text style={{ color: "#fff" }}>Confirm</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
       </SafeAreaView>
     </>
   );
 }
 
-/* ==========================================
-   STYLES
-========================================== */
+/* ---------------- STYLES ---------------- */
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#73A8FF" },
@@ -339,40 +236,35 @@ const styles = StyleSheet.create({
     padding: 20,
   },
 
-  dropdownRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  dropdownWrapper: { width: "48%" },
+  dropdownWrapper: { marginBottom: 10 },
 
   dropdown: {
-    borderWidth: 1,
-    borderColor: "#1C98ED",
-    padding: 12,
-    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#F0A23A",
+    padding: 14,
+    borderRadius: 14,
     flexDirection: "row",
     justifyContent: "space-between",
     backgroundColor: "#fff",
   },
 
   dropdownText: {
-    color: "#1C98ED",
     fontWeight: "700",
-    fontSize: 16,
+    fontSize: 18,
+    color: "#1C98ED",
   },
 
   dropdownList: {
-    backgroundColor: "#fff",
+    maxHeight: 220,
+    marginTop: 8,
     borderWidth: 1,
     borderColor: "#1C98ED",
-    marginTop: 6,
-    borderRadius: 10,
-    maxHeight: 180,
+    borderRadius: 12,
+    backgroundColor: "#fff",
   },
 
   dropdownItem: {
-    padding: 10,
+    padding: 14,
     fontSize: 16,
   },
 
@@ -396,30 +288,24 @@ const styles = StyleSheet.create({
   cardTop: {
     flexDirection: "row",
     alignItems: "center",
+    marginBottom: 6,
   },
 
   cardTitle: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "700",
     marginLeft: 10,
-    flex: 1,
-  },
-
-  cardDate: {
-    fontSize: 10,
-    color: "#333",
   },
 
   amount: {
-    marginTop: 8,
-    fontSize: 12,
-    color: "#666",
+    fontSize: 14,
+    color: "#555",
   },
 
   subText: {
-    marginTop: 6,
     fontSize: 12,
     color: "#666",
+    marginTop: 4,
   },
 
   line: {
@@ -428,63 +314,15 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
 
-  rowBetween: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
   unpaidAction: {
     color: "#FF0606",
     fontWeight: "700",
-    fontSize: 12,
+    fontSize: 13,
   },
 
   download: {
     color: "#08401E",
     fontWeight: "700",
-    fontSize: 12,
-  },
-
-  /* POPUP */
-  popupOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  popupBox: {
-    width: "80%",
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 12,
-    elevation: 10,
-  },
-
-  popupTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-
-  popupMsg: {
-    fontSize: 14,
-    color: "#333",
-    marginBottom: 20,
-  },
-
-  popupActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  popupBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    fontSize: 13,
   },
 });

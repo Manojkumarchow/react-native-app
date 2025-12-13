@@ -5,7 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import axios from "axios";
 import { Stack, useRouter } from "expo-router";
 
 import SectionCard from "./profile/SectionCard";
@@ -18,9 +21,94 @@ import useProfileStore from "./store/profileStore";
 import useAuthStore from "./store/authStore";
 import CustomAlert from "./components/CustomAlert";
 
+const ALLOWED_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/heic",
+  "image/heif",
+];
+
 export default function ProfileScreen() {
   const router = useRouter();
   const profile = useProfileStore();
+  const { username } = useAuthStore();
+
+  const [uploading, setUploading] = useState(false);
+  const [showAlert, setShowAlert] = useState(false);
+
+  const resetProfile = useProfileStore((s) => s.setProfile);
+  const resetAuth = useAuthStore((s) => s.reset);
+
+  // ----------------------------
+  // IMAGE PICK + UPLOAD
+  // ----------------------------
+  const pickAndUploadImage = async () => {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission required",
+          "Please allow photo access to upload profile picture"
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+
+      // Defensive mimeType check (Android/iOS safe)
+      if (asset.mimeType && !ALLOWED_TYPES.includes(asset.mimeType)) {
+        Alert.alert(
+          "Invalid file",
+          "Only PNG, JPG, JPEG, HEIC images are allowed"
+        );
+        return;
+      }
+
+      setUploading(true);
+
+      const formData = new FormData();
+      formData.append("file", {
+        uri: asset.uri,
+        name: `profile_${username}.jpg`,
+        type: asset.mimeType || "image/jpeg",
+      } as any);
+
+      await axios.post(
+        `${process.env.EXPO_PUBLIC_BASE_URL}/profile/${username}/image`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      // Update avatar immediately (cache-bust)
+      profile.setProfile({
+        ...profile,
+        avatarUri: `${
+          process.env.EXPO_PUBLIC_BASE_URL
+        }/uploads/profiles/${username}.jpg?ts=${Date.now()}`,
+      });
+    } catch (error) {
+      console.error("Profile image upload failed:", error);
+      Alert.alert("Upload failed", "Unable to upload profile image");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const onEditAccount = () => {
     router.push({
@@ -36,17 +124,11 @@ export default function ProfileScreen() {
     });
   };
 
-  const resetProfile = useProfileStore((s) => s.setProfile);
-  const resetAuth = useAuthStore((s) => s.reset);
-  const [showAlert, setShowAlert] = useState(false);
-  const onLogout = () => setShowAlert(true);
-
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.screen}>
-        {/* Blue curved top */}
         <View style={styles.topSpacing} />
 
         <ScrollView
@@ -54,28 +136,16 @@ export default function ProfileScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.card}>
-            {/* Avatar */}
+            {/* AVATAR */}
             <ProfileAvatar
               avatarUri={profile.avatarUri}
-              onAvatarChange={(uri) => {
-                if (typeof profile.setProfile === "function") {
-                  profile.setProfile({
-                    name: profile.name,
-                    phone: profile.phone,
-                    email: profile.email,
-                    flat: profile.flat,
-                    building: profile.building,
-                    address: profile.address,
-                    avatarUri: uri,
-                  });
-                }
-              }}
+              onAvatarChange={pickAndUploadImage}
             />
-            {/* Name */}
+
             <Text style={styles.name}>{profile.name}</Text>
             <View style={{ height: 20 }} />
 
-            {/* ACCOUNT DETAILS CARD */}
+            {/* ACCOUNT DETAILS */}
             <SectionCard title="Account Details" onEdit={onEditAccount}>
               {profile.name && <Row icon="account" label={profile.name} />}
               {profile.phone && <Row icon="phone" label={profile.phone} />}
@@ -89,18 +159,17 @@ export default function ProfileScreen() {
               )}
             </SectionCard>
 
-            {/* APP PREFERENCES */}
             <AppPreferencesSection />
-
-            {/* SECURITY & PRIVACY */}
             <SecurityPrivacySection />
 
             {/* LOGOUT */}
-            <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
+            <TouchableOpacity
+              style={styles.logoutBtn}
+              onPress={() => setShowAlert(true)}
+            >
               <Text style={styles.logoutText}>Log Out</Text>
             </TouchableOpacity>
 
-            {/* VERSION */}
             <View style={styles.versionRow}>
               <Text style={styles.versionTitle}>App Version</Text>
               <Text style={styles.versionValue}>2.4.1 (Build 241)</Text>
@@ -111,6 +180,7 @@ export default function ProfileScreen() {
             </Text>
           </View>
         </ScrollView>
+
         <CustomAlert
           visible={showAlert}
           title="Logout"
@@ -133,6 +203,7 @@ export default function ProfileScreen() {
             router.replace("/login");
           }}
         />
+
         <BottomNav />
       </View>
     </>
@@ -162,7 +233,6 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 18,
     alignItems: "center",
-
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 6,
@@ -199,6 +269,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 18,
   },
+
   versionTitle: { color: "#333", fontSize: 14 },
   versionValue: { color: "#666", fontSize: 12 },
 
