@@ -10,6 +10,7 @@ import {
 import Ionicons from "react-native-vector-icons/Ionicons";
 import axios from "axios";
 import useAuthStore from "./store/authStore";
+import { router } from "expo-router";
 
 interface Notice {
   noticeId: string;
@@ -86,7 +87,7 @@ export default function Notices({ navigation }: any) {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
 

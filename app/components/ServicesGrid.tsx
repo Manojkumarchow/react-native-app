@@ -20,7 +20,7 @@ export default function ServicesGrid() {
     <View style={styles.wrap}>
       <View style={styles.grid}>
         {services.map((s) => (
-          <TouchableOpacity key={s.key} style={styles.cell} onPress={() => router.push(s.route)}>
+          <TouchableOpacity key={s.key} style={styles.cell} onPress={() => router.push(s.route as any)}>
             <View style={styles.icon}>
               <MaterialCommunityIcons name={s.icon as any} size={36} color="#1C98ED" />
             </View>
