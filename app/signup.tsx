@@ -10,52 +10,56 @@ import {
   ScrollView,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
+import { Picker } from "@react-native-picker/picker";
 import FrostedCard from "./components/FrostedCard";
 import { sendOTP } from "./services/otp.service";
 
 export default function SignupScreen() {
   const router = useRouter();
+
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("");
   const [error, setError] = useState("");
   const [isPhoneValid, setIsPhoneValid] = useState(true);
   const [isPasswordValid, setIsPasswordValid] = useState(true);
+
   const passwordRef = useRef<TextInput>(null);
 
   const handleSignup = async () => {
-  setError("");
+    setError("");
 
-  if (!fullName || !phone || !password) {
-    setError("All fields are required");
-    return;
-  }
+    if (!fullName || !phone || !password || !role) {
+      setError("All fields are required");
+      return;
+    }
 
-  try {
-    const otpRes = await sendOTP(phone);
+    try {
+      const otpRes = await sendOTP(phone);
 
-    router.push({
-      pathname: "/otp",
-      params: {
-        phone,
-        otp: otpRes.otp, // backend code (for debugging only)
-        name: fullName,
-        password,
-      },
-    });
-  } catch (err) {
-    setError("Error sending OTP. Try again.");
-  }
-};
-
+      router.push({
+        pathname: "/otp",
+        params: {
+          phone,
+          otp: otpRes.otp, // backend code (for debugging only)
+          name: fullName,
+          password,
+          role,
+        },
+      });
+    } catch (err) {
+      setError("Error sending OTP. Try again.");
+    }
+  };
 
   const validatePassword = (pwd: string) => {
     const isValid =
-      /[A-Z]/.test(pwd) && // uppercase
-      /[a-z]/.test(pwd) && // lowercase
-      /[0-9]/.test(pwd) && // number
-      /[^A-Za-z0-9]/.test(pwd) && // special char
-      pwd.length >= 8; // min length
+      /[A-Z]/.test(pwd) &&
+      /[a-z]/.test(pwd) &&
+      /[0-9]/.test(pwd) &&
+      /[^A-Za-z0-9]/.test(pwd) &&
+      pwd.length >= 8;
 
     setIsPasswordValid(isValid);
     return isValid;
@@ -119,15 +123,18 @@ export default function SignupScreen() {
                 </Text>
               )}
 
-              {/* <TextInput
-                ref={passwordRef}
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#555"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-              /> */}
+              {/* ROLE */}
+              <Text style={styles.roleLabel}>Role</Text>
+              <View style={styles.pickerWrapper}>
+                <Picker
+                  selectedValue={role}
+                  onValueChange={(itemValue) => setRole(itemValue)}
+                >
+                  <Picker.Item label="Select Role" value="" />
+                  <Picker.Item label="Owner" value="OWNER" />
+                  <Picker.Item label="Tenant" value="TENANT" />
+                </Picker>
+              </View>
 
               <TextInput
                 ref={passwordRef}
@@ -155,17 +162,16 @@ export default function SignupScreen() {
                 </Text>
               )}
 
-              {/* ERROR message for missing fields */}
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
-              {/* SIGNUP BUTTON — this was missing */}
               <TouchableOpacity style={styles.button} onPress={handleSignup}>
                 <Text style={styles.buttonText}>Signup</Text>
               </TouchableOpacity>
 
-              {/* SIGN-IN LINK */}
               <View style={styles.signinRow}>
-                <Text style={styles.signinText}>Already have an account?</Text>
+                <Text style={styles.signinText}>
+                  Already have an account?
+                </Text>
                 <TouchableOpacity onPress={() => router.replace("/login")}>
                   <Text style={styles.signinLink}> Sign in</Text>
                 </TouchableOpacity>
@@ -206,6 +212,18 @@ const styles = StyleSheet.create({
     outlineColor: "transparent",
   },
 
+  roleLabel: {
+    fontSize: 14,
+    color: "#444",
+    marginBottom: 6,
+  },
+
+  pickerWrapper: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#6C63FF",
+    marginBottom: 20,
+  },
+
   button: {
     backgroundColor: "#3B5BFE",
     paddingVertical: 14,
@@ -244,6 +262,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 10,
   },
+
   inputError: {
     borderBottomColor: "red",
   },
