@@ -22,32 +22,33 @@ export default function SignupScreen() {
   const [isPhoneValid, setIsPhoneValid] = useState(true);
   const [isPasswordValid, setIsPasswordValid] = useState(true);
   const passwordRef = useRef<TextInput>(null);
+  const [role, setRole] = useState<"ADMIN" | "USER">("ADMIN");
 
   const handleSignup = async () => {
-  setError("");
+    setError("");
 
-  if (!fullName || !phone || !password) {
-    setError("All fields are required");
-    return;
-  }
+    if (!fullName || !phone || !password) {
+      setError("All fields are required");
+      return;
+    }
 
-  try {
-    const otpRes = await sendOTP(phone);
+    try {
+      const otpRes = await sendOTP(phone);
 
-    router.push({
-      pathname: "/otp",
-      params: {
-        phone,
-        otp: otpRes.otp, // backend code (for debugging only)
-        name: fullName,
-        password,
-      },
-    });
-  } catch (err) {
-    setError("Error sending OTP. Try again.");
-  }
-};
-
+      router.push({
+        pathname: "/otp",
+        params: {
+          phone,
+          otp: otpRes.otp, // backend code (for debugging only)
+          name: fullName,
+          password,
+          role
+        },
+      });
+    } catch (err) {
+      setError("Error sending OTP. Try again.");
+    }
+  };
 
   const validatePassword = (pwd: string) => {
     const isValid =
@@ -157,6 +158,35 @@ export default function SignupScreen() {
 
               {/* ERROR message for missing fields */}
               {error ? <Text style={styles.error}>{error}</Text> : null}
+              <Text style={styles.roleLabel}>Register as</Text>
+
+              <View style={styles.radioRow}>
+                <TouchableOpacity
+                  style={styles.radioOption}
+                  onPress={() => setRole("ADMIN")}
+                >
+                  <View
+                    style={[
+                      styles.radioCircle,
+                      role === "ADMIN" && styles.radioSelected,
+                    ]}
+                  />
+                  <Text style={styles.radioText}>Owner</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.radioOption}
+                  onPress={() => setRole("USER")}
+                >
+                  <View
+                    style={[
+                      styles.radioCircle,
+                      role === "USER" && styles.radioSelected,
+                    ]}
+                  />
+                  <Text style={styles.radioText}>Tenant</Text>
+                </TouchableOpacity>
+              </View>
 
               {/* SIGNUP BUTTON — this was missing */}
               <TouchableOpacity style={styles.button} onPress={handleSignup}>
@@ -257,5 +287,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: -15,
     marginBottom: 10,
+  },
+  roleLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#444",
+    marginBottom: 8,
+  },
+
+  radioRow: {
+    flexDirection: "row",
+    marginBottom: 20,
+  },
+
+  radioOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 20,
+  },
+
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: "#6C63FF",
+    marginRight: 6,
+  },
+
+  radioSelected: {
+    backgroundColor: "#6C63FF",
+  },
+
+  radioText: {
+    fontSize: 14,
+    color: "#222",
   },
 });

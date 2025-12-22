@@ -16,7 +16,7 @@ import { createProfile } from "./services/profile.service";
 
 export default function OTPVerify() {
   const router = useRouter();
-  const { phone, name, password, resetFlow } = useLocalSearchParams();
+  const { phone, name, password, role, resetFlow } = useLocalSearchParams();
 
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
@@ -71,8 +71,8 @@ export default function OTPVerify() {
       // NEW FLOW CONTROL
       if (resetFlow === "true") {
         // FORGOT PASSWORD FLOW → Redirect to login
-         router.replace(`/reset-password?phone=${phone}`);
-         return;
+        router.replace(`/reset-password?phone=${phone}`);
+        return;
         return;
       }
 
@@ -80,7 +80,8 @@ export default function OTPVerify() {
       await createProfile(
         Array.isArray(name) ? name[0] : name,
         Array.isArray(phone) ? phone[0] : phone,
-        Array.isArray(password) ? password[0] : password
+        Array.isArray(password) ? password[0] : password,
+        (Array.isArray(role) ? role[0] : role) as "ADMIN" | "USER"
       );
 
       router.push("/otp-success");

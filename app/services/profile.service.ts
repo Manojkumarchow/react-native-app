@@ -3,7 +3,8 @@ import api from "./api";
 export const createProfile = async (
   name: string,
   phone: string,
-  password: string
+  password: string,
+  role: "ADMIN" | "USER"
 ) => {
   const body = {
     userId: null,
@@ -11,7 +12,7 @@ export const createProfile = async (
     email: null,
     phone,
     password,
-    role: "ADMIN",
+    role
   };
 
   const res = await api.post(
