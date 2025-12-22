@@ -9,7 +9,7 @@ const services = [
   { key: 'home', label: 'Home Services', icon: 'home-heart', route: '/home-services' },
   { key: 'rent', label: 'Rent', icon: 'key-outline', route: '/rent' },
   { key: 'watch', label: 'Watch Men', icon: 'account-tie', route: '/watchmen' },
-  // { key: 'cctv', label: 'CCTV', icon: 'security', route: '/cctv' },
+  { key: 'cctv', label: 'CCTV', icon: 'security', route: '/cctv' },
   { key: 'emergency', label: 'Emergency Contact', icon: 'phone-alert', route: '/emergency' },
   { key: 'announce', label: 'Latest Announcement', icon: 'bullhorn', route: '/announcements' },
 ];
