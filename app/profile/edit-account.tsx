@@ -15,46 +15,57 @@ import useProfileStore from "../store/profileStore";
 export default function EditAccount() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  
+
+  // -----------------------------
+  // FORM STATE
+  // -----------------------------
   const [name, setName] = useState(params.name as string);
   const [phone, setPhone] = useState(params.phone as string);
   const [email, setEmail] = useState(params.email as string);
+  const [upiId, setUpiId] = useState(params.upiId as string); // ✅ NEW
   const [flat, setFlat] = useState(params.flat as string);
   const [building, setBuilding] = useState(params.building as string);
   const [address, setAddress] = useState(params.address as string);
-  const [role, setRole] = useState(params.address as string);
-  
+
   const [loading, setLoading] = useState(false);
   const [popupVisible, setPopupVisible] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
-  const setProfile = useProfileStore((state) => state.setProfile);
 
+  const setProfile = useProfileStore((state) => state.setProfile);
+  const profile = useProfileStore();
+
+  // -----------------------------
+  // UPDATE PROFILE
+  // -----------------------------
   const updateProfile = async () => {
     setLoading(true);
     try {
       const res = await api.patch(
         `${process.env.EXPO_PUBLIC_BASE_URL}/profile/update`,
         {
-          userId: "12345", // later replace with actual logged in id
+          userId: profile.userId, // ✅ real user id
           name,
           email,
           phone,
-          password: null,
-          role: "ADMIN",
+          upiId, // ✅ SEND TO BACKEND
         }
       );
 
       if (res.status === 200) {
         setPopupMessage("Profile updated successfully");
+
+        // ✅ UPDATE LOCAL STORE
         setProfile({
+          ...profile,
           name,
           email,
           phone,
+          upiId,
           flat,
           building,
           address,
-          role
         });
+
         setPopupVisible(true);
 
         setTimeout(() => {
@@ -66,7 +77,7 @@ export default function EditAccount() {
       if (error?.response?.status === 404) {
         setPopupMessage("Profile not found");
       } else {
-        setPopupMessage("Error occurred. Please try after some time");
+        setPopupMessage("Something went wrong. Please try again.");
       }
       setPopupVisible(true);
 
@@ -87,10 +98,24 @@ export default function EditAccount() {
         <TextInput style={styles.input} value={name} onChangeText={setName} />
 
         <Text style={styles.label}>Phone</Text>
-        <TextInput style={styles.input} value={phone} onChangeText={setPhone} />
+        <TextInput
+          style={styles.input}
+          value={phone}
+          editable={false} // phone usually immutable
+        />
 
         <Text style={styles.label}>Email</Text>
         <TextInput style={styles.input} value={email} onChangeText={setEmail} />
+
+        {/* ✅ UPI ID FIELD */}
+        <Text style={styles.label}>UPI ID</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="example@upi"
+          value={upiId}
+          onChangeText={setUpiId}
+          autoCapitalize="none"
+        />
 
         <Text style={styles.label}>Flat</Text>
         <TextInput style={styles.input} value={flat} onChangeText={setFlat} />
@@ -123,7 +148,7 @@ export default function EditAccount() {
         </TouchableOpacity>
       </View>
 
-      {/* Success / Error popup modal */}
+      {/* SUCCESS / ERROR POPUP */}
       <Modal transparent visible={popupVisible} animationType="fade">
         <View style={styles.modalBackground}>
           <View style={styles.modalBox}>
@@ -136,9 +161,21 @@ export default function EditAccount() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, padding: 18, backgroundColor: "#fff" },
-  heading: { fontSize: 20, fontWeight: "700", marginBottom: 14 },
-  label: { marginTop: 12, fontSize: 14, color: "#333" },
+  screen: {
+    flex: 1,
+    padding: 18,
+    backgroundColor: "#fff",
+  },
+  heading: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 14,
+  },
+  label: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#333",
+  },
   input: {
     backgroundColor: "#fff",
     borderWidth: 1,
@@ -149,12 +186,16 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     backgroundColor: "#1C98ED",
-    marginTop: 20,
+    marginTop: 24,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
   },
-  saveText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  saveText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
 
   modalBackground: {
     flex: 1,
@@ -176,4 +217,3 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
-
