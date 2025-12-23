@@ -9,7 +9,8 @@ interface ProfileState {
   building: string | null;
   address: string | null;
   avatarUri: string | null;
-  role: string | null
+  role: string | null;
+  upiId: string | null
 
   setProfile: (data: Partial<ProfileState>) => void;
 }
@@ -24,7 +25,7 @@ const useProfileStore = create<ProfileState>((set) => ({
   address: null,
   avatarUri: null,
   role: null,
-
+  upiId: null,
   setProfile: (data) => set((state) => ({ ...state, ...data }))
 }));
 

@@ -40,9 +40,9 @@ export default function ProfileScreen() {
   const resetProfile = useProfileStore((s) => s.setProfile);
   const resetAuth = useAuthStore((s) => s.reset);
 
-  // ----------------------------
-  // IMAGE PICK + UPLOAD
-  // ----------------------------
+  /* ----------------------------
+     IMAGE PICK + UPLOAD
+  ---------------------------- */
   const pickAndUploadImage = async () => {
     try {
       const permission =
@@ -67,7 +67,6 @@ export default function ProfileScreen() {
 
       const asset = result.assets[0];
 
-      // Defensive mimeType check (Android/iOS safe)
       if (asset.mimeType && !ALLOWED_TYPES.includes(asset.mimeType)) {
         Alert.alert(
           "Invalid file",
@@ -88,14 +87,9 @@ export default function ProfileScreen() {
       await axios.post(
         `${process.env.EXPO_PUBLIC_BASE_URL}/profile/${username}/image`,
         formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
+        { headers: { "Content-Type": "multipart/form-data" } }
       );
 
-      // Update avatar immediately (cache-bust)
       profile.setProfile({
         ...profile,
         avatarUri: `${
@@ -110,6 +104,9 @@ export default function ProfileScreen() {
     }
   };
 
+  /* ----------------------------
+     EDIT ACCOUNT
+  ---------------------------- */
   const onEditAccount = () => {
     router.push({
       pathname: "/profile/edit-account",
@@ -117,6 +114,7 @@ export default function ProfileScreen() {
         name: profile.name,
         phone: profile.phone,
         email: profile.email,
+        upiId: profile.upiId, // ✅ PASS UPI ID
         flat: profile.flat,
         building: profile.building,
         address: profile.address,
@@ -150,6 +148,12 @@ export default function ProfileScreen() {
               {profile.name && <Row icon="account" label={profile.name} />}
               {profile.phone && <Row icon="phone" label={profile.phone} />}
               {profile.email && <Row icon="email" label={profile.email} />}
+
+              {/* ✅ UPI ID ADDED HERE */}
+              {profile.upiId && (
+                <Row icon="bank" label={`UPI: ${profile.upiId}`} />
+              )}
+
               {profile.flat && <Row icon="home" label={profile.flat} />}
               {profile.building && (
                 <Row icon="office-building" label={profile.building} />
@@ -181,6 +185,7 @@ export default function ProfileScreen() {
           </View>
         </ScrollView>
 
+        {/* LOGOUT CONFIRMATION */}
         <CustomAlert
           visible={showAlert}
           title="Logout"
@@ -197,6 +202,7 @@ export default function ProfileScreen() {
               address: null,
               avatarUri: null,
               role: null,
+              upiId: null, // ✅ RESET UPI ID
             });
             resetAuth();
             setShowAlert(false);
@@ -209,6 +215,8 @@ export default function ProfileScreen() {
     </>
   );
 }
+
+/* ================= STYLES ================= */
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#f7f9fb" },
