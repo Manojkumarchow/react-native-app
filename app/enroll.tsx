@@ -12,6 +12,13 @@ import { Stack, router } from "expo-router";
 import axios from "axios";
 import { Feather } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
+import * as Location from "expo-location";
+import Geocoder from "react-native-geocoding";
+
+/* ---------------------------------
+   GOOGLE MAPS
+---------------------------------- */
+Geocoder.init("AIzaSyC_jKoC1WtsqVFP6GRWKrrAJ_kueCljN88");
 
 /* -----------------------------
    VALIDATION HELPERS
@@ -20,8 +27,31 @@ const isValidEmail = (email: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 const isValidPhone = (phone: string) => /^[0-9]{10}$/.test(phone);
-
 const isValidPincode = (pincode: string) => /^[0-9]{6}$/.test(pincode);
+
+/* -----------------------------
+   ADDRESS PARSER
+----------------------------- */
+const extractAddressComponents = (components: any[]) => {
+  const get = (type: string) =>
+    components.find((c) => c.types.includes(type))?.long_name || "";
+
+  const streetNumber = get("street_number");
+  const route = get("route");
+
+  return {
+    streetName: [streetNumber, route].filter(Boolean).join(" "),
+    landmark:
+      get("sublocality") ||
+      get("sublocality_level_1") ||
+      get("neighborhood") ||
+      get("premise") ||
+      get("locality"),
+    city: get("administrative_area_level_2"),
+    state: get("administrative_area_level_1"),
+    pincode: get("postal_code"),
+  };
+};
 
 const INITIAL_FORM = {
   buildingName: "",
@@ -42,6 +72,8 @@ const INITIAL_FORM = {
 export default function EnrollBuildingScreen() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [currentAddress, setCurrentAddress] = useState("");
 
   /* -----------------------------
      FORM VALIDITY
@@ -62,6 +94,83 @@ export default function EnrollBuildingScreen() {
   }, [form, loading]);
 
   /* -----------------------------
+     FETCH CURRENT LOCATION
+  ----------------------------- */
+  const fetchCurrentLocation = async () => {
+    try {
+      setLocationLoading(true);
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Toast.show({
+          type: "error",
+          text1: "Permission Required",
+          text2: "Please enable location access",
+        });
+        return;
+      }
+
+      let location = null;
+
+      try {
+        // Attempt 1: High accuracy
+        location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+          timeout: 10000,
+        });
+      } catch {
+        // Attempt 2: Last known location
+        location = await Location.getLastKnownPositionAsync({});
+      }
+
+      if (!location) {
+        // Attempt 3: Balanced accuracy retry
+        location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+      }
+
+      if (!location) {
+        throw new Error("Location unavailable");
+      }
+
+      const { latitude, longitude } = location.coords;
+
+      const geoResponse = await Geocoder.from(latitude, longitude);
+      const result = geoResponse.results[0];
+
+      const address = result.formatted_address;
+      const components = extractAddressComponents(result.address_components);
+
+      setCurrentAddress(address);
+
+      setForm((prev) => ({
+        ...prev,
+        streetName: components.streetName,
+        landmark: components.landmark,
+        city: components.city,
+        state: components.state,
+        pincode: components.pincode,
+      }));
+
+      Toast.show({
+        type: "success",
+        text1: "Location Detected",
+        text2: "Address auto-filled successfully",
+      });
+    } catch (error) {
+      console.error("Location error:", error);
+      Toast.show({
+        type: "error",
+        text1: "Location Unavailable",
+        text2: "Please enter address manually",
+      });
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  /* -----------------------------
      SUBMIT
   ----------------------------- */
   const submit = async () => {
@@ -69,7 +178,7 @@ export default function EnrollBuildingScreen() {
       Toast.show({
         type: "error",
         text1: "Invalid Details",
-        text2: "Please fill all required fields correctly",
+        text2: "Please check required fields",
       });
       return;
     }
@@ -85,6 +194,7 @@ export default function EnrollBuildingScreen() {
           city: form.city,
           state: form.state,
           pincode: form.pincode,
+          fullAddress: currentAddress,
         },
         floors: Number(form.floors || 0),
         flatStartNumber: Number(form.flatStart || 0),
@@ -104,27 +214,18 @@ export default function EnrollBuildingScreen() {
         Toast.show({
           type: "success",
           text1: "Success 🎉",
-          text2: "Building is enrolled",
+          text2: "Building enrolled successfully",
         });
 
         setForm(INITIAL_FORM);
-
-        setTimeout(() => {
-          router.back();
-        }, 800);
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Unexpected Response",
-          text2: "Please try again later",
-        });
+        setCurrentAddress("");
+        setTimeout(() => router.back(), 800);
       }
     } catch (err: any) {
-      console.error(err);
       Toast.show({
         type: "error",
         text1: "Enrollment Failed",
-        text2: err?.response?.data?.message ?? "Unable to enroll building",
+        text2: err?.response?.data?.message ?? "Something went wrong",
       });
     } finally {
       setLoading(false);
@@ -148,7 +249,25 @@ export default function EnrollBuildingScreen() {
 
         <View style={styles.container}>
           <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={styles.title}>Register Your Apartment</Text>
+            <TouchableOpacity
+              style={styles.locationBtn}
+              onPress={fetchCurrentLocation}
+              disabled={locationLoading}
+            >
+              {locationLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.locationText}>📍 Use Current Location</Text>
+              )}
+            </TouchableOpacity>
+
+            <TextInput
+              style={[styles.input, styles.readOnly]}
+              placeholder="Auto-detected full address"
+              value={currentAddress}
+              editable={false}
+              multiline
+            />
 
             <TextInput
               style={styles.input}
@@ -166,7 +285,7 @@ export default function EnrollBuildingScreen() {
 
             <TextInput
               style={styles.input}
-              placeholder="Landmark (Optional)"
+              placeholder="Landmark"
               value={form.landmark}
               onChangeText={(v) => setForm({ ...form, landmark: v })}
             />
@@ -223,8 +342,8 @@ export default function EnrollBuildingScreen() {
             <TextInput
               style={styles.input}
               placeholder="Admin Email *"
-              autoCapitalize="none"
               keyboardType="email-address"
+              autoCapitalize="none"
               value={form.adminEmail}
               onChangeText={(v) => setForm({ ...form, adminEmail: v })}
             />
@@ -242,7 +361,7 @@ export default function EnrollBuildingScreen() {
                 style={[styles.checkbox, form.termsAccepted && styles.checked]}
               />
               <Text style={styles.checkboxText}>
-                I have read all Terms & Conditions *
+                I accept Terms & Conditions *
               </Text>
             </TouchableOpacity>
 
@@ -282,13 +401,25 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 30,
     padding: 20,
   },
-  title: { fontSize: 18, fontWeight: "700", marginBottom: 16 },
   input: {
     borderBottomWidth: 1,
     borderBottomColor: "#1C98ED",
     paddingVertical: 12,
     marginBottom: 16,
     fontSize: 15,
+  },
+  readOnly: { backgroundColor: "#F5F7FA" },
+  locationBtn: {
+    backgroundColor: "#5956E9",
+    borderRadius: 20,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  locationText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
   },
   checkboxRow: {
     flexDirection: "row",
@@ -312,8 +443,10 @@ const styles = StyleSheet.create({
     marginTop: 30,
     marginBottom: 40,
   },
-  submitDisabled: {
-    opacity: 0.5,
+  submitDisabled: { opacity: 0.5 },
+  submitText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
   },
-  submitText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });
