@@ -17,6 +17,7 @@ import { useNavigation } from "@react-navigation/native";
 import axios from "axios";
 import * as FileSystem from "expo-file-system";
 import { shareAsync } from "expo-sharing";
+import useBuildingStore from "./store/buildingStore";
 
 /* ---------------------------------
    Backend Config (DO NOT TOUCH)
@@ -76,6 +77,9 @@ const ledgerKey = (year: number, month: string) => `${year}-${month}`;
 export default function MyFlatLedger() {
   const navigation = useNavigation();
 
+  /** ✅ BUILDING CONTEXT */
+  const buildingId = useBuildingStore((s) => s.buildingId);
+
   const [activeYear, setActiveYear] = useState(2026);
   const [expandedMonth, setExpandedMonth] = useState<string | null>("January");
 
@@ -92,10 +96,10 @@ export default function MyFlatLedger() {
       : null;
 
   /* ---------------------------------
-     Fetch Ledger
+     Fetch Ledger (BUILDING-SCOPED)
   ---------------------------------- */
   useEffect(() => {
-    if (!expandedMonth) return;
+    if (!expandedMonth || !buildingId) return;
 
     const key = ledgerKey(activeYear, expandedMonth);
 
@@ -107,7 +111,13 @@ export default function MyFlatLedger() {
       try {
         const res = await axios.get<LedgerResponse>(
           `${API_BASE_URL}/whistleup/ledgers`,
-          { params: { year: activeYear, month: expandedMonth } }
+          {
+            params: {
+              year: activeYear,
+              month: expandedMonth,
+              buildingId, // ✅ IMPORTANT
+            },
+          }
         );
         setLedgerMap((prev) => ({ ...prev, [key]: res.data }));
       } catch (err: any) {
@@ -122,7 +132,7 @@ export default function MyFlatLedger() {
     };
 
     fetchLedger();
-  }, [activeYear, expandedMonth]);
+  }, [activeYear, expandedMonth, buildingId]);
 
   /* ---------------------------------
      Derived State
@@ -173,7 +183,7 @@ export default function MyFlatLedger() {
   };
 
   const onSave = async () => {
-    if (!expandedMonth || !activeKey) return;
+    if (!expandedMonth || !activeKey || !buildingId) return;
 
     try {
       setLoading(true);
@@ -183,13 +193,17 @@ export default function MyFlatLedger() {
       if (activeLedger) {
         const res = await axios.put<LedgerResponse>(
           `${API_BASE_URL}/whistleup/ledgers/${activeLedger.id}`,
-          { items: draftItems }
+          {
+            buildingId, // ✅ IMPORTANT
+            items: draftItems,
+          }
         );
         saved = res.data;
       } else {
         const res = await axios.post<LedgerResponse>(
           `${API_BASE_URL}/whistleup/ledgers`,
           {
+            buildingId, // ✅ IMPORTANT
             year: activeYear,
             month: expandedMonth,
             totalFlats: 20,
@@ -210,7 +224,7 @@ export default function MyFlatLedger() {
   };
 
   /* ---------------------------------
-     PDF Download
+     PDF Download (UNCHANGED)
   ---------------------------------- */
   const downloadPdf = async () => {
     if (!activeLedger) return;
@@ -258,7 +272,7 @@ export default function MyFlatLedger() {
   };
 
   /* ---------------------------------
-     Render
+     Render (UNCHANGED)
   ---------------------------------- */
   return (
     <SafeAreaView style={styles.safe}>
@@ -266,12 +280,10 @@ export default function MyFlatLedger() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
-
           <Text style={styles.headerTitle}>My Flat Ledger</Text>
         </View>
 
@@ -419,7 +431,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
   },
-  headerRight: { flexDirection: "row" },
   yearRow: { flexDirection: "row", padding: 16, gap: 12 },
   yearBtn: {
     borderWidth: 1,
