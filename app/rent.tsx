@@ -4,87 +4,84 @@ import { Stack, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import useProfileStore from "./store/profileStore";
 
+const PRIMARY = "#1C98ED";
+
 export default function RentScreen() {
   const router = useRouter();
-  const profile = useProfileStore((state) => state.profile);
-
-  const role = profile?.role; // ADMIN | USER
-
-  // SAFETY GUARD
-  if (role !== "ADMIN") {
-    return (
-      <View style={styles.screen}>
-        <Text style={styles.restricted}>This feature is only for Owners</Text>
-      </View>
-    );
-  }
+  const role = useProfileStore((state) => state.role);
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.screen}>
-        {/* HEADER */}
+        {/* HEADER (ALWAYS SHOWN) */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>Rent</Text>
+        </View>
 
-          <View style={styles.headerIcons}>
-            <MaterialCommunityIcons name="magnify" size={22} color="#fff" />
-            <View style={styles.badgeWrap}>
+        {/* ROLE-BASED CONTENT */}
+        {role !== "USER" ? (
+          /* RESTRICTED VIEW (OWNER / ADMIN) */
+          <View style={styles.restrictedContainer}>
+            <View style={styles.iconCircle}>
               <MaterialCommunityIcons
-                name="bell-outline"
-                size={22}
-                color="#fff"
+                name="account-lock-outline"
+                size={28}
+                color={PRIMARY}
               />
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>5</Text>
-              </View>
+            </View>
+
+            <Text style={styles.title}>Tenant Only Feature</Text>
+
+            <Text style={styles.subtitle}>
+              This section is available only for tenants.
+            </Text>
+          </View>
+        ) : (
+          /* TENANT VIEW */
+          <View style={styles.container}>
+            <View style={styles.iconCircle}>
+              <MaterialCommunityIcons
+                name="key-outline"
+                size={28}
+                color={PRIMARY}
+              />
+            </View>
+
+            <Text style={styles.title}>Rent Payment</Text>
+
+            <Text style={styles.subtitle}>
+              Your rent payment has been successfully processed.
+            </Text>
+
+            <View style={styles.actions}>
+              <TouchableOpacity style={styles.outlineBtn}>
+                <Text style={styles.outlineText}>Add Reminder for Owner</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.outlineBtn}>
+                <Text style={styles.outlineText}>Chat with Owner</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </View>
-
-        {/* CONTENT */}
-        <View style={styles.container}>
-          <View style={styles.iconCircle}>
-            <MaterialCommunityIcons
-              name="key-outline"
-              size={28}
-              color="#1C98ED"
-            />
-          </View>
-
-          <Text style={styles.title}>This Feature only for Tenants</Text>
-
-          <Text style={styles.subtitle}>
-            Your payment has been successfully processed.
-          </Text>
-
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.outlineBtn}>
-              <Text style={styles.outlineText}>
-                Add Reminder for Your Tenant
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.outlineBtn}>
-              <Text style={styles.outlineText}>Chat with Tenant</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        )}
       </View>
     </>
   );
 }
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#1C98ED",
+    backgroundColor: PRIMARY,
   },
 
+  /* Header */
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -126,6 +123,18 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  /* Restricted */
+  restrictedContainer: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+
+  /* Tenant Content */
   container: {
     flex: 1,
     backgroundColor: "#fff",
@@ -155,6 +164,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "300",
     marginBottom: 30,
+    textAlign: "center",
   },
 
   actions: {
@@ -164,7 +174,7 @@ const styles = StyleSheet.create({
 
   outlineBtn: {
     borderWidth: 1,
-    borderColor: "#1C98ED",
+    borderColor: PRIMARY,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 14,
@@ -173,13 +183,6 @@ const styles = StyleSheet.create({
   outlineText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#1C98ED",
-  },
-
-  restricted: {
-    marginTop: 200,
-    textAlign: "center",
-    fontSize: 16,
-    color: "#fff",
+    color: PRIMARY,
   },
 });
