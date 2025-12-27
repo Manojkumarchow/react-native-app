@@ -13,6 +13,7 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import axios from "axios";
 import * as FileSystem from "expo-file-system";
 import { shareAsync } from "expo-sharing";
@@ -73,6 +74,8 @@ const ledgerKey = (year: number, month: string) => `${year}-${month}`;
    Component
 ---------------------------------- */
 export default function MyFlatLedger() {
+  const navigation = useNavigation();
+
   const [activeYear, setActiveYear] = useState(2026);
   const [expandedMonth, setExpandedMonth] = useState<string | null>("January");
 
@@ -89,7 +92,7 @@ export default function MyFlatLedger() {
       : null;
 
   /* ---------------------------------
-     Fetch Ledger (ALWAYS on Month Expand)
+     Fetch Ledger
   ---------------------------------- */
   useEffect(() => {
     if (!expandedMonth) return;
@@ -106,7 +109,6 @@ export default function MyFlatLedger() {
           `${API_BASE_URL}/whistleup/ledgers`,
           { params: { year: activeYear, month: expandedMonth } }
         );
-
         setLedgerMap((prev) => ({ ...prev, [key]: res.data }));
       } catch (err: any) {
         if (err?.response?.status === 404) {
@@ -219,17 +221,37 @@ export default function MyFlatLedger() {
         { responseType: "arraybuffer" }
       );
 
-      const fileUri =
-        FileSystem.documentDirectory +
-        `Ledger_${activeLedger.month}_${activeLedger.year}.pdf`;
+      const base64 = Buffer.from(res.data).toString("base64");
+      const fileName = `Ledger_${activeLedger.month}_${activeLedger.year}.pdf`;
 
-      await FileSystem.writeAsStringAsync(
-        fileUri,
-        Buffer.from(res.data).toString("base64"),
-        { encoding: FileSystem.EncodingType.Base64 }
+      if (Platform.OS === "ios") {
+        const uri = FileSystem.documentDirectory + fileName;
+        await FileSystem.writeAsStringAsync(uri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        await shareAsync(uri);
+        return;
+      }
+
+      const permissions =
+        await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+
+      if (!permissions.granted) {
+        Alert.alert("Permission required", "Cannot save file");
+        return;
+      }
+
+      const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+        permissions.directoryUri,
+        fileName,
+        "application/pdf"
       );
 
-      await shareAsync(fileUri);
+      await FileSystem.writeAsStringAsync(fileUri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      Alert.alert("Success", "PDF downloaded to Downloads");
     } catch {
       Alert.alert("Error", "Failed to download PDF");
     }
@@ -246,13 +268,11 @@ export default function MyFlatLedger() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Ionicons name="chevron-back" size={24} color="#fff" />
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={24} color="#fff" />
+          </TouchableOpacity>
+
           <Text style={styles.headerTitle}>My Flat Ledger</Text>
-          <View style={styles.headerRight}>
-            <Ionicons name="search" size={20} color="#fff" />
-            <View style={{ width: 12 }} />
-            <Ionicons name="notifications-outline" size={20} color="#fff" />
-          </View>
         </View>
 
         {/* Year Selector */}
@@ -275,7 +295,7 @@ export default function MyFlatLedger() {
           ))}
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
           {MONTHS.map((m) => {
             const open = expandedMonth === m;
             return (
@@ -365,24 +385,13 @@ export default function MyFlatLedger() {
             );
           })}
         </ScrollView>
-
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <Ionicons name="home-outline" size={24} />
-          <Ionicons name="grid-outline" size={24} />
-          <View style={styles.fab}>
-            <Ionicons name="layers" size={26} color="#fff" />
-          </View>
-          <Ionicons name="chatbubbles-outline" size={24} />
-          <Ionicons name="person-outline" size={24} />
-        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 /* ---------------------------------
-   Small Components
+   Row Component
 ---------------------------------- */
 const Row = ({ label, value }: { label: string; value: string }) => (
   <View style={styles.row}>
@@ -483,21 +492,4 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   pdfText: { color: PRIMARY, fontWeight: "600" },
-  bottomNav: {
-    height: 64,
-    borderTopWidth: 1,
-    borderColor: "#eee",
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: PRIMARY,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-  },
 });
