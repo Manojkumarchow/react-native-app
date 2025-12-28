@@ -11,6 +11,8 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import axios from "axios";
 import { useRouter } from "expo-router";
 import useAuthStore from "./store/authStore";
+import useProfileStore from "./store/profileStore";
+import useBuildingStore from "./store/buildingStore";
 
 interface EventItem {
   eventId: string;
@@ -23,7 +25,7 @@ interface EventItem {
 
 export default function Events() {
   const router = useRouter();
-  const { username } = useAuthStore();
+  const buildingId = useBuildingStore((s) => s.buildingId); // username is phone
 
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +37,7 @@ export default function Events() {
   const fetchEvents = async () => {
     try {
       const res = await axios.get(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/events/${username}`
+        `${process.env.EXPO_PUBLIC_BASE_URL}/events/${buildingId}`
       );
       setEvents(res.data || []);
     } catch (error) {

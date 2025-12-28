@@ -13,11 +13,11 @@ interface BuildingAddress {
 }
 
 interface BuildingState {
-  buildingId: number;
-  buildingName: string;
+  buildingId: number | null;
+  buildingName: string | null;
   address: BuildingAddress | null;
   floors: number;
-
+  totalResidents: number;
   plumbingService: ServiceInfo | null;
   electricService: ServiceInfo | null;
   cleaningService: ServiceInfo | null;
@@ -26,35 +26,52 @@ interface BuildingState {
 
   setBuilding: (id: number, name: string) => void;
   setBuildingData: (data: any) => void;
+  resetBuilding: () => void;
 }
 
 const useBuildingStore = create<BuildingState>((set) => ({
-  // Default values (in case API not loaded yet)
-  buildingId: 4,
-  buildingName: "Block A",
+  buildingId: null,
+  buildingName: null,
   address: null,
   floors: 0,
-
+  totalResidents: 0,
   plumbingService: null,
   electricService: null,
   cleaningService: null,
   carpenterService: null,
   watchmen: null,
 
-  setBuilding: (buildingId, buildingName) => set({ buildingId, buildingName }),
+  setBuilding: (buildingId, buildingName) =>
+    set({
+      buildingId,
+      buildingName,
+    }),
 
   setBuildingData: (data) =>
     set({
-      buildingId: data.buildingId,
-      buildingName: data.buildingName,
-      address: data.buildingAddress ?? null,
-      floors: data.floors ?? 0,
-
-      plumbingService: data.plumbingService ?? null,
-      electricService: data.electricService ?? null,
-      cleaningService: data.cleaningService ?? null,
-      carpenterService: data.carpenterService ?? null,
-      watchmen: data.watchmen ?? null,
+      buildingId: data?.buildingId ?? null,
+      buildingName: data?.buildingName ?? null,
+      address: data?.buildingAddress ?? null,
+      floors: data?.floors ?? 0,
+      totalResidents: data?.totalResidents ?? 0,
+      plumbingService: data?.plumbingService ?? null,
+      electricService: data?.electricService ?? null,
+      cleaningService: data?.cleaningService ?? null,
+      carpenterService: data?.carpenterService ?? null,
+      watchmen: data?.watchmen ?? null,
+    }),
+  resetBuilding: () =>
+    set({
+      buildingId: null,
+      buildingName: null,
+      address: null,
+      floors: 0,
+      totalResidents: 0,
+      plumbingService: null,
+      electricService: null,
+      cleaningService: null,
+      carpenterService: null,
+      watchmen: null,
     }),
 }));
 

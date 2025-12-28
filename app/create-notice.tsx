@@ -11,10 +11,11 @@ import Toast from "react-native-toast-message";
 import axios from "axios";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import useProfileStore from "./store/profileStore";
+import useBuildingStore from "./store/buildingStore";
 
 export default function CreateNotice() {
   const profile = useProfileStore();
-
+  const buildingId = useBuildingStore((s) => s.buildingId);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<"INFO" | "ALERT" | "">("");
@@ -29,6 +30,7 @@ export default function CreateNotice() {
         description,
         type,
         profileId: profile.phone,
+        buildingId: buildingId,
       });
 
       router.replace("/notices");
@@ -48,6 +50,10 @@ export default function CreateNotice() {
       <View style={styles.container}>
         {/* HEADER */}
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+
           <Text style={styles.heading}>Create a Notice</Text>
 
           <TouchableOpacity onPress={() => router.replace("/notices")}>
@@ -131,8 +137,8 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 20,
   },
 

@@ -32,7 +32,7 @@ const ALLOWED_TYPES = [
 export default function ProfileScreen() {
   const router = useRouter();
   const profile = useProfileStore();
-  const { username } = useAuthStore();
+  const username = useProfileStore((s) => s.phone);
 
   const [uploading, setUploading] = useState(false);
   const [showAlert, setShowAlert] = useState(false);

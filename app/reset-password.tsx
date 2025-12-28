@@ -20,8 +20,10 @@ export default function ResetPasswordScreen() {
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
   const [isPasswordValid, setIsPasswordValid] = useState(true);
   const [loading, setLoading] = useState(false);
+
   const passwordRef = useRef<TextInput>(null);
   const confirmRef = useRef<TextInput>(null);
 
@@ -38,31 +40,24 @@ export default function ResetPasswordScreen() {
   };
 
   const handleReset = async () => {
+    setError("");
+
     if (!validatePassword(password)) {
-      Toast.show({
-        type: "error",
-        text1: "Weak Password",
-        text2: "Follow the required password rules",
-      });
+      setError(
+        "Password must include uppercase, lowercase, number, special character and be at least 8 characters."
+      );
       return;
     }
 
     if (password !== confirm) {
-      Toast.show({
-        type: "error",
-        text1: "Password mismatch",
-        text2: "Both passwords must match",
-      });
+      setError("Passwords do not match");
       return;
     }
 
     try {
       setLoading(true);
 
-      await updateProfile(
-        Array.isArray(phone) ? phone[0] : phone,
-        Array.isArray(password) ? password[0] : password
-      );
+      await updateProfile(Array.isArray(phone) ? phone[0] : phone, password);
 
       Toast.show({
         type: "success",
@@ -70,7 +65,7 @@ export default function ResetPasswordScreen() {
       });
 
       setTimeout(() => router.replace("/login"), 2000);
-    } catch (e) {
+    } catch {
       Toast.show({
         type: "error",
         text1: "Reset Failed",
@@ -88,7 +83,7 @@ export default function ResetPasswordScreen() {
         style={{ flex: 1 }}
       >
         <FrostedCard>
-          <Text style={styles.title}>Reset Password!</Text>
+          <Text style={styles.title}>Reset Password</Text>
           <Text style={styles.subtitle}>Enter your new password</Text>
 
           <TextInput
@@ -128,6 +123,9 @@ export default function ResetPasswordScreen() {
             onChangeText={setConfirm}
           />
 
+          {/* Inline Error (same as Signup) */}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
           <TouchableOpacity
             style={[styles.button, loading && { opacity: 0.6 }]}
             disabled={loading}
@@ -146,9 +144,20 @@ export default function ResetPasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  bg: { flex: 1, backgroundColor: "#B3D6F7", justifyContent: "center" },
-  title: { fontSize: 24, fontWeight: "700", color: "#0A174E" },
-  subtitle: { marginBottom: 24, color: "#444" },
+  bg: {
+    flex: 1,
+    backgroundColor: "#B3D6F7",
+    justifyContent: "center",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#0A174E",
+  },
+  subtitle: {
+    marginBottom: 24,
+    color: "#444",
+  },
   input: {
     borderBottomWidth: 1,
     borderBottomColor: "#6C63FF",
@@ -166,13 +175,27 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 14,
   },
-  buttonText: { color: "#fff", fontSize: 18, fontWeight: "700" },
-  inputError: { borderBottomColor: "red" },
-  inputSuccess: { borderBottomColor: "green" },
+  buttonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  inputError: {
+    borderBottomColor: "red",
+  },
+  inputSuccess: {
+    borderBottomColor: "green",
+  },
   validationError: {
     color: "red",
     fontSize: 12,
     marginTop: -15,
     marginBottom: 10,
+  },
+  error: {
+    color: "red",
+    textAlign: "center",
+    marginBottom: 10,
+    fontSize: 13,
   },
 });

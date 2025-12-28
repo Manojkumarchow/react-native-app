@@ -21,22 +21,22 @@ export default function BottomNav() {
         <Text style={styles.icon}>🏠</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.tab} onPress={() => router.push("/grid")}>
+      {/* <TouchableOpacity style={styles.tab} onPress={() => router.push("/grid")}>
         <Text style={styles.icon}>▦</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
-      <View style={styles.fabWrap}>
+      {/* <View style={styles.fabWrap}>
         <TouchableOpacity
           style={styles.fab}
           onPress={() => router.push("/central")}
         >
           <Text style={{ color: "#fff", fontSize: 18 }}>≡</Text>
         </TouchableOpacity>
-      </View>
+      </View> */}
 
-      <TouchableOpacity style={styles.tab} onPress={() => router.push("/chat")}>
+      {/* <TouchableOpacity style={styles.tab} onPress={() => router.push("/chat")}>
         <Text style={styles.icon}>💬</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
       <TouchableOpacity
         style={styles.tab}

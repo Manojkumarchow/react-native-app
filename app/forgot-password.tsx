@@ -14,6 +14,7 @@ import {
 import FrostedCard from "./components/FrostedCard";
 import Toast from "react-native-toast-message";
 import { sendOTP } from "./services/otp.service";
+import { getProfile } from "./services/profile.service";
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -32,6 +33,16 @@ export default function ForgotPasswordScreen() {
 
     try {
       setLoading(true);
+      try {
+        await getProfile(phone);
+      } catch (err: any) {
+        Toast.show({
+          type: "error",
+          text1: "Account Not Found",
+          text2: "No account exists with this phone number",
+        });
+        return;
+      }
       const otpRes = await sendOTP(phone);
 
       router.push({
@@ -43,7 +54,11 @@ export default function ForgotPasswordScreen() {
         },
       });
     } catch (err) {
-      Toast.show({ type: "error", text1: "Failed", text2: "Try again later" });
+      Toast.show({
+        type: "error",
+        text1: "Failed",
+        text2: "Unable to process request. Try again later",
+      });
     } finally {
       setLoading(false);
     }
@@ -59,7 +74,7 @@ export default function ForgotPasswordScreen() {
           <FrostedCard>
             <Text style={styles.title}>What’s your Phone?</Text>
             <Text style={styles.subtitle}>
-              We’ll send code to your phone number
+              We’ll send a code to your phone number
             </Text>
 
             <TextInput
@@ -73,7 +88,7 @@ export default function ForgotPasswordScreen() {
             />
 
             <TouchableOpacity
-              style={styles.button}
+              style={[styles.button, loading && { opacity: 0.6 }]}
               onPress={handleContinue}
               disabled={loading}
             >
@@ -88,7 +103,7 @@ export default function ForgotPasswordScreen() {
               style={styles.signinRow}
               onPress={() => router.replace("/login")}
             >
-              <Text style={styles.signinText}>I remember my old Password?</Text>
+              <Text style={styles.signinText}>I remember my old password?</Text>
               <Text style={styles.signinLink}> Login Now</Text>
             </TouchableOpacity>
           </FrostedCard>

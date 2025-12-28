@@ -79,6 +79,7 @@ export default function MyFlatLedger() {
 
   /** ✅ BUILDING CONTEXT */
   const buildingId = useBuildingStore((s) => s.buildingId);
+  const totalResidents = useBuildingStore((s) => s.totalResidents);
 
   const [activeYear, setActiveYear] = useState(2026);
   const [expandedMonth, setExpandedMonth] = useState<string | null>("January");
@@ -206,7 +207,7 @@ export default function MyFlatLedger() {
             buildingId, // ✅ IMPORTANT
             year: activeYear,
             month: expandedMonth,
-            totalFlats: 20,
+            totalFlats: totalResidents,
             items: draftItems,
           }
         );
@@ -358,7 +359,7 @@ export default function MyFlatLedger() {
                     <View style={styles.divider} />
 
                     <Row label="Total" value={currency(totalAmount)} />
-                    <Row label="Total Flats in Apartment" value="20" />
+                    <Row label="Total Flats in Apartment" value={totalResidents} />
                     <Row
                       label="Each Flat Payable Amount"
                       value={currency(perFlatAmount)}

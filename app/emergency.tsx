@@ -14,6 +14,7 @@ import axios from "axios";
 import { Stack, router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import useAuthStore from "./store/authStore";
+import useProfileStore from "./store/profileStore";
 
 type Contact = {
   name: string;
@@ -23,7 +24,7 @@ type Contact = {
 const MAX_CONTACTS = 4;
 
 export default function AddContact() {
-  const { username } = useAuthStore();
+  const username = useProfileStore((s) => s.phone);
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [modalVisible, setModalVisible] = useState(false);

@@ -24,7 +24,7 @@ export default function HomeServicesScreen() {
       {
         name: "Plumbing",
         image: require("./../assets/images/plumber.png"),
-        phone: building?.plumbingService?.phone ?? "9666499643",
+        phone: building?.plumbingService?.phone ?? "1234567890",
       },
       {
         name: "Electrical",

@@ -4,7 +4,8 @@ export const createProfile = async (
   name: string,
   phone: string,
   password: string,
-  role: "ADMIN" | "USER"
+  role: "ADMIN" | "USER",
+  buildingId: string
 ) => {
   const body = {
     userId: null,
@@ -12,7 +13,8 @@ export const createProfile = async (
     email: null,
     phone,
     password,
-    role
+    role,
+    buildingId
   };
 
   const res = await api.post(
