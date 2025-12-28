@@ -20,6 +20,7 @@ import BottomNav from "./components/BottomNav";
 import useProfileStore from "./store/profileStore";
 import useAuthStore from "./store/authStore";
 import CustomAlert from "./components/CustomAlert";
+import Toast from "react-native-toast-message";
 
 const ALLOWED_TYPES = [
   "image/png",
@@ -49,10 +50,10 @@ export default function ProfileScreen() {
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
-        Alert.alert(
-          "Permission required",
-          "Please allow photo access to upload profile picture"
-        );
+        Toast.show({
+          text1: "Permission required",
+          text2: "Please allow photo access to upload profile picture",
+        });
         return;
       }
 
@@ -178,10 +179,6 @@ export default function ProfileScreen() {
               <Text style={styles.versionTitle}>App Version</Text>
               <Text style={styles.versionValue}>2.4.1 (Build 241)</Text>
             </View>
-
-            <Text style={styles.copy}>
-              2025 FinTech Pro. All rights reserved.
-            </Text>
           </View>
         </ScrollView>
 

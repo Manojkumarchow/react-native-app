@@ -13,6 +13,7 @@ import useProfileStore from "./store/profileStore";
 import Toast from "react-native-toast-message";
 
 const PRIMARY = "#1C98ED";
+const GREEN = "#49bf09ff";
 
 export default function Payments() {
   const upiId = useProfileStore((s) => s.upiId);
@@ -68,7 +69,7 @@ export default function Payments() {
           <Text style={styles.paymentEmoji}>💸</Text>
 
           <TouchableOpacity onPress={handleUpiPress}>
-            <Text style={styles.upiText}>{upiId}</Text>
+            <Text style={styles.upiText}>👉 {upiId}</Text>
           </TouchableOpacity>
 
           <Text style={styles.helperText}>
@@ -121,7 +122,7 @@ const styles = StyleSheet.create({
   upiText: {
     fontSize: 16,
     fontWeight: "700",
-    color: PRIMARY,
+    color: GREEN,
   },
   helperText: {
     fontSize: 12,

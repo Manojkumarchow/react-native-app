@@ -19,6 +19,7 @@ import { useRouter, Stack } from "expo-router";
 import Toast from "react-native-toast-message";
 import useProfileStore from "./store/profileStore";
 import axios from "axios";
+import useBuildingStore from "./store/buildingStore";
 
 const { width } = Dimensions.get("window");
 const MAX_IMAGES = 5;
@@ -26,7 +27,7 @@ const MAX_IMAGES = 5;
 export default function RaiseIssueScreen() {
   const router = useRouter();
   const username = useProfileStore((s) => s.phone);
-
+  const adminPhone = useBuildingStore((s) => s.adminPhone);
   const [issue, setIssue] = useState("");
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<any[]>([]);
@@ -89,6 +90,7 @@ export default function RaiseIssueScreen() {
       timestamp: new Date().toISOString(),
       type: "GENERAL",
       isResolved: false,
+      assigneeProfile: adminPhone,
     };
 
     try {
