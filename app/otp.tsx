@@ -16,7 +16,9 @@ import { createProfile } from "./services/profile.service";
 
 export default function OTPVerify() {
   const router = useRouter();
-  const { phone, name, password, role, resetFlow } = useLocalSearchParams();
+
+  const { phone, name, password, role, buildingId, resetFlow } =
+    useLocalSearchParams();
 
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
@@ -29,6 +31,23 @@ export default function OTPVerify() {
     useRef<TextInput>(null),
   ];
 
+  /* ---------------------------------
+     Helpers
+  ---------------------------------- */
+  const resolvedPhone = Array.isArray(phone) ? phone[0] : phone;
+  const resolvedName = Array.isArray(name) ? name[0] : name;
+  const resolvedPassword = Array.isArray(password) ? password[0] : password;
+  const resolvedRole = (Array.isArray(role) ? role[0] : role) as
+    | "ADMIN"
+    | "USER";
+
+  const resolvedBuildingId = Number(
+    Array.isArray(buildingId) ? buildingId[0] : buildingId
+  );
+
+  /* ---------------------------------
+     OTP Helpers
+  ---------------------------------- */
   const resetOtp = () => {
     setOtp(["", "", "", ""]);
     setError("");
@@ -39,15 +58,18 @@ export default function OTPVerify() {
     try {
       setIsLoading(true);
       setError("");
-      await sendOTP(Array.isArray(phone) ? phone[0] : phone);
+      await sendOTP(resolvedPhone);
       resetOtp();
-    } catch (e) {
+    } catch {
       setError("Failed to resend OTP");
     } finally {
       setIsLoading(false);
     }
   };
 
+  /* ---------------------------------
+     Verify OTP
+  ---------------------------------- */
   const handleVerify = async (enteredOtp = otp.join("")) => {
     if (enteredOtp.length < 4) {
       setError("Please enter all 4 digits");
@@ -58,40 +80,41 @@ export default function OTPVerify() {
       setIsLoading(true);
       setError("");
 
-      const verification = await verifyOTP(
-        Array.isArray(phone) ? phone[0] : phone,
-        enteredOtp
-      );
+      const verification = await verifyOTP(resolvedPhone, enteredOtp);
 
       if (!verification.verified) {
         setError(verification.message || "Invalid Code, Try Again");
         return;
       }
 
-      // NEW FLOW CONTROL
       if (resetFlow === "true") {
-        // FORGOT PASSWORD FLOW → Redirect to login
-        router.replace(`/reset-password?phone=${phone}`);
+        router.replace(`/reset-password?phone=${resolvedPhone}`);
         return;
+      }
+      if (!resolvedBuildingId || Number.isNaN(resolvedBuildingId)) {
+        setError("Building information missing. Please signup again.");
         return;
       }
 
-      // ORIGINAL SIGNUP FLOW
       await createProfile(
-        Array.isArray(name) ? name[0] : name,
-        Array.isArray(phone) ? phone[0] : phone,
-        Array.isArray(password) ? password[0] : password,
-        (Array.isArray(role) ? role[0] : role) as "ADMIN" | "USER"
+        resolvedName,
+        resolvedPhone,
+        resolvedPassword,
+        resolvedRole,
+        String(resolvedBuildingId)
       );
 
       router.push("/otp-success");
-    } catch (e) {
+    } catch {
       setError("Verification failed");
     } finally {
       setIsLoading(false);
     }
   };
 
+  /* ---------------------------------
+     OTP Input Handler
+  ---------------------------------- */
   const handleChange = (text: string, index: number) => {
     if (/[^0-9]/.test(text)) return;
 
@@ -113,6 +136,9 @@ export default function OTPVerify() {
     }
   };
 
+  /* ---------------------------------
+     Render
+  ---------------------------------- */
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -133,7 +159,7 @@ export default function OTPVerify() {
                 <TextInput
                   key={index}
                   ref={inputs[index]}
-                  style={[styles.otpBox, error ? styles.otpError : null]}
+                  style={[styles.otpBox, error && styles.otpError]}
                   maxLength={1}
                   keyboardType="number-pad"
                   value={digit}
@@ -169,21 +195,13 @@ export default function OTPVerify() {
   );
 }
 
+/* ---------------------------------
+   Styles (UNCHANGED)
+---------------------------------- */
 const styles = StyleSheet.create({
-  bg: {
-    flex: 1,
-    backgroundColor: "#B3D6F7",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#0A174E",
-  },
-  subtitle: {
-    marginTop: 8,
-    color: "#444",
-    marginBottom: 20,
-  },
+  bg: { flex: 1, backgroundColor: "#B3D6F7" },
+  title: { fontSize: 24, fontWeight: "700", color: "#0A174E" },
+  subtitle: { marginTop: 8, color: "#444", marginBottom: 20 },
   otpRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -199,9 +217,7 @@ const styles = StyleSheet.create({
     borderColor: "#6C63FF",
     backgroundColor: "#fff",
   },
-  otpError: {
-    borderColor: "red",
-  },
+  otpError: { borderColor: "red" },
   error: {
     color: "red",
     textAlign: "center",
@@ -221,12 +237,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: "#fff", fontSize: 18, fontWeight: "600" },
 });

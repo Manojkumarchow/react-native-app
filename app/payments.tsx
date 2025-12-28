@@ -10,6 +10,7 @@ import {
 import { Stack, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import useProfileStore from "./store/profileStore";
+import Toast from "react-native-toast-message";
 
 const PRIMARY = "#1C98ED";
 
@@ -17,8 +18,11 @@ export default function Payments() {
   const upiId = useProfileStore((s) => s.upiId);
 
   const handleUpiPress = async () => {
-    if (!upiId) {
-      Alert.alert("Error", "UPI ID not available");
+    if (upiId == undefined || !upiId || upiId == null || upiId == "") {
+      Toast.show({
+        type: "UPI ID not available",
+        text1: "Please add UPI ID in the profile",
+      });
       return;
     }
 
@@ -27,10 +31,11 @@ export default function Payments() {
     const supported = await Linking.canOpenURL(upiUrl);
 
     if (!supported) {
-      Alert.alert(
-        "No UPI App Found",
-        "Please install a UPI app like Google Pay, PhonePe, Paytm or BHIM"
-      );
+      Toast.show({
+        type: "No UPI App Found",
+        text1:
+          "Please install a UPI app like Google Pay, PhonePe, Paytm or BHIM",
+      });
       return;
     }
 

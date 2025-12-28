@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -17,47 +17,43 @@ import useBuildingStore from "./store/buildingStore";
 export default function ResidentsScreen() {
   const router = useRouter();
 
-  // Building store
-  const { buildingId, buildingName, setBuilding } = useBuildingStore();
+  const { buildingId, buildingName } = useBuildingStore();
 
-  // Floor dropdown state
-  const [selectedFloor, setSelectedFloor] = useState(1);
+  const [selectedFloor, setSelectedFloor] = useState<number>(1);
   const [showFloorDropdown, setShowFloorDropdown] = useState(false);
-
   const floors = Array.from({ length: 10 }, (_, i) => i + 1);
 
-  // Building dropdown (names hardcoded for now)
-  const buildings = [
-    { id: 4, name: "Block A" },
-    { id: 5, name: "Block B" },
-    { id: 6, name: "Block C" },
-  ];
-  const [showBuildingDropdown, setShowBuildingDropdown] = useState(false);
-
-  // Residents
-  const [residents, setResidents] = useState<any[]>([]);
+  const [allResidents, setAllResidents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Fetch residents when floor or building changes
   useEffect(() => {
+    if (!buildingId) return;
+
+    const fetchResidents = async () => {
+      setLoading(true);
+      try {
+        const res = await axios.get(
+          `${process.env.EXPO_PUBLIC_BASE_URL}/residents/building/${buildingId}`
+        );
+        setAllResidents(res.data || []);
+      } catch (err) {
+        console.log("Failed to fetch residents", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchResidents();
-  }, [selectedFloor, buildingId]);
+  }, [buildingId]);
 
-  const fetchResidents = async () => {
-    setLoading(true);
-
-    try {
-      const response = await axios.get(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/residents/building/${buildingId}/floor/${selectedFloor}`
-      );
-
-      setResidents(response.data || []);
-    } catch (err) {
-      console.log("Failed to fetch residents", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  /* ---------------------------------
+     Client-side Floor Filter
+  ---------------------------------- */
+  const residents = useMemo(() => {
+    return allResidents.filter(
+      (r) => Number(r.floorNo) === Number(selectedFloor)
+    );
+  }, [allResidents, selectedFloor]);
 
   const callUser = (phone: string) => {
     Linking.openURL(`tel:${phone}`);
@@ -74,9 +70,11 @@ export default function ResidentsScreen() {
             <Feather name="arrow-left" size={24} color="#fff" />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Residents</Text>
+          <Text style={styles.headerTitle}>
+            Residents{buildingName ? ` · ${buildingName}` : ""}
+          </Text>
 
-          <View style={styles.rightIcons}>
+          {/* <View style={styles.rightIcons}>
             <Feather
               name="search"
               size={22}
@@ -84,40 +82,11 @@ export default function ResidentsScreen() {
               style={{ marginRight: 18 }}
             />
             <Feather name="bell" size={22} color="#fff" />
-          </View>
+          </View> */}
         </View>
 
-        {/* FILTER ROW */}
+        {/* FLOOR FILTER */}
         <View style={styles.filterRow}>
-          {/* BUILDING DROPDOWN */}
-          <View>
-            <TouchableOpacity
-              style={styles.selector}
-              onPress={() => setShowBuildingDropdown(!showBuildingDropdown)}
-            >
-              <Text style={styles.selectorText}>{buildingName}</Text>
-              <Feather name="chevron-down" size={18} color="#1C98ED" />
-            </TouchableOpacity>
-
-            {showBuildingDropdown && (
-              <View style={styles.dropdownList}>
-                {buildings.map((b) => (
-                  <TouchableOpacity
-                    key={b.id}
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setBuilding(b.id, b.name);
-                      setShowBuildingDropdown(false);
-                    }}
-                  >
-                    <Text style={styles.dropdownText}>{b.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-
-          {/* FLOOR DROPDOWN */}
           <View>
             <TouchableOpacity
               style={styles.selector}
@@ -151,13 +120,14 @@ export default function ResidentsScreen() {
           {loading ? (
             <ActivityIndicator size="large" color="#1C98ED" />
           ) : residents.length === 0 ? (
-            <Text style={styles.emptyText}>No residents found</Text>
+            <Text style={styles.emptyText}>
+              No residents found on this floor
+            </Text>
           ) : (
             <View style={styles.grid}>
               {residents.map((res, index) => (
                 <View key={index} style={styles.card}>
                   <Text style={styles.name}>{res.name}</Text>
-                  {/* <Text style={styles.flat}>Phone: {res.phone}</Text> */}
 
                   <View style={styles.line} />
 
@@ -195,8 +165,9 @@ export default function ResidentsScreen() {
   );
 }
 
-// =============== STYLES ===============
-
+/* ---------------------------------
+   Styles (UNCHANGED VISUALLY)
+---------------------------------- */
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#A3C9FF" },
 
@@ -222,8 +193,6 @@ const styles = StyleSheet.create({
   },
 
   filterRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     paddingHorizontal: 20,
     marginTop: 18,
   },
@@ -235,7 +204,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    width: 130,
+    width: 140,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -253,7 +222,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1C98ED",
     marginTop: 6,
-    width: 130,
+    width: 140,
     elevation: 5,
   },
 
@@ -299,12 +268,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#08401E",
-  },
-
-  flat: {
-    fontSize: 12,
-    color: "#666",
-    marginTop: 3,
   },
 
   line: {

@@ -79,7 +79,7 @@ export default function LoginScreen() {
       Toast.show({
         type: "error",
         text1: "Login Failed",
-        text2: err?.response?.data?.message ?? "Invalid credentials",
+        text2: "Invalid credentials",
       });
     } finally {
       setLoading(false);

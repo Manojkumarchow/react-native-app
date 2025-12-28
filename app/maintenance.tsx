@@ -15,6 +15,7 @@ import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Alert, Platform } from "react-native";
 import useAuthStore from "./store/authStore";
+import useProfileStore from "./store/profileStore";
 
 type MaintenanceItem = {
   id: number;
@@ -28,7 +29,7 @@ type MaintenanceItem = {
 
 export default function MaintenanceScreen() {
   const router = useRouter();
-  const { username } = useAuthStore();
+  const username = useProfileStore((s) => s.phone);
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => `${currentYear - i}`);

@@ -1,11 +1,7 @@
-import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-
-const { width, height } = Dimensions.get('window');
-
-import { ReactNode } from 'react';
+import React, { ReactNode } from "react";
+import { View, StyleSheet } from "react-native";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 
 interface FrostedCardProps {
   children: ReactNode;
@@ -13,11 +9,11 @@ interface FrostedCardProps {
 
 export default function FrostedCard({ children }: FrostedCardProps) {
   return (
-    <View style={styles.wrapper}>
+    <View style={styles.container}>
       <BlurView intensity={40} tint="light" style={styles.blurLayer} />
 
       <LinearGradient
-        colors={['#FFFFFF', 'rgba(255,255,255,0.45)']}
+        colors={["#FFFFFF", "rgba(255,255,255,0.45)"]}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradientLayer}
@@ -29,29 +25,23 @@ export default function FrostedCard({ children }: FrostedCardProps) {
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    position: 'absolute',
-    left: width * 0.1425,
-    right: width * 0.1469,
-    top: height * 0.2315,
-    bottom: height * 0.261,
+  container: {
+    borderRadius: 30,
+    overflow: "hidden",
   },
 
   blurLayer: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 30,
   },
 
   gradientLayer: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 30,
   },
 
   inner: {
-    flex: 1,
-    borderRadius: 30,
     padding: 28,
-    shadowColor: '#000',
+    borderRadius: 30,
+    shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowOffset: { width: 0, height: 3 },
     shadowRadius: 6,

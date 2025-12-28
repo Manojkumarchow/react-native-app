@@ -10,8 +10,8 @@ import {
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import axios from "axios";
-import useAuthStore from "./store/authStore";
 import { router } from "expo-router";
+import useBuildingStore from "./store/buildingStore";
 
 interface Notice {
   noticeId: string;
@@ -22,17 +22,17 @@ interface Notice {
 }
 
 export default function Notices() {
-  const { username } = useAuthStore();
+  const buildingId = useBuildingStore((s) => s.buildingId);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!username) return;
+    if (!buildingId) return;
 
     const fetchNotices = async () => {
       try {
         const res = await axios.get(
-          `${process.env.EXPO_PUBLIC_BASE_URL}/notices/${username}`
+          `${process.env.EXPO_PUBLIC_BASE_URL}/notices/${buildingId}`
         );
         setNotices(res.data);
       } catch (error) {
@@ -43,7 +43,7 @@ export default function Notices() {
     };
 
     fetchNotices();
-  }, [username]);
+  }, [buildingId]);
 
   const getDaysAgo = (dateStr: string) => {
     const created = new Date(dateStr).getTime();
