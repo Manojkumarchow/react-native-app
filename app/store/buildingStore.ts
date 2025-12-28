@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+/* -------- TYPES -------- */
+
 interface ServiceInfo {
   name: string;
   phone: string;
@@ -18,16 +20,24 @@ interface BuildingState {
   address: BuildingAddress | null;
   floors: number;
   totalResidents: number;
+
+  // Services
   plumbingService: ServiceInfo | null;
   electricService: ServiceInfo | null;
   cleaningService: ServiceInfo | null;
   carpenterService: ServiceInfo | null;
   watchmen: ServiceInfo | null;
 
+  // Admin info (FIXED)
+  adminName: string | null;
+  adminPhone: string | null;
+
   setBuilding: (id: number, name: string) => void;
   setBuildingData: (data: any) => void;
   resetBuilding: () => void;
 }
+
+/* -------- STORE -------- */
 
 const useBuildingStore = create<BuildingState>((set) => ({
   buildingId: null,
@@ -35,11 +45,15 @@ const useBuildingStore = create<BuildingState>((set) => ({
   address: null,
   floors: 0,
   totalResidents: 0,
+
   plumbingService: null,
   electricService: null,
   cleaningService: null,
   carpenterService: null,
   watchmen: null,
+
+  adminName: null,
+  adminPhone: null,
 
   setBuilding: (buildingId, buildingName) =>
     set({
@@ -54,12 +68,18 @@ const useBuildingStore = create<BuildingState>((set) => ({
       address: data?.buildingAddress ?? null,
       floors: data?.floors ?? 0,
       totalResidents: data?.totalResidents ?? 0,
+
       plumbingService: data?.plumbingService ?? null,
       electricService: data?.electricService ?? null,
       cleaningService: data?.cleaningService ?? null,
       carpenterService: data?.carpenterService ?? null,
       watchmen: data?.watchmen ?? null,
+
+      // ✅ FIXED MAPPING
+      adminName: data?.adminName ?? null,
+      adminPhone: data?.adminPhone ?? null,
     }),
+
   resetBuilding: () =>
     set({
       buildingId: null,
@@ -67,11 +87,15 @@ const useBuildingStore = create<BuildingState>((set) => ({
       address: null,
       floors: 0,
       totalResidents: 0,
+
       plumbingService: null,
       electricService: null,
       cleaningService: null,
       carpenterService: null,
       watchmen: null,
+
+      adminName: null,
+      adminPhone: null,
     }),
 }));
 

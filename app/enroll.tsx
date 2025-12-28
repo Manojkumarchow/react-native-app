@@ -14,6 +14,7 @@ import { Feather } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 import * as Location from "expo-location";
 import Geocoder from "react-native-geocoding";
+import useProfileStore from "./store/profileStore";
 
 /* ---------------------------------
    GOOGLE MAPS
@@ -62,6 +63,7 @@ const INITIAL_FORM = {
   pincode: "",
   floors: "",
   flatStart: "",
+  totalResidents: "",
   flatEnd: "",
   adminName: "",
   adminPhone: "",
@@ -74,7 +76,7 @@ export default function EnrollBuildingScreen() {
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [currentAddress, setCurrentAddress] = useState("");
-
+  const username = useProfileStore((s) => s.phone);
   /* -----------------------------
      FORM VALIDITY
   ----------------------------- */
@@ -87,7 +89,7 @@ export default function EnrollBuildingScreen() {
       isValidPincode(form.pincode) &&
       form.adminName.trim() &&
       isValidPhone(form.adminPhone) &&
-      isValidEmail(form.adminEmail) &&
+      // isValidEmail(form.adminEmail) &&
       form.termsAccepted &&
       !loading
     );
@@ -197,12 +199,12 @@ export default function EnrollBuildingScreen() {
           fullAddress: currentAddress,
         },
         floors: Number(form.floors || 0),
+        totalResidents: Number(form.totalResidents || 0),
         flatStartNumber: Number(form.flatStart || 0),
         flatEndNumber: Number(form.flatEnd || 0),
         adminName: form.adminName,
         adminPhone: form.adminPhone,
-        adminEmail: form.adminEmail,
-        profileId: "PROFILE_ID_FROM_AUTH",
+        profileId: username,
       };
 
       const response = await axios.post(
@@ -320,6 +322,20 @@ export default function EnrollBuildingScreen() {
 
             <TextInput
               style={styles.input}
+              placeholder="Total Floors *"
+              value={form.floors}
+              onChangeText={(v) => setForm({ ...form, floors: v })}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Total No. of Residents *"
+              value={form.totalResidents}
+              onChangeText={(v) => setForm({ ...form, totalResidents: v })}
+            />
+
+            <TextInput
+              style={styles.input}
               placeholder="Admin Name *"
               value={form.adminName}
               onChangeText={(v) => setForm({ ...form, adminName: v })}
@@ -339,14 +355,14 @@ export default function EnrollBuildingScreen() {
               }
             />
 
-            <TextInput
+            {/* <TextInput
               style={styles.input}
               placeholder="Admin Email *"
               keyboardType="email-address"
               autoCapitalize="none"
               value={form.adminEmail}
               onChangeText={(v) => setForm({ ...form, adminEmail: v })}
-            />
+            /> */}
 
             <TouchableOpacity
               style={styles.checkboxRow}

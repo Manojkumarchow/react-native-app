@@ -13,64 +13,80 @@ import { useRouter, Stack } from "expo-router";
 import TicketCard from "./components/TicketCard";
 import axios from "axios";
 import useProfileStore from "./store/profileStore";
+import useBuildingStore from "./store/buildingStore";
 
 export default function AllTicketsScreen() {
   const router = useRouter();
-  const username = useProfileStore((s) => s.phone); // username is phone
 
+  // ---- PROFILE DATA ----
+  const username = useProfileStore((s) => s.phone); // user phone
+  const role = useProfileStore((s) => s.role); // ADMIN | USER
+  const profileId = useBuildingStore((s) => s.adminPhone); // for admin assignment
+
+  // ---- STATE ----
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Convert timestamp → “X days ago"
+  // ---- TIME FORMATTER ----
   const getTimeAgo = (timestamp: string) => {
     const created = new Date(timestamp);
     const now = new Date();
-    let diff = Math.floor(
+    const diffDays = Math.floor(
       (now.getTime() - created.getTime()) / (1000 * 3600 * 24)
     );
-    diff = 1;
-    if (diff <= 0) return "Today";
-    if (diff === 1) return "Yesterday";
-    return `${diff} Days Ago`;
+
+    if (diffDays <= 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    return `${diffDays} Days Ago`;
   };
 
-  // Fetch backend tickets
+  // ---- FETCH TICKETS (ROLE AWARE) ----
   const fetchTickets = async () => {
     if (!username) return;
 
     try {
-      const res = await axios.get(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/issues/profile/${username}`
-      );
+      setLoading(true);
 
+      let url = "";
+
+      if (role === "ADMIN") {
+        if (!profileId) return;
+        url = `${process.env.EXPO_PUBLIC_BASE_URL}/issues/assignee/${profileId}`;
+      } else {
+        url = `${process.env.EXPO_PUBLIC_BASE_URL}/issues/profile/${username}`;
+      }
+
+      const res = await axios.get(url);
       const data = res.data || [];
 
-      // Transform backend response → UI format
       const mapped = data.map((item: any) => ({
         id: item.complaintId,
         title: item.title,
         description: item.description,
         status: item.resolved ? "Resolved" : "Under Review",
-        timeAgo: getTimeAgo(item.timestamp),
+        // timeAgo: getTimeAgo(item.timestamp),
       }));
 
       setTickets(mapped);
     } catch (err) {
-      console.log("Fetch issues error:", err);
+      console.log("Fetch tickets error:", err);
+      setTickets([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // ---- INITIAL LOAD ----
   useEffect(() => {
     fetchTickets();
-  }, []);
+  }, [role, username, profileId]);
 
+  // ---- PULL TO REFRESH ----
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchTickets().finally(() => setRefreshing(false));
-  }, []);
+  }, [role, username, profileId]);
 
   return (
     <>
@@ -83,9 +99,11 @@ export default function AllTicketsScreen() {
             <Feather name="arrow-left" size={26} color="#fff" />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>All Tickets</Text>
+          <Text style={styles.headerTitle}>
+            {role === "ADMIN" ? "Assigned Tickets" : "All Tickets"}
+          </Text>
 
-          <Feather
+          {/* <Feather
             name="search"
             size={24}
             color="#fff"
@@ -96,10 +114,10 @@ export default function AllTicketsScreen() {
             size={24}
             color="#fff"
             style={{ marginLeft: 18 }}
-          />
+          /> */}
         </View>
 
-        {/* WHITE CONTENT AREA */}
+        {/* CONTENT */}
         <View style={styles.cardContainer}>
           {loading ? (
             <ActivityIndicator
@@ -115,9 +133,15 @@ export default function AllTicketsScreen() {
               }
             >
               {tickets.length === 0 ? (
-                <Text style={styles.noTickets}>No tickets found</Text>
+                <Text style={styles.noTickets}>
+                  {role === "ADMIN"
+                    ? "No tickets assigned to you"
+                    : "No tickets found"}
+                </Text>
               ) : (
-                tickets.map((t, index) => <TicketCard key={index} ticket={t} />)
+                tickets.map((t, index) => (
+                  <TicketCard key={t.id ?? index} ticket={t} />
+                ))
               )}
             </ScrollView>
           )}
@@ -126,6 +150,8 @@ export default function AllTicketsScreen() {
     </>
   );
 }
+
+/* ---------------- STYLES ---------------- */
 
 const styles = StyleSheet.create({
   bg: {
