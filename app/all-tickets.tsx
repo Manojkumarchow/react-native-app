@@ -10,38 +10,39 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter, Stack } from "expo-router";
-import TicketCard from "./components/TicketCard";
 import axios from "axios";
+
+import TicketCard from "./components/TicketCard";
 import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
+
+/* ---------------------------------
+   TYPES
+---------------------------------- */
+type Ticket = {
+  id: number;
+  title: string;
+  description: string;
+  status: string;
+  imageUrls: string[];
+};
 
 export default function AllTicketsScreen() {
   const router = useRouter();
 
   // ---- PROFILE DATA ----
-  const username = useProfileStore((s) => s.phone); // user phone
-  const role = useProfileStore((s) => s.role); // ADMIN | USER
-  const profileId = useBuildingStore((s) => s.adminPhone); // for admin assignment
+  const username = useProfileStore((s) => s.phone);
+  const role = useProfileStore((s) => s.role);
+  const profileId = useBuildingStore((s) => s.adminPhone);
 
   // ---- STATE ----
-  const [tickets, setTickets] = useState<any[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ---- TIME FORMATTER ----
-  const getTimeAgo = (timestamp: string) => {
-    const created = new Date(timestamp);
-    const now = new Date();
-    const diffDays = Math.floor(
-      (now.getTime() - created.getTime()) / (1000 * 3600 * 24)
-    );
-
-    if (diffDays <= 0) return "Today";
-    if (diffDays === 1) return "Yesterday";
-    return `${diffDays} Days Ago`;
-  };
-
-  // ---- FETCH TICKETS (ROLE AWARE) ----
+  /* ---------------------------------
+     FETCH TICKETS
+  ---------------------------------- */
   const fetchTickets = async () => {
     if (!username) return;
 
@@ -58,15 +59,19 @@ export default function AllTicketsScreen() {
       }
 
       const res = await axios.get(url);
-      const data = res.data || [];
+      const data = res.data;
 
-      const mapped = data.map((item: any) => ({
-        id: item.complaintId,
-        title: item.title,
-        description: item.description,
-        status: item.resolved ? "Resolved" : "Under Review",
-        // timeAgo: getTimeAgo(item.timestamp),
-      }));
+      const mapped: Ticket[] = Array.isArray(data)
+        ? data
+            .filter(Boolean) // ⛑️ removes null / undefined items
+            .map((item: any) => ({
+              id: item.complaintId,
+              title: item.title ?? "Untitled Complaint",
+              description: item.description ?? "",
+              status: item.isResolved ? "Resolved" : "Under Review",
+              imageUrls: item.imageUrls ?? [],
+            }))
+        : [];
 
       setTickets(mapped);
     } catch (err) {
@@ -77,17 +82,24 @@ export default function AllTicketsScreen() {
     }
   };
 
-  // ---- INITIAL LOAD ----
+  /* ---------------------------------
+     INITIAL LOAD
+  ---------------------------------- */
   useEffect(() => {
     fetchTickets();
   }, [role, username, profileId]);
 
-  // ---- PULL TO REFRESH ----
+  /* ---------------------------------
+     PULL TO REFRESH
+  ---------------------------------- */
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchTickets().finally(() => setRefreshing(false));
   }, [role, username, profileId]);
 
+  /* ---------------------------------
+     RENDER
+  ---------------------------------- */
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -102,19 +114,6 @@ export default function AllTicketsScreen() {
           <Text style={styles.headerTitle}>
             {role === "ADMIN" ? "Assigned Tickets" : "All Tickets"}
           </Text>
-
-          {/* <Feather
-            name="search"
-            size={24}
-            color="#fff"
-            style={{ marginLeft: "auto" }}
-          />
-          <Feather
-            name="bell"
-            size={24}
-            color="#fff"
-            style={{ marginLeft: 18 }}
-          /> */}
         </View>
 
         {/* CONTENT */}
@@ -139,8 +138,14 @@ export default function AllTicketsScreen() {
                     : "No tickets found"}
                 </Text>
               ) : (
-                tickets.map((t, index) => (
-                  <TicketCard key={t.id ?? index} ticket={t} />
+                tickets.map((ticket) => (
+                  <TicketCard
+                    key={ticket.id}
+                    ticket={ticket}
+                    onPress={() =>
+                      router.push(`/ticket-details?id=${ticket.id}`)
+                    }
+                  />
                 ))
               )}
             </ScrollView>

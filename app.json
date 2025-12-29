@@ -5,11 +5,12 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "helloworldapp",
+    "scheme": "helloworldappapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.helloworldappapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +20,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.helloworldappapp"
     },
     "web": {
       "output": "static",
@@ -43,6 +45,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a6173b39-bb05-4939-b67e-ae0b586eb0e6"
+      }
     }
   }
 }
