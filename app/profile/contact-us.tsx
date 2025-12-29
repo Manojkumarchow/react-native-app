@@ -12,7 +12,7 @@ import { Stack, useRouter } from "expo-router";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import FrostedCard from "../components/FrostedCard";
 
-const EMAIL = "manojchow72@gmail.com";
+const EMAIL = "contactnestiti@gmail.com";
 const PHONE = "+91-9666499643";
 
 export default function ContactUsScreen() {

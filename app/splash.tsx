@@ -26,7 +26,7 @@ export default function SplashScreen() {
     <View style={styles.container}>
       <Animated.View style={{ opacity: fadeAnim }}>
         <Image
-          source={require("./../assets/images/nestity.jpeg")}
+          source={require("./../assets/images/nestiti.jpeg")}
           style={styles.logo}
           resizeMode="contain"
         />
