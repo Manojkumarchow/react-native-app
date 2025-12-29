@@ -8,9 +8,27 @@ export default function SecurityPrivacySection() {
 
   return (
     <SectionCard title="Security & Privacy">
-      <Row icon="comment-outline" label="Feedback" />
-      <Row icon="information-outline" label="About Us" />
-      <Row icon="headset" label="Contact Support" />
+      <Row
+        icon="comment-outline"
+        label="Feedback"
+        onPress={() => {
+          // hook this later if needed
+        }}
+      />
+
+      <Row
+        icon="information-outline"
+        label="About Us"
+        onPress={() => router.push("/profile/about-us")}
+      />
+
+      <Row
+        icon="headset"
+        label="Contact Support"
+        onPress={() => {
+          router.push("/profile/contact-us");
+        }}
+      />
     </SectionCard>
   );
 }

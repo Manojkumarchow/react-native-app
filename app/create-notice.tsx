@@ -18,7 +18,7 @@ export default function CreateNotice() {
   const buildingId = useBuildingStore((s) => s.buildingId);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [type, setType] = useState<"INFO" | "ALERT" | "">("");
+  const [type, setType] = useState<"HIGH" | "MEDIUM" | "LOW" | "">("");
   const [showDropdown, setShowDropdown] = useState(false);
 
   const isValid = title.trim() && description.trim() && type;
@@ -87,12 +87,12 @@ export default function CreateNotice() {
 
         {showDropdown && (
           <View style={styles.dropdownMenu}>
-            {["INFO", "ALERT"].map((option) => (
+            {["HIGH", "MEDIUM", "LOW"].map((option) => (
               <TouchableOpacity
                 key={option}
                 style={styles.dropdownItem}
                 onPress={() => {
-                  setType(option as "INFO" | "ALERT");
+                  setType(option as "HIGH" | "MEDIUM" | "LOW");
                   setShowDropdown(false);
                 }}
               >

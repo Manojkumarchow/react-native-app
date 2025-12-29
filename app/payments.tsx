@@ -9,14 +9,14 @@ import {
 } from "react-native";
 import { Stack, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import useProfileStore from "./store/profileStore";
 import Toast from "react-native-toast-message";
+import useBuildingStore from "./store/buildingStore";
 
 const PRIMARY = "#1C98ED";
 const GREEN = "#49bf09ff";
 
 export default function Payments() {
-  const upiId = useProfileStore((s) => s.upiId);
+  const upiId = useBuildingStore((s) => s.upiId);
 
   const handleUpiPress = async () => {
     if (upiId == undefined || !upiId || upiId == null || upiId == "") {

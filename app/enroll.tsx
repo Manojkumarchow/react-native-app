@@ -68,6 +68,7 @@ const INITIAL_FORM = {
   adminName: "",
   adminPhone: "",
   adminEmail: "",
+  upiId: "",
   termsAccepted: false,
 };
 
@@ -204,6 +205,7 @@ export default function EnrollBuildingScreen() {
         flatEndNumber: Number(form.flatEnd || 0),
         adminName: form.adminName,
         adminPhone: form.adminPhone,
+        upiId: form.upiId,
         profileId: username,
       };
 
@@ -353,6 +355,15 @@ export default function EnrollBuildingScreen() {
                   adminPhone: v.replace(/[^0-9]/g, ""),
                 })
               }
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="UPI Id *"
+              keyboardType="number-pad"
+              maxLength={10}
+              value={form.upiId}
+              onChangeText={(v) => setForm({ ...form, upiId: v })}
             />
 
             {/* <TextInput

@@ -13,6 +13,7 @@ import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import api from "../services/api";
 import useProfileStore from "../store/profileStore";
+import useBuildingStore from "../store/buildingStore";
 
 export default function EditAccount() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function EditAccount() {
   const [name, setName] = useState(params.name as string);
   const [phone] = useState(params.phone as string);
   const [email, setEmail] = useState(params.email as string);
-  const [upiId, setUpiId] = useState(params.upiId as string);
+  const upiId = useBuildingStore((s) => s.upiId);
   const [flat, setFlat] = useState(params.flat as string);
   const [building, setBuilding] = useState(params.building as string);
   const [address, setAddress] = useState(params.address as string);
@@ -115,14 +116,14 @@ export default function EditAccount() {
             onChangeText={setEmail}
           />
 
-          <Text style={styles.label}>UPI ID</Text>
+          {/* <Text style={styles.label}>UPI ID</Text>
           <TextInput
             style={styles.input}
             placeholder="example@upi"
             value={upiId}
             onChangeText={setUpiId}
             autoCapitalize="none"
-          />
+          /> */}
 
           <Text style={styles.label}>Flat</Text>
           <TextInput style={styles.input} value={flat} onChangeText={setFlat} />

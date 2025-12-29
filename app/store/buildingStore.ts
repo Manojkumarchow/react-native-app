@@ -31,6 +31,7 @@ interface BuildingState {
   // Admin info (FIXED)
   adminName: string | null;
   adminPhone: string | null;
+  upiId: string | null;
 
   setBuilding: (id: number, name: string) => void;
   setBuildingData: (data: any) => void;
@@ -54,6 +55,7 @@ const useBuildingStore = create<BuildingState>((set) => ({
 
   adminName: null,
   adminPhone: null,
+  upiId: null,
 
   setBuilding: (buildingId, buildingName) =>
     set({
@@ -78,6 +80,7 @@ const useBuildingStore = create<BuildingState>((set) => ({
       // ✅ FIXED MAPPING
       adminName: data?.adminName ?? null,
       adminPhone: data?.adminPhone ?? null,
+      upiId: data?.upiId ?? null,
     }),
 
   resetBuilding: () =>
@@ -96,6 +99,7 @@ const useBuildingStore = create<BuildingState>((set) => ({
 
       adminName: null,
       adminPhone: null,
+      upiId: null,
     }),
 }));
 

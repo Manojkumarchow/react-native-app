@@ -29,12 +29,6 @@ const actions = [
     route: "/ledger",
   },
   {
-    key: "events",
-    label: "Events",
-    icon: "calendar-outline",
-    route: "/events",
-  },
-  {
     key: "Enroll Building",
     label: "Register Building",
     icon: "home",

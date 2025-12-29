@@ -21,6 +21,7 @@ import useProfileStore from "./store/profileStore";
 import useAuthStore from "./store/authStore";
 import CustomAlert from "./components/CustomAlert";
 import Toast from "react-native-toast-message";
+import useBuildingStore from "./store/buildingStore";
 
 const ALLOWED_TYPES = [
   "image/png",
@@ -33,6 +34,7 @@ const ALLOWED_TYPES = [
 export default function ProfileScreen() {
   const router = useRouter();
   const profile = useProfileStore();
+  const upiId = useBuildingStore((s) => s.upiId);
   const username = useProfileStore((s) => s.phone);
 
   const [uploading, setUploading] = useState(false);
@@ -115,7 +117,6 @@ export default function ProfileScreen() {
         name: profile.name,
         phone: profile.phone,
         email: profile.email,
-        upiId: profile.upiId, // ✅ PASS UPI ID
         flat: profile.flat,
         building: profile.building,
         address: profile.address,
@@ -151,9 +152,7 @@ export default function ProfileScreen() {
               {profile.email && <Row icon="email" label={profile.email} />}
 
               {/* ✅ UPI ID ADDED HERE */}
-              {profile.upiId && (
-                <Row icon="bank" label={`UPI: ${profile.upiId}`} />
-              )}
+              {upiId && <Row icon="bank" label={`UPI: ${upiId}`} />}
 
               {profile.flat && <Row icon="home" label={profile.flat} />}
               {profile.building && (
@@ -179,6 +178,10 @@ export default function ProfileScreen() {
               <Text style={styles.versionTitle}>App Version</Text>
               <Text style={styles.versionValue}>2.4.1 (Build 241)</Text>
             </View>
+
+            <Text style={styles.copy}>
+              2025 FinTech Pro. All rights reserved.
+            </Text>
           </View>
         </ScrollView>
 
