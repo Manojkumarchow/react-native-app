@@ -9,7 +9,8 @@ import {
   Platform,
   ScrollView,
   FlatList,
-  Pressable,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import axios from "axios";
@@ -53,7 +54,7 @@ export default function SignupScreen() {
   const passwordRef = useRef<TextInput>(null);
 
   /* ---------------------------------
-     Fetch Buildings
+     Fetch Buildings (UNCHANGED)
   ---------------------------------- */
   useEffect(() => {
     axios
@@ -63,7 +64,7 @@ export default function SignupScreen() {
   }, []);
 
   /* ---------------------------------
-     Filter Buildings (ID + Name)
+     Filter Buildings
   ---------------------------------- */
   const filteredBuildings = useMemo(() => {
     if (!buildingQuery.trim()) return buildings;
@@ -75,15 +76,12 @@ export default function SignupScreen() {
     );
   }, [buildingQuery, buildings]);
 
-  /* ---------------------------------
-     Floors
-  ---------------------------------- */
   const floors = selectedBuilding
     ? Array.from({ length: selectedBuilding.floors }, (_, i) => i + 1)
     : [];
 
   /* ---------------------------------
-     Signup
+     Signup Logic (UNCHANGED)
   ---------------------------------- */
   const handleSignup = async () => {
     setError("");
@@ -129,10 +127,12 @@ export default function SignupScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
+      {/* 🔹 Navigation Header */}
 
-      <Pressable
-        style={{ flex: 1 }}
+      {/* 🔹 Keyboard-safe wrapper instead of Pressable */}
+      <TouchableWithoutFeedback
         onPress={() => {
+          Keyboard.dismiss();
           setShowBuildingDropdown(false);
           setShowFloorDropdown(false);
         }}
@@ -143,169 +143,164 @@ export default function SignupScreen() {
             style={{ flex: 1 }}
           >
             <ScrollView
-              contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.scrollContent}
             >
-              <View style={styles.centerWrapper}>
-                <View style={styles.cardWidth}>
-                  <FrostedCard>
-                    <Text style={styles.title}>Create an account</Text>
-                    <Text style={styles.subtitle}>Register your account</Text>
+              <View style={styles.cardWrapper}>
+                <FrostedCard>
+                  <Text style={styles.title}>Create an account</Text>
+                  <Text style={styles.subtitle}>Register your account</Text>
 
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Full Name"
+                    value={fullName}
+                    onChangeText={setFullName}
+                  />
+
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Phone Number"
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    value={phone}
+                    onChangeText={setPhone}
+                  />
+
+                  {/* BUILDING */}
+                  <View style={styles.dropdownWrapper}>
                     <TextInput
                       style={styles.input}
-                      placeholder="Full Name"
-                      value={fullName}
-                      onChangeText={setFullName}
+                      placeholder="Select Building"
+                      value={
+                        selectedBuilding
+                          ? `${selectedBuilding.buildingId} - ${selectedBuilding.buildingName}`
+                          : buildingQuery
+                      }
+                      onFocus={() => setShowBuildingDropdown(true)}
+                      onChangeText={(t) => {
+                        setBuildingQuery(t);
+                        setShowBuildingDropdown(true);
+                      }}
                     />
 
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Phone Number"
-                      keyboardType="number-pad"
-                      maxLength={10}
-                      value={phone}
-                      onChangeText={setPhone}
-                    />
-
-                    {/* BUILDING */}
-                    <View style={styles.dropdownWrapper}>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Select Building"
-                        value={
-                          selectedBuilding
-                            ? `${selectedBuilding.buildingId} - ${selectedBuilding.buildingName}`
-                            : buildingQuery
-                        }
-                        onFocus={() => {
-                          setShowBuildingDropdown(true);
-                          setSelectedBuilding(null);
-                        }}
-                        onChangeText={(t) => {
-                          setBuildingQuery(t);
-                          setShowBuildingDropdown(true);
-                        }}
-                      />
-
-                      {showBuildingDropdown && (
-                        <View style={styles.inlineDropdown}>
-                          <FlatList
-                            data={filteredBuildings}
-                            keyExtractor={(i) => String(i.buildingId)}
-                            keyboardShouldPersistTaps="handled"
-                            renderItem={({ item }) => (
-                              <TouchableOpacity
-                                style={styles.dropdownItem}
-                                onPress={() => {
-                                  setSelectedBuilding(item);
-                                  setBuildingQuery("");
-                                  setFloor(null);
-                                  setShowBuildingDropdown(false);
-                                }}
-                              >
-                                <Text style={styles.dropdownText}>
-                                  {item.buildingId} – {item.buildingName}
-                                </Text>
-                              </TouchableOpacity>
-                            )}
-                          />
-                        </View>
-                      )}
-                    </View>
-
-                    {/* FLOOR */}
-                    <View style={styles.dropdownWrapper}>
-                      <TouchableOpacity
-                        style={styles.selectInput}
-                        disabled={!selectedBuilding}
-                        onPress={() => setShowFloorDropdown((p) => !p)}
-                      >
-                        <Text
-                          style={[
-                            styles.selectText,
-                            !floor && styles.placeholder,
-                          ]}
-                        >
-                          {floor ? `Floor ${floor}` : "Select Floor"}
-                        </Text>
-                      </TouchableOpacity>
-
-                      {showFloorDropdown && (
-                        <View style={styles.inlineDropdown}>
-                          {floors.map((f) => (
+                    {showBuildingDropdown && (
+                      <View style={styles.dropdown}>
+                        <FlatList
+                          data={filteredBuildings}
+                          keyExtractor={(i) => String(i.buildingId)}
+                          keyboardShouldPersistTaps="handled"
+                          renderItem={({ item }) => (
                             <TouchableOpacity
-                              key={f}
                               style={styles.dropdownItem}
                               onPress={() => {
-                                setFloor(f);
-                                setShowFloorDropdown(false);
+                                setSelectedBuilding(item);
+                                setBuildingQuery("");
+                                setFloor(null);
+                                setShowBuildingDropdown(false);
                               }}
                             >
-                              <Text style={styles.dropdownText}>Floor {f}</Text>
+                              <Text style={styles.dropdownText}>
+                                {item.buildingId} – {item.buildingName}
+                              </Text>
                             </TouchableOpacity>
-                          ))}
-                        </View>
-                      )}
-                    </View>
+                          )}
+                        />
+                      </View>
+                    )}
+                  </View>
 
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Flat Number (e.g. 101)"
-                      keyboardType="number-pad"
-                      value={flatNo}
-                      onChangeText={setFlatNo}
-                    />
-
-                    <TextInput
-                      ref={passwordRef}
-                      style={styles.input}
-                      placeholder="Password"
-                      secureTextEntry
-                      value={password}
-                      onChangeText={setPassword}
-                    />
-
-                    <Text style={styles.roleLabel}>Register as</Text>
-                    <View style={styles.radioRow}>
-                      {["ADMIN", "USER"].map((r) => (
-                        <TouchableOpacity
-                          key={r}
-                          style={styles.radioOption}
-                          onPress={() => setRole(r as any)}
-                        >
-                          <View
-                            style={[
-                              styles.radioCircle,
-                              role === r && styles.radioSelected,
-                            ]}
-                          />
-                          <Text>{r === "ADMIN" ? "Owner" : "Tenant"}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-
+                  {/* FLOOR */}
+                  <View style={styles.dropdownWrapper}>
                     <TouchableOpacity
-                      style={styles.button}
-                      onPress={handleSignup}
+                      style={styles.selectInput}
+                      disabled={!selectedBuilding}
+                      onPress={() => setShowFloorDropdown((prev) => !prev)}
                     >
-                      <Text style={styles.buttonText}>Signup</Text>
+                      <Text
+                        style={[
+                          styles.selectText,
+                          !floor && styles.placeholder,
+                        ]}
+                      >
+                        {floor ? `Floor ${floor}` : "Select Floor"}
+                      </Text>
                     </TouchableOpacity>
 
-                    {!!error && <Text style={styles.error}>{error}</Text>}
-                  </FrostedCard>
-                </View>
+                    {showFloorDropdown && (
+                      <View style={styles.dropdown}>
+                        {floors.map((f) => (
+                          <TouchableOpacity
+                            key={f}
+                            style={styles.dropdownItem}
+                            onPress={() => {
+                              setFloor(f);
+                              setShowFloorDropdown(false);
+                            }}
+                          >
+                            <Text style={styles.dropdownText}>Floor {f}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Flat Number (e.g. 101)"
+                    keyboardType="number-pad"
+                    value={flatNo}
+                    onChangeText={setFlatNo}
+                  />
+
+                  <TextInput
+                    ref={passwordRef}
+                    style={styles.input}
+                    placeholder="Password"
+                    secureTextEntry
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+
+                  <Text style={styles.roleLabel}>Register as</Text>
+                  <View style={styles.radioRow}>
+                    {["ADMIN", "USER"].map((r) => (
+                      <TouchableOpacity
+                        key={r}
+                        style={styles.radioOption}
+                        onPress={() => setRole(r as any)}
+                      >
+                        <View
+                          style={[
+                            styles.radioCircle,
+                            role === r && styles.radioSelected,
+                          ]}
+                        />
+                        <Text>{r === "ADMIN" ? "Owner" : "Tenant"}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={handleSignup}
+                  >
+                    <Text style={styles.buttonText}>Signup</Text>
+                  </TouchableOpacity>
+
+                  {!!error && <Text style={styles.error}>{error}</Text>}
+                </FrostedCard>
               </View>
             </ScrollView>
           </KeyboardAvoidingView>
         </View>
-      </Pressable>
+      </TouchableWithoutFeedback>
     </>
   );
 }
 
 /* ---------------------------------
-   Styles
+   Styles (UI-only changes)
 ---------------------------------- */
 const styles = StyleSheet.create({
   bg: {
@@ -314,24 +309,26 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingVertical: 24,
+    paddingVertical: 40,
+    alignItems: "center",
   },
 
-  centerWrapper: {
+  cardWrapper: {
     width: "100%",
-    alignItems: "center",
+    maxWidth: 420,
     paddingHorizontal: 16,
   },
 
-  cardWidth: {
-    width: "100%",
-    maxWidth: 420,
+  title: {
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#0A174E",
   },
 
-  title: { fontSize: 26, fontWeight: "700", color: "#0A174E" },
-  subtitle: { fontSize: 14, marginBottom: 20 },
+  subtitle: {
+    fontSize: 14,
+    marginBottom: 20,
+  },
 
   input: {
     borderBottomWidth: 1,
@@ -341,16 +338,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
 
-  dropdownWrapper: { position: "relative" },
+  dropdownWrapper: {
+    position: "relative",
+    zIndex: 10,
+  },
 
-  inlineDropdown: {
+  dropdown: {
+    position: "absolute",
+    top: 52,
+    width: "100%",
     backgroundColor: "#F6FAFF",
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E1ECF7",
-    marginTop: -10,
-    marginBottom: 16,
     maxHeight: 180,
+    elevation: 6,
+    zIndex: 20,
   },
 
   dropdownItem: {
@@ -360,7 +361,10 @@ const styles = StyleSheet.create({
     borderColor: "#E1ECF7",
   },
 
-  dropdownText: { fontSize: 15, color: "#0A174E" },
+  dropdownText: {
+    fontSize: 15,
+    color: "#0A174E",
+  },
 
   selectInput: {
     borderBottomWidth: 1,
@@ -369,12 +373,30 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  selectText: { fontSize: 16 },
-  placeholder: { color: "#999" },
+  selectText: {
+    fontSize: 16,
+  },
 
-  roleLabel: { fontWeight: "600", marginBottom: 8 },
-  radioRow: { flexDirection: "row", marginBottom: 20 },
-  radioOption: { flexDirection: "row", marginRight: 20 },
+  placeholder: {
+    color: "#999",
+  },
+
+  roleLabel: {
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+
+  radioRow: {
+    flexDirection: "row",
+    marginBottom: 20,
+  },
+
+  radioOption: {
+    flexDirection: "row",
+    marginRight: 20,
+    alignItems: "center",
+  },
+
   radioCircle: {
     width: 18,
     height: 18,
@@ -382,7 +404,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     marginRight: 6,
   },
-  radioSelected: { backgroundColor: "#6C63FF" },
+
+  radioSelected: {
+    backgroundColor: "#6C63FF",
+  },
 
   button: {
     backgroundColor: "#3B5BFE",
@@ -390,7 +415,30 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
-  buttonText: { color: "#fff", fontSize: 18, fontWeight: "600" },
 
-  error: { color: "red", textAlign: "center", marginTop: 10 },
+  buttonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+
+  headerRow: {
+    marginTop: 55,
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  headerTitle: {
+    marginLeft: 14,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#fff",
+  },
+
+  error: {
+    color: "red",
+    textAlign: "center",
+    marginTop: 10,
+  },
 });

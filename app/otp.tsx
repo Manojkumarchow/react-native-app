@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from "react-native";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import FrostedCard from "./components/FrostedCard";
@@ -16,7 +17,6 @@ import { createProfile } from "./services/profile.service";
 
 export default function OTPVerify() {
   const router = useRouter();
-
   const { phone, name, password, role, buildingId, resetFlow } =
     useLocalSearchParams();
 
@@ -31,9 +31,6 @@ export default function OTPVerify() {
     useRef<TextInput>(null),
   ];
 
-  /* ---------------------------------
-     Helpers
-  ---------------------------------- */
   const resolvedPhone = Array.isArray(phone) ? phone[0] : phone;
   const resolvedName = Array.isArray(name) ? name[0] : name;
   const resolvedPassword = Array.isArray(password) ? password[0] : password;
@@ -45,21 +42,13 @@ export default function OTPVerify() {
     Array.isArray(buildingId) ? buildingId[0] : buildingId
   );
 
-  /* ---------------------------------
-     OTP Helpers
-  ---------------------------------- */
-  const resetOtp = () => {
-    setOtp(["", "", "", ""]);
-    setError("");
-    inputs[0].current?.focus();
-  };
-
   const handleResend = async () => {
     try {
       setIsLoading(true);
       setError("");
       await sendOTP(resolvedPhone);
-      resetOtp();
+      setOtp(["", "", "", ""]);
+      inputs[0].current?.focus();
     } catch {
       setError("Failed to resend OTP");
     } finally {
@@ -67,9 +56,6 @@ export default function OTPVerify() {
     }
   };
 
-  /* ---------------------------------
-     Verify OTP
-  ---------------------------------- */
   const handleVerify = async (enteredOtp = otp.join("")) => {
     if (enteredOtp.length < 4) {
       setError("Please enter all 4 digits");
@@ -81,18 +67,13 @@ export default function OTPVerify() {
       setError("");
 
       const verification = await verifyOTP(resolvedPhone, enteredOtp);
-
       if (!verification.verified) {
-        setError(verification.message || "Invalid Code, Try Again");
+        setError(verification.message || "Invalid Code");
         return;
       }
 
       if (resetFlow === "true") {
         router.replace(`/reset-password?phone=${resolvedPhone}`);
-        return;
-      }
-      if (!resolvedBuildingId || Number.isNaN(resolvedBuildingId)) {
-        setError("Building information missing. Please signup again.");
         return;
       }
 
@@ -112,101 +93,89 @@ export default function OTPVerify() {
     }
   };
 
-  /* ---------------------------------
-     OTP Input Handler
-  ---------------------------------- */
-  const handleChange = (text: string, index: number) => {
-    if (/[^0-9]/.test(text)) return;
-
-    const newOtp = [...otp];
-    newOtp[index] = text;
-    setOtp(newOtp);
-
-    if (text && index < 3) {
-      inputs[index + 1].current?.focus();
-    }
-
-    if (!text && index > 0) {
-      inputs[index - 1].current?.focus();
-    }
-
-    const finalOtp = newOtp.join("");
-    if (finalOtp.length === 4) {
-      setTimeout(() => handleVerify(finalOtp), 150);
-    }
-  };
-
-  /* ---------------------------------
-     Render
-  ---------------------------------- */
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen
+        options={{ headerShown: false, title: "OTP Verification" }}
+      />
 
       <View style={styles.bg}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
         >
-          <FrostedCard>
-            <Text style={styles.title}>Verify your Phone Number</Text>
-            <Text style={styles.subtitle}>
-              Please enter the 4-digit code sent to your phone number
-            </Text>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.centerWrapper}>
+              <View style={styles.cardWidth}>
+                <FrostedCard>
+                  <Text style={styles.title}>Verify your Phone Number</Text>
+                  <Text style={styles.subtitle}>
+                    Enter the 4-digit code sent to your phone
+                  </Text>
 
-            <View style={styles.otpRow}>
-              {otp.map((digit, index) => (
-                <TextInput
-                  key={index}
-                  ref={inputs[index]}
-                  style={[styles.otpBox, error && styles.otpError]}
-                  maxLength={1}
-                  keyboardType="number-pad"
-                  value={digit}
-                  onChangeText={(text) => handleChange(text, index)}
-                />
-              ))}
+                  <View style={styles.otpRow}>
+                    {otp.map((digit, index) => (
+                      <TextInput
+                        key={index}
+                        ref={inputs[index]}
+                        style={[styles.otpBox, error && styles.otpError]}
+                        maxLength={1}
+                        keyboardType="number-pad"
+                        value={digit}
+                        onChangeText={(text) => {
+                          const newOtp = [...otp];
+                          newOtp[index] = text.replace(/[^0-9]/g, "");
+                          setOtp(newOtp);
+                          if (text && index < 3)
+                            inputs[index + 1].current?.focus();
+                        }}
+                      />
+                    ))}
+                  </View>
+
+                  {error ? <Text style={styles.error}>{error}</Text> : null}
+
+                  <TouchableOpacity onPress={handleResend} disabled={isLoading}>
+                    <Text style={styles.resend}>
+                      Didn’t receive code?{" "}
+                      <Text style={{ fontWeight: "700" }}>Resend</Text>
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={() => handleVerify()}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.buttonText}>Verify</Text>
+                    )}
+                  </TouchableOpacity>
+                </FrostedCard>
+              </View>
             </View>
-
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-
-            <TouchableOpacity onPress={handleResend} disabled={isLoading}>
-              <Text style={styles.resend}>
-                Haven’t received code?{" "}
-                <Text style={{ fontWeight: "700" }}>Resend</Text>
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.button, isLoading && styles.buttonDisabled]}
-              onPress={() => handleVerify()}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Verify</Text>
-              )}
-            </TouchableOpacity>
-          </FrostedCard>
+          </ScrollView>
         </KeyboardAvoidingView>
       </View>
     </>
   );
 }
 
-/* ---------------------------------
-   Styles (UNCHANGED)
----------------------------------- */
 const styles = StyleSheet.create({
   bg: { flex: 1, backgroundColor: "#B3D6F7" },
+  scrollContent: { flexGrow: 1, justifyContent: "center" },
+  centerWrapper: { alignItems: "center", paddingHorizontal: 16 },
+  cardWidth: { width: "100%", maxWidth: 420 },
+
   title: { fontSize: 24, fontWeight: "700", color: "#0A174E" },
-  subtitle: { marginTop: 8, color: "#444", marginBottom: 20 },
-  otpRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 15,
-  },
+  subtitle: { marginTop: 8, marginBottom: 20, color: "#444" },
+
+  otpRow: { flexDirection: "row", justifyContent: "space-between" },
   otpBox: {
     width: 50,
     height: 55,
@@ -218,25 +187,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   otpError: { borderColor: "red" },
-  error: {
-    color: "red",
-    textAlign: "center",
-    marginBottom: 10,
-    fontWeight: "600",
-  },
-  resend: {
-    textAlign: "center",
-    marginTop: 10,
-    marginBottom: 10,
-    color: "#444",
-  },
+  error: { color: "red", textAlign: "center", marginTop: 10 },
+
+  resend: { textAlign: "center", marginVertical: 12 },
   button: {
     backgroundColor: "#3B5BFE",
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
-    marginBottom: 20,
   },
-  buttonDisabled: { opacity: 0.6 },
   buttonText: { color: "#fff", fontSize: 18, fontWeight: "600" },
 });

@@ -10,9 +10,12 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import axios from "axios";
+
 import FrostedCard from "./components/FrostedCard";
 import useAuthStore from "./store/authStore";
 import { getProfile } from "./services/profile.service";
@@ -81,19 +84,19 @@ export default function LoginScreen() {
 
   return (
     <>
-      <View style={styles.bg}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ flex: 1 }}
-        >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+      {/* 🔹 Keyboard-safe wrapper (same as Signup) */}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.bg}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={{ flex: 1 }}
           >
-            {/* 🔑 RESPONSIVE WRAPPER */}
-            <View style={styles.centerWrapper}>
-              <View style={styles.cardWidth}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+            >
+              <View style={styles.cardWrapper}>
                 <FrostedCard>
                   <Text style={styles.title}>Welcome!</Text>
                   <Text style={styles.subtitle}>Login to your account</Text>
@@ -146,18 +149,18 @@ export default function LoginScreen() {
                   </View>
                 </FrostedCard>
               </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+            </ScrollView>
+          </KeyboardAvoidingView>
 
-        <Toast />
-      </View>
+          <Toast />
+        </View>
+      </TouchableWithoutFeedback>
     </>
   );
 }
 
 /* ---------------------------------
-   Styles
+   Styles (Aligned with Signup)
 ---------------------------------- */
 const styles = StyleSheet.create({
   bg: {
@@ -166,20 +169,14 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingVertical: 24,
-  },
-
-  centerWrapper: {
-    width: "100%",
+    paddingVertical: 40, // ✅ same as Signup
     alignItems: "center",
-    paddingHorizontal: 16, // 🔑 left & right padding
   },
 
-  cardWidth: {
+  cardWrapper: {
     width: "100%",
-    maxWidth: 420, // 🔑 responsive constraint
+    maxWidth: 420,
+    paddingHorizontal: 16,
   },
 
   title: {
