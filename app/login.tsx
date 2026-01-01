@@ -169,8 +169,10 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    paddingVertical: 40, // ✅ same as Signup
+    flexGrow: 1,                 // ⭐ REQUIRED
+    justifyContent: "center",    // ⭐ centers vertically
     alignItems: "center",
+    paddingVertical: 24,
   },
 
   cardWrapper: {

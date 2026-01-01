@@ -32,34 +32,36 @@ export default function AboutUsScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          <FrostedCard>
-            <Text style={styles.title}>Nestiti</Text>
+          <View style={styles.cardWrapper}>
+            <FrostedCard>
+              <Text style={styles.title}>Nestiti</Text>
 
-            <Text style={styles.text}>
-              Nestiti is a smart apartment maintenance management app that helps
-              residential communities manage maintenance payments, expenses,
-              complaints, and resident communication — all in one place.
-            </Text>
+              <Text style={styles.text}>
+                Nestiti is a smart apartment maintenance management app that helps
+                residential communities manage maintenance payments, expenses,
+                complaints, and resident communication — all in one place.
+              </Text>
 
-            <Text style={styles.text}>
-              Designed for apartment associations and standalone buildings,
-              Nestiti replaces manual work and WhatsApp follow-ups with a
-              simple, transparent, and secure digital system.
-            </Text>
+              <Text style={styles.text}>
+                Designed for apartment associations and standalone buildings,
+                Nestiti replaces manual work and WhatsApp follow-ups with a simple,
+                transparent, and secure digital system.
+              </Text>
 
-            <Text style={styles.text}>
-              With Nestiti, managing your community becomes easier, faster, and
-              more organized.
-            </Text>
+              <Text style={styles.text}>
+                With Nestiti, managing your community becomes easier, faster, and
+                more organized.
+              </Text>
 
-            <View style={styles.divider} />
+              <View style={styles.divider} />
 
-            <Text style={styles.tagline}>
-              Nestiti — Simple. Transparent. Stress-free apartment management
-              app.
-            </Text>
-          </FrostedCard>
+              <Text style={styles.tagline}>
+                Nestiti — Simple. Transparent. Stress-free apartment management app.
+              </Text>
+            </FrostedCard>
+          </View>
         </ScrollView>
+
       </SafeAreaView>
     </>
   );
@@ -72,6 +74,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#B3D6F7",
   },
+
+  cardWrapper: {
+    width: "100%",
+    maxWidth: 420,        // ⭐ prevents edge sticking on large screens
+    paddingHorizontal: 16, // ⭐ breathing space on small screens
+  },
+
 
   header: {
     backgroundColor: "#1C98ED",
@@ -92,9 +101,10 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    flexGrow: 1,
-    padding: 20,
-    justifyContent: "center",
+    flexGrow: 1,                 // ⭐ REQUIRED
+    justifyContent: "center",    // ⭐ centers vertically
+    alignItems: "center",
+    paddingVertical: 24,
   },
 
   title: {

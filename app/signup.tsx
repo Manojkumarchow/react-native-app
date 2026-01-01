@@ -57,11 +57,26 @@ export default function SignupScreen() {
      Fetch Buildings (UNCHANGED)
   ---------------------------------- */
   useEffect(() => {
-    axios
-      .get("http://localhost:8080/whistleup/building/all")
-      .then((res) => setBuildings(res.data || []))
-      .catch(() => setError("Unable to load buildings"));
-  }, []);
+  console.log("🚀 Buildings API call started");
+
+  axios
+    .get(`${process.env.EXPO_PUBLIC_BASE_URL}/building/all`)
+    .then((res) => {
+      console.log("✅ Buildings API success");
+      console.log("📦 Raw response:", res);
+      console.log("📦 Response data:", res.data);
+
+      setBuildings(res.data || []);
+    })
+    .catch((err) => {
+      console.log("❌ Buildings API failed");
+      console.log("❌ Error:", err?.message);
+      console.log("❌ Full error:", err);
+
+      setError("Unable to load buildings");
+    });
+}, []);
+
 
   /* ---------------------------------
      Filter Buildings
@@ -102,7 +117,7 @@ export default function SignupScreen() {
       await getProfile(phone);
       setError("User already exists");
       return;
-    } catch {}
+    } catch { }
 
     try {
       const otpRes = await sendOTP(phone);
@@ -186,12 +201,13 @@ export default function SignupScreen() {
 
                     {showBuildingDropdown && (
                       <View style={styles.dropdown}>
-                        <FlatList
-                          data={filteredBuildings}
-                          keyExtractor={(i) => String(i.buildingId)}
+                        <ScrollView
                           keyboardShouldPersistTaps="handled"
-                          renderItem={({ item }) => (
+                          nestedScrollEnabled
+                        >
+                          {filteredBuildings.map((item) => (
                             <TouchableOpacity
+                              key={item.buildingId}
                               style={styles.dropdownItem}
                               onPress={() => {
                                 setSelectedBuilding(item);
@@ -204,8 +220,9 @@ export default function SignupScreen() {
                                 {item.buildingId} – {item.buildingName}
                               </Text>
                             </TouchableOpacity>
-                          )}
-                        />
+                          ))}
+                        </ScrollView>
+
                       </View>
                     )}
                   </View>
@@ -309,8 +326,10 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    paddingVertical: 40,
+    flexGrow: 1,                 // ⭐ REQUIRED
+    justifyContent: "center",    // ⭐ centers vertically
     alignItems: "center",
+    paddingVertical: 24,
   },
 
   cardWrapper: {
