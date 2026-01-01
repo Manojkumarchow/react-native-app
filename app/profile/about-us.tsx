@@ -92,9 +92,10 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    flexGrow: 1,
-    padding: 20,
-    justifyContent: "center",
+    flexGrow: 1,                 // ⭐ REQUIRED
+    justifyContent: "center",    // ⭐ centers vertically
+    alignItems: "center",
+    paddingVertical: 24,
   },
 
   title: {

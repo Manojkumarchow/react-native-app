@@ -168,7 +168,12 @@ export default function OTPVerify() {
 
 const styles = StyleSheet.create({
   bg: { flex: 1, backgroundColor: "#B3D6F7" },
-  scrollContent: { flexGrow: 1, justifyContent: "center" },
+  scrollContent: {
+    flexGrow: 1,                 // ⭐ REQUIRED
+    justifyContent: "center",    // ⭐ centers vertically
+    alignItems: "center",
+    paddingVertical: 24,
+  },
   centerWrapper: { alignItems: "center", paddingHorizontal: 16 },
   cardWidth: { width: "100%", maxWidth: 420 },
 
