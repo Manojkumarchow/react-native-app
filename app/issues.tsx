@@ -96,15 +96,10 @@ export default function RaiseIssueScreen() {
     try {
       const formData = new FormData();
 
-      // ✅ IMPORTANT FIX
-      formData.append(
-        "complaint",
-        new Blob([JSON.stringify(complaintPayload)], {
-          type: "application/json",
-        }) as any
-      );
+      // ✅ SEND JSON AS STRING (NOT BLOB)
+      formData.append("complaint", JSON.stringify(complaintPayload));
 
-      // Attach images
+      // ✅ ATTACH IMAGES CORRECTLY
       files.forEach((file, index) => {
         formData.append("files", {
           uri: file.uri,
@@ -113,7 +108,7 @@ export default function RaiseIssueScreen() {
         } as any);
       });
 
-      const response = await axios.post(
+      await axios.post(
         `${process.env.EXPO_PUBLIC_BASE_URL}/issues/register`,
         formData,
         {
@@ -142,6 +137,7 @@ export default function RaiseIssueScreen() {
       setLoading(false);
     }
   };
+
 
   return (
     <>
