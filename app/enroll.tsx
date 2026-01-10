@@ -69,6 +69,7 @@ const INITIAL_FORM = {
   adminPhone: "",
   adminEmail: "",
   upiId: "",
+  waterFieldRequired: null as null | boolean, // ✅ NEW FIELD
   termsAccepted: false,
 };
 
@@ -91,6 +92,7 @@ export default function EnrollBuildingScreen() {
       form.adminName.trim() &&
       isValidPhone(form.adminPhone) &&
       // isValidEmail(form.adminEmail) &&
+      form.waterFieldRequired !== null && // ✅ REQUIRED
       form.termsAccepted &&
       !loading
     );
@@ -206,6 +208,7 @@ export default function EnrollBuildingScreen() {
         adminName: form.adminName,
         adminPhone: form.adminPhone,
         upiId: form.upiId,
+        waterFieldRequired: form.waterFieldRequired, // ✅ SENT TO BACKEND
         profileId: username,
       };
 
@@ -366,6 +369,60 @@ export default function EnrollBuildingScreen() {
               onChangeText={(v) => setForm({ ...form, upiId: v })}
             />
 
+            <View style={styles.radioGroup}>
+              <Text style={styles.radioLabel}>
+                Water Field Required? *
+              </Text>
+
+              <View style={styles.radioRow}>
+                <TouchableOpacity
+                  style={styles.radioOption}
+                  onPress={() =>
+                    setForm({
+                      ...form,
+                      waterFieldRequired: true,
+                    })
+                  }
+                >
+                  <View
+                    style={[
+                      styles.radioOuter,
+                      form.waterFieldRequired === true &&
+                      styles.radioOuterActive,
+                    ]}
+                  >
+                    {form.waterFieldRequired === true && (
+                      <View style={styles.radioInner} />
+                    )}
+                  </View>
+                  <Text style={styles.radioText}>Yes</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.radioOption}
+                  onPress={() =>
+                    setForm({
+                      ...form,
+                      waterFieldRequired: false,
+                    })
+                  }
+                >
+                  <View
+                    style={[
+                      styles.radioOuter,
+                      form.waterFieldRequired === false &&
+                      styles.radioOuterActive,
+                    ]}
+                  >
+                    {form.waterFieldRequired === false && (
+                      <View style={styles.radioInner} />
+                    )}
+                  </View>
+                  <Text style={styles.radioText}>No</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             {/* <TextInput
               style={styles.input}
               placeholder="Admin Email *"
@@ -476,4 +533,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
+  radioGroup: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  radioLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 10,
+  },
+  radioRow: {
+    flexDirection: "row",
+  },
+  radioOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 30,
+  },
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: "#5956E9",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  radioOuterActive: {
+    borderColor: "#5956E9",
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#5956E9",
+  },
+  radioText: {
+    fontSize: 15,
+  },
 });
+
