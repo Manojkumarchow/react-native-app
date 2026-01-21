@@ -34,6 +34,12 @@ const actions = [
     icon: "home",
     route: "/enroll",
   },
+  {
+    key: "Water bill",
+    label: "Water Bill",
+    icon: "home",
+    route: "/water-bill",
+  },
 ];
 
 export default function QuickActions() {
