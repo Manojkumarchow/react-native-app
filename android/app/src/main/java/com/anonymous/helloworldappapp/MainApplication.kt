@@ -1,4 +1,4 @@
-package com.anonymous.helloworldapp
+package com.anonymous.helloworldappapp
 
 import android.app.Application
 import android.content.res.Configuration

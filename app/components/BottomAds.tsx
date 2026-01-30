@@ -10,7 +10,7 @@ import NetworkImage from "./NetworkImage";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = Math.min(900, width - 32);
-const LOCAL_HERO = require("./../../assets/images/nestity.jpeg");
+const LOCAL_HERO = require("./../../assets/images/varka.jpeg");
 
 export default function BottomAds({ autoPlay = true, autoMs = 4000 }) {
   const slides = [

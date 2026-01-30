@@ -160,7 +160,7 @@ export default function HomeServicesScreen() {
           <ScrollView contentContainerStyle={{ paddingBottom: 160 }}>
             <View style={styles.adBanner}>
               <Image
-                source={require("./../assets/images/home.jpg")}
+                source={require("./../assets/images/zperm.jpg")}
                 style={styles.adImage}
               />
             </View>
