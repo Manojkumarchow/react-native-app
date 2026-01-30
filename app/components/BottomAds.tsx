@@ -9,7 +9,7 @@ import {
 import NetworkImage from "./NetworkImage";
 
 const { width } = Dimensions.get("window");
-const CARD_WIDTH = Math.min(900, width - 32);
+const CARD_WIDTH = Math.min(1000, width - 36);
 const LOCAL_HERO = require("./../../assets/images/varka.jpeg");
 
 export default function BottomAds({ autoPlay = true, autoMs = 4000 }) {
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  image: { width: "50%", height: "70%" },
+  image: { width: "100%", height: "100%" },
   pagerRow: {
     marginTop: 12,
     width: CARD_WIDTH,

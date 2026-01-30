@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "hello-world-app",
-    "slug": "hello-world-app",
+    "name": "nestiti",
+    "slug": "nestiti",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

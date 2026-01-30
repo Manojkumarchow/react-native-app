@@ -160,7 +160,7 @@ export default function HomeServicesScreen() {
           <ScrollView contentContainerStyle={{ paddingBottom: 160 }}>
             <View style={styles.adBanner}>
               <Image
-                source={require("./../assets/images/zperm.jpg")}
+                source={require("./../assets/images/zperm.jpeg")}
                 style={styles.adImage}
               />
             </View>
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "center",
   },
-  adImage: { width: 120, height: 120, opacity: 0.7 },
+  adImage: { width: 370, height: 180, opacity: 0.7 },
   grid: {
     marginTop: 30,
     flexDirection: "row",
