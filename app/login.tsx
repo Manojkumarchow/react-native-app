@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 import axios from "axios";
+import { Ionicons } from "@expo/vector-icons";
 
 import FrostedCard from "./components/FrostedCard";
 import useAuthStore from "./store/authStore";
@@ -27,6 +28,7 @@ export default function LoginScreen() {
   const setAuth = useAuthStore((state) => state.setAuth);
   const setProfile = useProfileStore((state) => state.setProfile);
   const setBuildingData = useBuildingStore((state) => state.setBuildingData);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -111,14 +113,28 @@ export default function LoginScreen() {
                     onChangeText={(t) => setPhone(t.replace(/[^0-9]/g, ""))}
                   />
 
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Password"
-                    placeholderTextColor="#555"
-                    secureTextEntry
-                    value={password}
-                    onChangeText={setPassword}
-                  />
+                  <View style={styles.passwordContainer}>
+                    <TextInput
+                      style={styles.passwordInput}
+                      placeholder="Password"
+                      placeholderTextColor="#555"
+                      secureTextEntry={!showPassword}
+                      value={password}
+                      onChangeText={setPassword}
+                    />
+
+                    <TouchableOpacity
+                      onPress={() => setShowPassword((prev) => !prev)}
+                      hitSlop={10}
+                    >
+                      <Ionicons
+                        name={showPassword ? "eye-off" : "eye"}
+                        size={22}
+                        color="#6C63FF"
+                      />
+                    </TouchableOpacity>
+                  </View>
+
 
                   <TouchableOpacity
                     style={styles.forgotContainer}
@@ -238,6 +254,22 @@ const styles = StyleSheet.create({
     color: "#222",
     fontSize: 14,
   },
+
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#6C63FF",
+    marginBottom: 20,
+  },
+
+  passwordInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 10,
+    color: "#222",
+  },
+
 
   signinLink: {
     color: "#0A174E",
