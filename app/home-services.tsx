@@ -283,10 +283,10 @@ const styles = StyleSheet.create({
   adBanner: {
     width: "90%",
     height: 180,
-    backgroundColor: "rgba(28,152,237,0.15)",
+    backgroundColor: "rgba(255,255,255)",
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: "#1C98ED",
+    borderColor: "#FFFFFF",
     borderStyle: "dashed",
     justifyContent: "center",
     alignItems: "center",

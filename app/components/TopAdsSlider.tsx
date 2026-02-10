@@ -68,10 +68,10 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     height: Math.round(CARD_WIDTH * 0.28),
-    backgroundColor: "rgba(28,152,237,0.12)",
+    backgroundColor: "rgba(255,255, 255)",
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: "#1C98ED",
+    borderColor: "#FFFFFF",
     borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
