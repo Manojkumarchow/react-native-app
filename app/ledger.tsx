@@ -111,7 +111,7 @@ export default function MyFlatLedger() {
       setLoading(true);
       try {
         const res = await axios.get<LedgerResponse>(
-          `${API_BASE_URL}/whistleup/ledgers`,
+          `${API_BASE_URL}/ledgers`,
           {
             params: {
               year: activeYear,
@@ -193,7 +193,7 @@ export default function MyFlatLedger() {
 
       if (activeLedger) {
         const res = await axios.put<LedgerResponse>(
-          `${API_BASE_URL}/whistleup/ledgers/${activeLedger.id}`,
+          `${API_BASE_URL}/ledgers/${activeLedger.id}`,
           {
             buildingId, // ✅ IMPORTANT
             items: draftItems,
@@ -202,7 +202,7 @@ export default function MyFlatLedger() {
         saved = res.data;
       } else {
         const res = await axios.post<LedgerResponse>(
-          `${API_BASE_URL}/whistleup/ledgers`,
+          `${API_BASE_URL}/ledgers`,
           {
             buildingId, // ✅ IMPORTANT
             year: activeYear,
@@ -232,7 +232,7 @@ export default function MyFlatLedger() {
 
     try {
       const res = await axios.get(
-        `${API_BASE_URL}/whistleup/ledgers/${activeLedger.id}/pdf`,
+        `${API_BASE_URL}/ledgers/${activeLedger.id}/pdf`,
         { responseType: "arraybuffer" }
       );
 
