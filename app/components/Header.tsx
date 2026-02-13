@@ -6,12 +6,18 @@ import useProfileStore from "../store/profileStore";
 import { router } from "expo-router";
 
 export default function Header() {
-  const name = useProfileStore((state) => state.name);
+  const profile = useProfileStore();
+  const name = profile.name;
+  const avatarUri = profile.avatarUri;
   return (
     <View style={styles.header}>
       <View style={styles.left}>
         <Image
-          source={{ uri: "https://placehold.co/48x48" }}
+          source={
+            avatarUri
+              ? { uri: avatarUri }
+              : require("../../assets/images/nestity.jpeg")
+          }
           style={styles.avatar}
         />
         <View>
