@@ -105,10 +105,10 @@ export default function RaiseIssueScreen() {
           uri: file.uri,
           name: `complaint_${username}_${index}.jpg`,
           type: file.mimeType || "image/jpeg",
-        } as any);
+        } as unknown as Blob);
       });
 
-      await axios.post(
+      const response = await axios.post(
         `${process.env.EXPO_PUBLIC_BASE_URL}/issues/register`,
         formData,
         {
@@ -117,6 +117,9 @@ export default function RaiseIssueScreen() {
           },
         }
       );
+      const createdComplaint = response.data;
+
+      console.log("Image URLs:", createdComplaint.imageUrls);
 
       Toast.show({
         type: "success",

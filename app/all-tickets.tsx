@@ -72,7 +72,9 @@ export default function AllTicketsScreen() {
       }
 
       const res = await axios.get(url);
-
+      console.log("All Tickets: ", res.data);
+      console.log("URL: ", url);
+      
       const mapped: Ticket[] = Array.isArray(res.data)
         ? res.data.filter(Boolean).map((item: any) => ({
           id: item.complaintId,
@@ -97,7 +99,6 @@ export default function AllTicketsScreen() {
   useEffect(() => {
     if (!username) return;
     if (role === "ADMIN" && !profileId) return;
-
     fetchTickets(username, profileId);
   }, [role, username, profileId]);
 
@@ -111,11 +112,30 @@ export default function AllTicketsScreen() {
   /* ---------------------------------
      MODAL HANDLERS
   ---------------------------------- */
-  const openTicketModal = (ticket: Ticket) => {
+  const openTicketModal = async (ticket: Ticket) => {
     if (role !== "ADMIN") return;
-    setSelectedTicket(ticket);
-    setModalVisible(true);
+
+    try {
+      const res = await axios.get(
+        `${process.env.EXPO_PUBLIC_BASE_URL}/issues/${ticket.id}/images`
+      );
+
+      const fullUrls =
+        res.data?.map((relativeUrl: string) => `${process.env.EXPO_PUBLIC_BASE_URL}${relativeUrl}`) ?? [];
+
+      setSelectedTicket({
+        ...ticket,
+        imageUrls: fullUrls,
+      });
+
+      setModalVisible(true);
+    } catch (err) {
+      console.error("Failed to fetch complaint images:", err);
+      setSelectedTicket(ticket);
+      setModalVisible(true);
+    }
   };
+
 
   const closeModal = () => {
     setModalVisible(false);
@@ -295,7 +315,7 @@ export default function AllTicketsScreen() {
 const styles = StyleSheet.create({
   bg: {
     flex: 1,
-    backgroundColor: "#7CA9FF",
+    backgroundColor: "#1C98ED",
   },
 
   headerRow: {
