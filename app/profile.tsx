@@ -22,14 +22,13 @@ import useAuthStore from "./store/authStore";
 import CustomAlert from "./components/CustomAlert";
 import Toast from "react-native-toast-message";
 import useBuildingStore from "./store/buildingStore";
+import { useEffect } from "react";
 
-const ALLOWED_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/jpg",
-  "image/heic",
-  "image/heif",
-];
+type ReactNativeFile = {
+  uri: string;
+  name: string;
+  type: string;
+};
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -43,6 +42,15 @@ export default function ProfileScreen() {
   const resetProfile = useProfileStore((s) => s.setProfile);
   const resetAuth = useAuthStore((s) => s.reset);
 
+  // useEffect(() => {
+  //   if (username) {
+  //     profile.setProfile({
+  //       ...profile,
+  //       avatarUri: `${process.env.EXPO_PUBLIC_BASE_URL}/uploads/${username}.jpg?ts=${Date.now()}`,
+  //     });
+  //   }
+  // }, [username]);
+
   /* ----------------------------
      IMAGE PICK + UPLOAD
   ---------------------------- */
@@ -52,17 +60,14 @@ export default function ProfileScreen() {
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
-        Toast.show({
-          text1: "Permission required",
-          text2: "Please allow photo access to upload profile picture",
-        });
+        Alert.alert("Permission required", "Allow gallery access");
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [1, 1],
+        aspect: [1, 1], // square crop
         quality: 0.8,
       });
 
@@ -70,42 +75,44 @@ export default function ProfileScreen() {
 
       const asset = result.assets[0];
 
-      if (asset.mimeType && !ALLOWED_TYPES.includes(asset.mimeType)) {
-        Alert.alert(
-          "Invalid file",
-          "Only PNG, JPG, JPEG, HEIC images are allowed"
-        );
-        return;
-      }
+      if (!asset.uri) return;
 
       setUploading(true);
 
       const formData = new FormData();
-      formData.append("file", {
+      const file: ReactNativeFile = {
         uri: asset.uri,
-        name: `profile_${username}.jpg`,
-        type: asset.mimeType || "image/jpeg",
-      } as any);
+        name: `${username}.jpg`,
+        type: asset.mimeType ?? "image/jpeg",
+      };
+
+      formData.append("file", file as unknown as Blob);
 
       await axios.post(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/profile/${username}/image`,
+        `${process.env.EXPO_PUBLIC_BASE_URL}/profile/${username}/upload`,
         formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
       );
 
-      profile.setProfile({
-        ...profile,
-        avatarUri: `${
-          process.env.EXPO_PUBLIC_BASE_URL
-        }/uploads/profiles/${username}.jpg?ts=${Date.now()}`,
+      const updatedProfile = await axios.get(`${process.env.EXPO_PUBLIC_BASE_URL}/profile/${username}`);
+      profile.setProfile(updatedProfile.data);
+
+      Toast.show({
+        type: "success",
+        text1: "Profile image updated",
       });
-    } catch (error) {
-      console.error("Profile image upload failed:", error);
-      Alert.alert("Upload failed", "Unable to upload profile image");
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Upload failed", "Could not upload image");
     } finally {
       setUploading(false);
     }
   };
+
 
   /* ----------------------------
      EDIT ACCOUNT

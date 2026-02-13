@@ -71,7 +71,9 @@ export default function LoginScreen() {
       }
 
       setTimeout(() => router.replace("/home"), 800);
-    } catch {
+    } catch (err) {
+      console.log(err);
+      
       Toast.show({
         type: "error",
         text1: "Login Failed",
