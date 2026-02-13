@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 import axios from "axios";
+import { Feather } from "@expo/vector-icons";
 
 import FrostedCard from "./components/FrostedCard";
 import useAuthStore from "./store/authStore";
@@ -31,6 +32,7 @@ export default function LoginScreen() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!phone || !password) {
@@ -48,7 +50,7 @@ export default function LoginScreen() {
       const payload = { phone, password };
 
       const response = await axios.post(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/users/login`,
+        `http://16.170.115.179:8080/whistleup/users/login`,
         payload
       );
 
@@ -73,7 +75,7 @@ export default function LoginScreen() {
       setTimeout(() => router.replace("/home"), 800);
     } catch (err) {
       console.log(err);
-      
+
       Toast.show({
         type: "error",
         text1: "Login Failed",
@@ -113,14 +115,29 @@ export default function LoginScreen() {
                     onChangeText={(t) => setPhone(t.replace(/[^0-9]/g, ""))}
                   />
 
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Password"
-                    placeholderTextColor="#555"
-                    secureTextEntry
-                    value={password}
-                    onChangeText={setPassword}
-                  />
+                  <View style={styles.passwordContainer}>
+                    <TextInput
+                      style={styles.passwordInput}
+                      placeholder="Password"
+                      placeholderTextColor="#555"
+                      secureTextEntry={!showPassword}
+                      value={password}
+                      onChangeText={setPassword}
+                    />
+
+                    <TouchableOpacity
+                      onPress={() => setShowPassword((prev) => !prev)}
+                      activeOpacity={0.7}
+                      style={styles.eyeButton}
+                    >
+                      <Feather
+                        name={showPassword ? "eye-off" : "eye"}
+                        size={20}
+                        color="#5956E9"
+                      />
+                    </TouchableOpacity>
+                  </View>
+
 
                   <TouchableOpacity
                     style={styles.forgotContainer}
@@ -247,4 +264,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textDecorationLine: "underline",
   },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#6C63FF",
+    marginBottom: 20,
+  },
+
+  passwordInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 10,
+    color: "#222",
+  },
+
+  eyeButton: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+
 });
