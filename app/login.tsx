@@ -1,5 +1,7 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
+import { BASE_URL } from "./config";
+
 import {
   View,
   Text,
@@ -49,10 +51,7 @@ export default function LoginScreen() {
 
       const payload = { phone, password };
 
-      const response = await axios.post(
-        `http://16.170.115.179:8080/whistleup/users/login`,
-        payload
-      );
+      const response = await axios.post(`${BASE_URL}/users/login`,payload);
 
       const { jwtToken } = response.data;
 

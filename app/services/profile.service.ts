@@ -4,7 +4,7 @@ export const createProfile = async (
   name: string,
   phone: string,
   password: string,
-  role: "ADMIN" | "USER",
+  role: "ADMIN" | "USER" | "SYSTEM_ADMIN",
   buildingId: string
 ) => {
   const body = {

@@ -256,7 +256,7 @@ export default function EnrollBuildingScreen() {
 
         <View style={styles.container}>
           <ScrollView showsVerticalScrollIndicator={false}>
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={styles.locationBtn}
               onPress={fetchCurrentLocation}
               disabled={locationLoading}
@@ -274,7 +274,7 @@ export default function EnrollBuildingScreen() {
               value={currentAddress}
               editable={false}
               multiline
-            />
+            /> */}
 
             <TextInput
               style={styles.input}
@@ -364,7 +364,6 @@ export default function EnrollBuildingScreen() {
               style={styles.input}
               placeholder="UPI Id *"
               keyboardType="number-pad"
-              maxLength={10}
               value={form.upiId}
               onChangeText={(v) => setForm({ ...form, upiId: v })}
             />

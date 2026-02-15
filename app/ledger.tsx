@@ -18,6 +18,8 @@ import axios from "axios";
 import * as FileSystem from "expo-file-system";
 import { shareAsync } from "expo-sharing";
 import useBuildingStore from "./store/buildingStore";
+import { Picker } from "@react-native-picker/picker";
+import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
 
 /* ---------------------------------
    Backend Config (DO NOT TOUCH)
@@ -49,7 +51,17 @@ type LedgerMap = Record<string, LedgerResponse | null | undefined>;
    Constants
 ---------------------------------- */
 const PRIMARY = "#1C98ED";
-const YEARS = [2026];
+const YEARS = [2024, 2025, 2026];
+const LEDGER_ITEM_OPTIONS = [
+  "Water Bill",
+  "Electricity",
+  "Lift Maintenance",
+  "Security Salary",
+  "Cleaning Charges",
+  "Garbage Collection",
+  "Miscellaneous",
+];
+
 const MONTHS = [
   "January",
   "February",
@@ -81,13 +93,22 @@ export default function MyFlatLedger() {
   const buildingId = useBuildingStore((s) => s.buildingId);
   const totalResidents = useBuildingStore((s) => s.totalResidents);
 
-  const [activeYear, setActiveYear] = useState(2026);
-  const [expandedMonth, setExpandedMonth] = useState<string | null>("January");
+  const getCurrentYear = () => new Date().getFullYear();
+  const [activeYear, setActiveYear] = useState(getCurrentYear());
+  const getCurrentMonthName = () => {
+    const monthIndex = new Date().getMonth(); // 0–11
+    return MONTHS[monthIndex];
+  };
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(getCurrentMonthName());
 
   const [ledgerMap, setLedgerMap] = useState<LedgerMap>({});
   const [isEditing, setIsEditing] = useState(false);
   const [draftItems, setDraftItems] = useState<LedgerItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [addingIndex, setAddingIndex] = useState<number | null>(null);
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [addingRow, setAddingRow] = useState(false);
 
   const activeKey = expandedMonth ? ledgerKey(activeYear, expandedMonth) : null;
 
@@ -106,7 +127,8 @@ export default function MyFlatLedger() {
 
     setIsEditing(false);
     setDraftItems([]);
-
+    setAddingRow(false);
+    setEditingItemId(null);
     const fetchLedger = async () => {
       setLoading(true);
       try {
@@ -138,7 +160,9 @@ export default function MyFlatLedger() {
   /* ---------------------------------
      Derived State
   ---------------------------------- */
-  const visibleItems = isEditing ? draftItems : activeLedger?.items ?? [];
+  // const visibleItems = isEditing ? draftItems : activeLedger?.items ?? [];
+  // const visibleItems =  draftItems.length > 0 ? draftItems : activeLedger?.items ?? [];
+  const visibleItems = draftItems.length > 0 ? draftItems : activeLedger?.items ?? [];
 
   const totalAmount = useMemo(
     () => visibleItems.reduce((s, i) => s + (i.amount || 0), 0),
@@ -154,9 +178,20 @@ export default function MyFlatLedger() {
      Actions
   ---------------------------------- */
   const addItem = () => {
+    const baseItems =
+      draftItems.length > 0 ? draftItems : activeLedger?.items ?? [];
+
+    const newItem: LedgerItem = {
+      id: Date.now(),
+      name: "",
+      amount: 0,
+    };
+
+    setDraftItems([...baseItems, newItem]);
+    setEditingItemId(newItem.id!);
     setIsEditing(true);
-    setDraftItems([...(activeLedger?.items ?? []), { name: "", amount: 0 }]);
   };
+
 
   const updateDraftItem = (
     index: number,
@@ -167,12 +202,12 @@ export default function MyFlatLedger() {
       prev.map((i, idx) =>
         idx === index
           ? {
-              ...i,
-              [field]:
-                field === "amount"
-                  ? Number(value.replace(/[^0-9]/g, ""))
-                  : value,
-            }
+            ...i,
+            [field]:
+              field === "amount"
+                ? Number(value.replace(/[^0-9]/g, ""))
+                : value,
+          }
           : i
       )
     );
@@ -186,6 +221,12 @@ export default function MyFlatLedger() {
   const onSave = async () => {
     if (!expandedMonth || !activeKey || !buildingId) return;
 
+    const names = draftItems.map((i) => i.name.trim().toLowerCase()).filter(Boolean);
+    const hasDuplicate = new Set(names).size !== names.length;
+    if (hasDuplicate) {
+      Alert.alert("Duplicate Items", "Ledger items must be unique.");
+      return;
+    }
     try {
       setLoading(true);
 
@@ -217,12 +258,28 @@ export default function MyFlatLedger() {
       setLedgerMap((prev) => ({ ...prev, [activeKey]: saved }));
       setIsEditing(false);
       setDraftItems([]);
-    } catch {
+    } catch (err: any) {
+      console.log(err);
       Alert.alert("Error", "Unable to save ledger");
     } finally {
       setLoading(false);
     }
   };
+
+  const deleteItem = (id: number) => {
+    const baseItems =
+      draftItems.length > 0 ? draftItems : activeLedger?.items ?? [];
+
+    const updated = baseItems.filter((item) => item.id !== id);
+
+    setDraftItems(updated);
+    setIsEditing(true);
+
+    if (editingItemId === id) {
+      setEditingItemId(null);
+    }
+  };
+
 
   /* ---------------------------------
      PDF Download (UNCHANGED)
@@ -329,27 +386,93 @@ export default function MyFlatLedger() {
 
                 {open && (
                   <View style={styles.card}>
-                    {visibleItems.map((i, idx) => (
-                      <View key={idx} style={styles.itemRow}>
-                        <TextInput
-                          placeholder="Item name"
-                          value={i.name}
-                          editable={isEditing}
-                          onChangeText={(t) => updateDraftItem(idx, "name", t)}
-                          style={styles.itemInput}
-                        />
-                        <TextInput
-                          placeholder="0"
-                          keyboardType="numeric"
-                          editable={isEditing}
-                          value={i.amount ? String(i.amount) : ""}
-                          onChangeText={(t) =>
-                            updateDraftItem(idx, "amount", t)
-                          }
-                          style={styles.amountInput}
-                        />
-                      </View>
-                    ))}
+                    {visibleItems.map((i, idx) => {
+                      const isEditingRow = editingItemId === i.id;
+
+                      return (
+                        <View key={idx} style={styles.itemRow}>
+                            {/* NAME COLUMN */}
+                            <View style={styles.nameContainer}>
+                          {isEditingRow ? (
+                            <View style={{ flexDirection: "row", alignItems: "center" }}>
+                              {/* If name is empty → show dropdown first */}
+                              {i.name === "" ? (
+                                <Picker
+                                  selectedValue={i.name}
+                                  style={{ flex: 1 }}
+                                  onValueChange={(value) =>
+                                    updateDraftItem(idx, "name", value)
+                                  }
+                                >
+                                  <Picker.Item label="Select item" value="" />
+                                  {LEDGER_ITEM_OPTIONS.map((option) => (
+                                    <Picker.Item
+                                      key={option}
+                                      label={option}
+                                      value={option}
+                                    />
+                                  ))}
+                                </Picker>
+                              ) : (
+                                <TextInput
+                                  value={i.name}
+                                  onChangeText={(t) =>
+                                    updateDraftItem(idx, "name", t)
+                                  }
+                                  style={[styles.itemInput, { flex: 1 }]}
+                                />
+                              )}
+
+                              <TouchableOpacity
+                                onPress={() => setEditingItemId(null)}
+                                style={styles.tickBtn}
+                              >
+                                <Ionicons name="checkmark" size={18} color="#fff" />
+                              </TouchableOpacity>
+                            </View>
+                          ) : (
+                            <Text style={{ fontSize: 14 }}>{i.name}</Text>
+                          )}
+                          </View>
+
+
+                          {/* Amount Input (Always Editable) */}
+                          <TextInput
+                            placeholder="0"
+                            keyboardType="numeric"
+                            value={i.amount ? String(i.amount) : ""}
+                            onChangeText={(t) =>
+                              updateDraftItem(idx, "amount", t)
+                            }
+                            style={styles.amountInput}
+                          />
+
+                          {/* Pencil Icon (Only if not adding) */}
+                          {!isEditingRow && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                if (draftItems.length === 0) {
+                                  setDraftItems(activeLedger?.items ?? []);
+                                }
+                                setEditingItemId(i.id!);
+                                setIsEditing(true); 
+                              }}
+                              style={styles.editBtn}
+                            >
+                              <Ionicons name="pencil-outline" size={18} color="#fff" />
+                            </TouchableOpacity>
+                          )}
+
+                          {/* Delete */}
+                          {/* <TouchableOpacity
+                            onPress={() => deleteItem(i.id!)}
+                            style={styles.deleteBtn}
+                          >
+                            <Ionicons name="trash-outline" size={18} color="#fff" />
+                          </TouchableOpacity> */}
+                        </View>
+                      );
+                    })}
 
                     <TouchableOpacity style={styles.addBtn} onPress={addItem}>
                       <Ionicons name="add-circle-outline" size={20} />
@@ -359,7 +482,7 @@ export default function MyFlatLedger() {
                     <View style={styles.divider} />
 
                     <Row label="Total" value={currency(totalAmount)} />
-                    <Row label="Total Flats in Apartment" value={totalResidents} />
+                    <Row label="Total Flats in Apartment" value={totalResidents.toString()} />
                     <Row
                       label="Each Flat Payable Amount"
                       value={currency(perFlatAmount)}
@@ -459,7 +582,88 @@ const styles = StyleSheet.create({
     padding: 12,
     marginTop: 10,
   },
-  itemRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  // itemRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  itemRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+
+  picker: {
+    height: 55,
+  },
+
+  deleteBtn: {
+    backgroundColor: "#E53935",
+    padding: 2,
+    borderRadius: 6,
+    marginLeft: 6,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  editBtn: {
+  backgroundColor: "#1C98ED",
+  padding: 6,
+  borderRadius: 6,
+  marginLeft: 6,
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+tickBtn: {
+  backgroundColor: "#4CAF50",
+  padding: 6,
+  borderRadius: 6,
+  marginLeft: 6,
+  justifyContent: "center",
+  alignItems: "center",
+},
+nameContainer: {
+  flex: 1,
+  paddingRight: 8,
+},
+
+nameText: {
+  fontSize: 14,
+},
+
+nameInput: {
+  borderBottomWidth: 1,
+  borderColor: "#ddd",
+  paddingVertical: 4,
+},
+
+amountInput: {
+  width: 90,
+  textAlign: "right",
+  borderBottomWidth: 1,
+  borderColor: "#ddd",
+  paddingVertical: 4,
+  marginRight: 8,
+},
+
+iconBtnBlue: {
+  width: 34,
+  height: 34,
+  borderRadius: 6,
+  backgroundColor: "#1C98ED",
+  justifyContent: "center",
+  alignItems: "center",
+  marginRight: 6,
+},
+
+iconBtnRed: {
+  width: 34,
+  height: 34,
+  borderRadius: 6,
+  backgroundColor: "#E53935",
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+
   itemInput: {
     flex: 1,
     borderBottomWidth: 1,

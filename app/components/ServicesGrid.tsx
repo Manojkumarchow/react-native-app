@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import useProfileStore from "./../store/profileStore";
 
 const services = [
   {
@@ -9,42 +10,51 @@ const services = [
     label: "Maintenance",
     icon: "wallet-outline",
     route: "/maintenance",
+    role: ["USER", "ADMIN"]
   },
   {
     key: "residents",
     label: "Residents",
     icon: "face-man",
     route: "/residents",
+    role: ["ADMIN"]
   },
   {
     key: "home",
     label: "Home Services",
     icon: "home-heart",
     route: "/home-services",
+    role: ["USER", "ADMIN"]
   },
   { key: "rent", label: "Rent", icon: "key-outline", route: "/rent" },
-  { key: "watch", label: "Watch Men", icon: "account-tie", route: "/watchmen" },
+  { key: "watch", label: "Watch Men", icon: "account-tie", route: "/watchmen", role: ["USER", "ADMIN"]},
   { key: "cctv", label: "CCTV", icon: "security", route: "/cctv" },
   {
     key: "emergency",
     label: "Emergency Contact",
     icon: "phone-alert",
     route: "/emergency",
+    role: ["USER", "ADMIN"]
   },
   {
     key: "announce",
     label: "Latest Announcement",
     icon: "bullhorn",
     route: "/announcements",
+    role: ["USER", "ADMIN"]
   },
 ];
 
 export default function ServicesGrid() {
   const router = useRouter();
+  const role = useProfileStore((s) => s.role);
+  const filteredServices = services.filter(
+  (s) => !s.role || s.role.includes(role as any)
+);
   return (
     <View style={styles.wrap}>
       <View style={styles.grid}>
-        {services.map((s) => (
+        {filteredServices.map((s) => (
           <TouchableOpacity
             key={s.key}
             style={styles.cell}

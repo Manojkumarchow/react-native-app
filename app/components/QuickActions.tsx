@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import useProfileStore from "./../store/profileStore";
 
 const actions = [
   {
@@ -9,44 +10,50 @@ const actions = [
     label: "Pay Now",
     icon: "credit-card-outline",
     route: "/payments",
+    role: ["USER", "ADMIN"]
   },
   {
     key: "raise",
     label: "Raise Issues",
     icon: "alert-circle-outline",
     route: "/issues",
+    role: ["USER", "ADMIN"]
   },
   {
     key: "notices",
     label: "Notices",
     icon: "file-document-outline",
     route: "/notices",
+    role: ["ADMIN"]
   },
   {
     key: "ledger",
     label: "My Flat Ledger",
     icon: "book-open-variant",
     route: "/ledger",
+    role: ["USER", "ADMIN"]
   },
   {
     key: "Enroll Building",
     label: "Register Building",
     icon: "home",
     route: "/enroll",
+    role: ["SYSTEM_ADMIN"]
   },
 ];
 
 export default function QuickActions() {
   const router = useRouter();
+  const role = useProfileStore((s) => s.role);
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Quick Actions</Text>
       <View style={styles.row}>
-        {actions.map((a) => (
+        {actions.filter((a) => role && a.role.includes(role)).map((a) => (
           <TouchableOpacity
             key={a.key}
             style={styles.action}
-            onPress={() => router.push(a.route)}
+            onPress={() => router.push(a.route as any)}
           >
             <View style={styles.iconPlaceholder}>
               <MaterialCommunityIcons name={a.icon} size={28} color="#1C98ED" />
