@@ -6,6 +6,13 @@ import useProfileStore from "./../store/profileStore";
 
 const services = [
   {
+    key: "maintenance",
+    label: "Maintenance",
+    icon: "wallet-outline",
+    route: "/maintenance",
+    role: ["USER", "ADMIN"]
+  },
+  {
     key: "residents",
     label: "Residents",
     icon: "face-man",
@@ -19,15 +26,9 @@ const services = [
     route: "/home-services",
     role: ["USER", "ADMIN"]
   },
-  {
-    key: "maintenance",
-    label: "Maintenance",
-    icon: "wallet-outline",
-    route: "/maintenance",
-    role: ["USER", "ADMIN"]
-  },
-  { key: "watch", label: "Watch Men", icon: "account-tie", route: "/watchmen", role: ["USER", "ADMIN"]},
   { key: "rent", label: "Rent", icon: "key-outline", route: "/rent" },
+  { key: "watch", label: "Watch Men", icon: "account-tie", route: "/watchmen", role: ["USER", "ADMIN"]},
+  { key: "cctv", label: "CCTV", icon: "security", route: "/cctv" },
   {
     key: "emergency",
     label: "Emergency Contact",
@@ -42,7 +43,6 @@ const services = [
     route: "/announcements",
     role: ["USER", "ADMIN"]
   },
-  { key: "cctv", label: "CCTV", icon: "security", route: "/cctv" },
 ];
 
 export default function ServicesGrid() {
