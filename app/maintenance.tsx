@@ -212,13 +212,14 @@ export default function MaintenanceScreen() {
 /* ---------------- STYLES ---------------- */
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#73A8FF" },
+  safe: { flex: 1, backgroundColor: "#1C98ED" },
 
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     marginTop: 10,
+    height: 60
   },
 
   headerTitle: {

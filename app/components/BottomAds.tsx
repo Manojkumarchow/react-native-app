@@ -7,15 +7,21 @@ import {
   Text,
 } from "react-native";
 import NetworkImage from "./NetworkImage";
+import { Linking } from "react-native";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = Math.min(1000, width - 36);
-const LOCAL_HERO = require("./../../assets/images/varka.jpeg");
 
 export default function BottomAds({ autoPlay = true, autoMs = 4000 }) {
   const slides = [
-    "https://placehold.co/900x260?text=Ad+1",
-    "https://placehold.co/900x260?text=Ad+2",
+    {
+      image: require("./../../assets/images/varka.jpeg"),
+      link: "https://varka.in/",
+    },
+    {
+      image: require("./../../assets/images/varka.jpeg"),
+      link: "https://varka.in/",
+    },
   ];
 
   const [index, setIndex] = useState(0);
@@ -29,36 +35,21 @@ export default function BottomAds({ autoPlay = true, autoMs = 4000 }) {
     return () => clearInterval(t);
   }, [autoPlay, autoMs]);
 
-  const next = () => setIndex((i) => (i + 1) % slides.length);
-  const prev = () => setIndex((i) => (i - 1 + slides.length) % slides.length);
-
   return (
     <View style={styles.wrap}>
-      <View style={styles.card}>
-        <NetworkImage
-          uri={slides[index]}
-          localFallback={LOCAL_HERO}
-          style={styles.image}
-          resizeMode="contain"
-        />
-      </View>
-
-      <View style={styles.pagerRow}>
-        <TouchableOpacity onPress={prev} style={styles.chev}>
-          <Text>{"<"}</Text>
-        </TouchableOpacity>
-        <View style={styles.dots}>
-          {slides.map((_, i) => (
-            <View
-              key={i}
-              style={[styles.dot, i === index && styles.dotActive]}
-            />
-          ))}
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => Linking.openURL(slides[index].link)}
+      >
+        <View style={styles.card}>
+          <NetworkImage
+            uri={slides[index].link}
+            localFallback={slides[index].image}
+            style={styles.image}
+            resizeMode="contain"
+          />
         </View>
-        <TouchableOpacity onPress={next} style={styles.chev}>
-          <Text>{">"}</Text>
-        </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
     </View>
   );
 }

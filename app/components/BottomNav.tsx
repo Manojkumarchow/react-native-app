@@ -42,7 +42,7 @@ export default function BottomNav() {
         style={styles.tab}
         onPress={() => router.push("/profile")}
       >
-        <Text style={styles.icon}>👤</Text>
+        <Text style={styles.icon}>👨🏼‍🦱</Text>
       </TouchableOpacity>
     </View>
   );
@@ -51,13 +51,13 @@ export default function BottomNav() {
 const styles = StyleSheet.create({
   bar: {
     position: "absolute",
-    bottom: 0,
-    height: 78,
+    bottom: 10,
+    height: 90,
     backgroundColor: "#1C98ED",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     borderTopLeftRadius: 6,
     borderTopRightRadius: 6,
   },

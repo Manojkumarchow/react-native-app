@@ -20,6 +20,7 @@ import { shareAsync } from "expo-sharing";
 import useBuildingStore from "./store/buildingStore";
 import { Picker } from "@react-native-picker/picker";
 import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
+import useProfileStore from "./store/profileStore";
 
 /* ---------------------------------
    Backend Config (DO NOT TOUCH)
@@ -92,7 +93,8 @@ export default function MyFlatLedger() {
   /** ✅ BUILDING CONTEXT */
   const buildingId = useBuildingStore((s) => s.buildingId);
   const totalResidents = useBuildingStore((s) => s.totalResidents);
-
+  const role = useProfileStore((s) => s.role);
+  const isAdmin = role === "ADMIN";
   const getCurrentYear = () => new Date().getFullYear();
   const [activeYear, setActiveYear] = useState(getCurrentYear());
   const getCurrentMonthName = () => {
@@ -444,11 +446,12 @@ export default function MyFlatLedger() {
                             onChangeText={(t) =>
                               updateDraftItem(idx, "amount", t)
                             }
-                            style={styles.amountInput}
+                            editable = {isAdmin}
+                            style={[styles.amountInput, !isAdmin && styles.disabledInput]}
                           />
 
                           {/* Pencil Icon (Only if not adding) */}
-                          {!isEditingRow && (
+                          {isAdmin && !isEditingRow && (
                             <TouchableOpacity
                               onPress={() => {
                                 if (draftItems.length === 0) {
@@ -474,10 +477,10 @@ export default function MyFlatLedger() {
                       );
                     })}
 
-                    <TouchableOpacity style={styles.addBtn} onPress={addItem}>
+                    {isAdmin && (<TouchableOpacity style={styles.addBtn} onPress={addItem}>
                       <Ionicons name="add-circle-outline" size={20} />
                       <Text style={{ marginLeft: 6 }}>Add Item</Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity>)}
 
                     <View style={styles.divider} />
 
@@ -542,7 +545,7 @@ const Row = ({ label, value }: { label: string; value: string }) => (
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
   header: {
-    height: 56,
+    height: 100,
     backgroundColor: PRIMARY,
     flexDirection: "row",
     alignItems: "center",
@@ -610,6 +613,11 @@ const styles = StyleSheet.create({
   marginLeft: 6,
   justifyContent: "center",
   alignItems: "center",
+},
+
+disabledInput: {
+  backgroundColor: "#f2f2f2cf",
+  color: "#090909de",
 },
 
 tickBtn: {

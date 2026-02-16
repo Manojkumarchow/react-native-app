@@ -259,12 +259,13 @@ export default function HomeServicesScreen() {
 /* ---------------- STYLES ---------------- */
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#7CA9FF" },
+  safe: { flex: 1, backgroundColor: "#1C98ED" },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 18,
     paddingTop: 12,
+    height: 90,
     paddingBottom: 14,
   },
   headerTitle: {

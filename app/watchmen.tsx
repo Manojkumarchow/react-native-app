@@ -116,16 +116,6 @@ export default function WatchmenScreen() {
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>Watchmen</Text>
-
-          <View style={styles.headerIcons}>
-            <Feather name="search" size={22} color="#fff" />
-            <Feather
-              name="bell"
-              size={22}
-              color="#fff"
-              style={{ marginLeft: 20 }}
-            />
-          </View>
         </View>
 
         {/* CONTENT */}
@@ -221,7 +211,7 @@ export default function WatchmenScreen() {
 /* ---------------- STYLES ---------------- */
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#7CA9FF" },
+  safe: { flex: 1, backgroundColor: "#1C98ED" },
 
   header: {
     paddingHorizontal: 20,
@@ -229,6 +219,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     flexDirection: "row",
     alignItems: "center",
+    height: 90,
   },
 
   headerTitle: {
