@@ -42,7 +42,7 @@ export default function BottomNav() {
         style={styles.tab}
         onPress={() => router.push("/profile")}
       >
-        <Text style={styles.icon}>👤</Text>
+        <Text style={styles.icon}>👨🏼‍🦱</Text>
       </TouchableOpacity>
     </View>
   );
