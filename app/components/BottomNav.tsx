@@ -51,7 +51,7 @@ export default function BottomNav() {
 const styles = StyleSheet.create({
   bar: {
     position: "absolute",
-    bottom: 10,
+    bottom: 25,
     height: 90,
     backgroundColor: "#1C98ED",
     flexDirection: "row",

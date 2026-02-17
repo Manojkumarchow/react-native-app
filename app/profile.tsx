@@ -162,8 +162,11 @@ export default function ProfileScreen() {
               {upiId && <Row icon="bank" label={`UPI: ${upiId}`} />}
 
               {profile.flat && <Row icon="home" label={profile.flat} />}
-              {profile.building && (
-                <Row icon="office-building" label={profile.building} />
+              {profile.buildingName && (
+                <Row icon="office-building" label={profile.buildingName} />
+              )}
+              {profile.flatNo && (
+                <Row icon="home" label={`Flat No: ${profile.flatNo}`} />
               )}
               {profile.address && (
                 <Row icon="map-marker" label={profile.address} />

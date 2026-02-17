@@ -9,6 +9,8 @@ export default function Header() {
   const profile = useProfileStore();
   const name = profile.name;
   const avatarUri = profile.avatarUri;
+  const buildingName = profile.buildingName;
+  const flatNo = profile.flatNo;
   return (
     <View style={styles.header}>
       <View style={styles.left}>
@@ -21,8 +23,8 @@ export default function Header() {
           style={styles.avatar}
         />
         <View>
-          <Text style={styles.greeting}>Hello {name?.split(" ")[0]}</Text>
-          <Text style={styles.sub}>Welcome Back........!</Text>
+          <Text style={styles.greeting}>Hello, {name?.split(" ")[0]}</Text>
+          <Text style={styles.sub}>{buildingName} - {flatNo}</Text>
         </View>
       </View>
 

@@ -21,6 +21,7 @@ import useBuildingStore from "./store/buildingStore";
 import { Picker } from "@react-native-picker/picker";
 import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
 import useProfileStore from "./store/profileStore";
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 /* ---------------------------------
    Backend Config (DO NOT TOUCH)
@@ -462,7 +463,11 @@ export default function MyFlatLedger() {
                               }}
                               style={styles.editBtn}
                             >
-                              <Ionicons name="pencil-outline" size={18} color="#fff" />
+                              <MaterialCommunityIcons
+              name="pencil-outline"
+              size={20}
+              color="#C1282D"
+            />
                             </TouchableOpacity>
                           )}
 
@@ -607,7 +612,7 @@ const styles = StyleSheet.create({
   },
 
   editBtn: {
-  backgroundColor: "#1C98ED",
+  // backgroundColor: "#1C98ED",
   padding: 6,
   borderRadius: 6,
   marginLeft: 6,
@@ -622,9 +627,9 @@ disabledInput: {
 
 tickBtn: {
   backgroundColor: "#4CAF50",
-  padding: 6,
-  borderRadius: 6,
-  marginLeft: 6,
+  padding: 2,
+  borderRadius: 4,
+  marginLeft: 4,
   justifyContent: "center",
   alignItems: "center",
 },

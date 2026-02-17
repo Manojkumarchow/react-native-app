@@ -125,7 +125,7 @@ export default function EditAccount() {
             autoCapitalize="none"
           /> */}
 
-          <Text style={styles.label}>Flat</Text>
+          {/* <Text style={styles.label}>Flat</Text>
           <TextInput style={styles.input} value={flat} onChangeText={setFlat} />
 
           <Text style={styles.label}>Building</Text>
@@ -141,7 +141,7 @@ export default function EditAccount() {
             value={address}
             onChangeText={setAddress}
             multiline
-          />
+          /> */}
 
           <TouchableOpacity
             style={styles.saveBtn}
@@ -180,6 +180,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     flexDirection: "row",
     alignItems: "center",
+    height: 90,
   },
 
   headerTitle: {
