@@ -32,7 +32,7 @@ export default function Notices() {
     const fetchNotices = async () => {
       try {
         const res = await axios.get(
-          `${process.env.EXPO_PUBLIC_BASE_URL}/notices/${buildingId}`
+          `${process.env.EXPO_PUBLIC_BASE_URL}/notices/${buildingId}`,
         );
         setNotices(res.data);
       } catch (error) {
@@ -78,7 +78,12 @@ export default function Notices() {
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color="#fff"
+            style={styles.arrowButton}
+          />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Notices</Text>
@@ -116,9 +121,23 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    height: 120,
   },
-  headerTitle: { color: "#fff", fontSize: 20, fontWeight: "700" },
-  createText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  headerTitle: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: -60,
+  },
+  createText: {
+    color: "#29ec14ff",
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 60,
+  },
+  arrowButton: {
+    marginTop: 60,
+  },
   card: {
     flexDirection: "row",
     margin: 14,

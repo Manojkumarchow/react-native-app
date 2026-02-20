@@ -88,6 +88,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 14,
+    marginTop: 50,
+    textAlign: "center",
   },
 
   headerTitle: {

@@ -42,7 +42,7 @@ export default function SignupScreen() {
 
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(
-    null
+    null,
   );
 
   const [buildingQuery, setBuildingQuery] = useState("");
@@ -57,26 +57,25 @@ export default function SignupScreen() {
      Fetch Buildings (UNCHANGED)
   ---------------------------------- */
   useEffect(() => {
-  console.log("🚀 Buildings API call started");
+    console.log("🚀 Buildings API call started");
 
-  axios
-    .get(`${process.env.EXPO_PUBLIC_BASE_URL}/building/all`)
-    .then((res) => {
-      console.log("✅ Buildings API success");
-      console.log("📦 Raw response:", res);
-      console.log("📦 Response data:", res.data);
+    axios
+      .get(`${process.env.EXPO_PUBLIC_BASE_URL}/building/all`)
+      .then((res) => {
+        console.log("✅ Buildings API success");
+        console.log("📦 Raw response:", res);
+        console.log("📦 Response data:", res.data);
 
-      setBuildings(res.data || []);
-    })
-    .catch((err) => {
-      console.log("❌ Buildings API failed");
-      console.log("❌ Error:", err?.message);
-      console.log("❌ Full error:", err);
+        setBuildings(res.data || []);
+      })
+      .catch((err) => {
+        console.log("❌ Buildings API failed");
+        console.log("❌ Error:", err?.message);
+        console.log("❌ Full error:", err);
 
-      setError("Unable to load buildings");
-    });
-}, []);
-
+        setError("Unable to load buildings");
+      });
+  }, []);
 
   /* ---------------------------------
      Filter Buildings
@@ -87,7 +86,7 @@ export default function SignupScreen() {
     return buildings.filter(
       (b) =>
         String(b.buildingId).includes(q) ||
-        b.buildingName.toLowerCase().includes(q)
+        b.buildingName.toLowerCase().includes(q),
     );
   }, [buildingQuery, buildings]);
 
@@ -117,7 +116,7 @@ export default function SignupScreen() {
       await getProfile(phone);
       setError("User already exists");
       return;
-    } catch { }
+    } catch {}
 
     try {
       const otpRes = await sendOTP(phone);
@@ -169,6 +168,7 @@ export default function SignupScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="Full Name"
+                    placeholderTextColor="#5A6C8A"
                     value={fullName}
                     onChangeText={setFullName}
                   />
@@ -176,6 +176,7 @@ export default function SignupScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="Phone Number"
+                    placeholderTextColor={"#5A6C8A"}
                     keyboardType="number-pad"
                     maxLength={10}
                     value={phone}
@@ -187,6 +188,7 @@ export default function SignupScreen() {
                     <TextInput
                       style={styles.input}
                       placeholder="Select Building"
+                      placeholderTextColor={"#5A6C8A"}
                       value={
                         selectedBuilding
                           ? `${selectedBuilding.buildingId} - ${selectedBuilding.buildingName}`
@@ -222,7 +224,6 @@ export default function SignupScreen() {
                             </TouchableOpacity>
                           ))}
                         </ScrollView>
-
                       </View>
                     )}
                   </View>
@@ -265,6 +266,7 @@ export default function SignupScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="Flat Number (e.g. 101)"
+                    placeholderTextColor="#5A6C8A"
                     keyboardType="number-pad"
                     value={flatNo}
                     onChangeText={setFlatNo}
@@ -274,6 +276,7 @@ export default function SignupScreen() {
                     ref={passwordRef}
                     style={styles.input}
                     placeholder="Password"
+                    placeholderTextColor="#5A6C8A"
                     secureTextEntry
                     value={password}
                     onChangeText={setPassword}
@@ -306,6 +309,14 @@ export default function SignupScreen() {
                   </TouchableOpacity>
 
                   {!!error && <Text style={styles.error}>{error}</Text>}
+                  <View style={styles.signinRow}>
+                    <Text style={styles.signinText}>
+                      Already have an account?
+                    </Text>
+                    <TouchableOpacity onPress={() => router.replace("/login")}>
+                      <Text style={styles.signinLink}>Login</Text>
+                    </TouchableOpacity>
+                  </View>
                 </FrostedCard>
               </View>
             </ScrollView>
@@ -326,8 +337,8 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    flexGrow: 1,                 // ⭐ REQUIRED
-    justifyContent: "center",    // ⭐ centers vertically
+    flexGrow: 1, // ⭐ REQUIRED
+    justifyContent: "center", // ⭐ centers vertically
     alignItems: "center",
     paddingVertical: 24,
   },
@@ -336,6 +347,24 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 420,
     paddingHorizontal: 16,
+  },
+
+  signinRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 10,
+  },
+
+  signinText: {
+    color: "#222",
+    fontSize: 14,
+  },
+
+  signinLink: {
+    color: "#0A174E",
+    fontSize: 14,
+    fontWeight: "700",
+    textDecorationLine: "underline",
   },
 
   title: {
@@ -355,6 +384,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 20,
     paddingVertical: 8,
+    color: "#131314ff",
   },
 
   dropdownWrapper: {
@@ -366,7 +396,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 52,
     width: "100%",
-    backgroundColor: "#F6FAFF",
+    backgroundColor: "#5a6c8ab1",
     borderRadius: 12,
     maxHeight: 180,
     elevation: 6,

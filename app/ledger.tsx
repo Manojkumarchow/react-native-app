@@ -61,6 +61,8 @@ const LEDGER_ITEM_OPTIONS = [
   "Security Salary",
   "Cleaning Charges",
   "Garbage Collection",
+  "Water Tanker",
+  "Festival Expenses",
   "Miscellaneous",
 ];
 
@@ -550,7 +552,7 @@ const Row = ({ label, value }: { label: string; value: string }) => (
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
   header: {
-    height: 100,
+    height: 50,
     backgroundColor: PRIMARY,
     flexDirection: "row",
     alignItems: "center",

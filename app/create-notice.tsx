@@ -131,7 +131,7 @@ export default function CreateNotice() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#A3C9FF",
     padding: 20,
   },
 
@@ -139,7 +139,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 40,
+    marginTop: 50
   },
 
   heading: {

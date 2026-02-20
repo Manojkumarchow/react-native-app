@@ -52,7 +52,12 @@ export default function Payments() {
         {/* Custom Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
+            <Ionicons
+              name="chevron-back"
+              size={24}
+              color="#fff"
+              style={styles.arrowButton}
+            />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>Payments</Text>
@@ -89,7 +94,7 @@ const styles = StyleSheet.create({
 
   /* Header */
   header: {
-    height: 56,
+    height: 120,
     backgroundColor: PRIMARY,
     flexDirection: "row",
     alignItems: "center",
@@ -101,6 +106,10 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     fontWeight: "600",
+    marginBottom: -50,
+  },
+  arrowButton: {
+    marginTop: 50,
   },
 
   /* Content */

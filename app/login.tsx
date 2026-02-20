@@ -51,7 +51,7 @@ export default function LoginScreen() {
 
       const payload = { phone, password };
 
-      const response = await axios.post(`${BASE_URL}/users/login`,payload);
+      const response = await axios.post(`${BASE_URL}/users/login`, payload);
 
       const { jwtToken } = response.data;
 
@@ -64,7 +64,7 @@ export default function LoginScreen() {
 
       try {
         const buildingRes = await axios.get(
-          `${process.env.EXPO_PUBLIC_BASE_URL}/building/profile/${phone}`
+          `${process.env.EXPO_PUBLIC_BASE_URL}/building/profile/${phone}`,
         );
         setBuildingData(buildingRes.data);
       } catch (err) {
@@ -137,12 +137,11 @@ export default function LoginScreen() {
                     </TouchableOpacity>
                   </View>
 
-
                   <TouchableOpacity
                     style={styles.forgotContainer}
                     onPress={() => router.push("/forgot-password")}
                   >
-                    <Text style={styles.forgotText}>Forget Password?</Text>
+                    <Text style={styles.forgotText}>Forgot Password?</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -187,8 +186,8 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    flexGrow: 1,                 // ⭐ REQUIRED
-    justifyContent: "center",    // ⭐ centers vertically
+    flexGrow: 1, // ⭐ REQUIRED
+    justifyContent: "center", // ⭐ centers vertically
     alignItems: "center",
     paddingVertical: 24,
   },
@@ -282,5 +281,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 6,
   },
-
 });

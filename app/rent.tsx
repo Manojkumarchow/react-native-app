@@ -18,7 +18,7 @@ export default function RentScreen() {
         {/* HEADER (ALWAYS SHOWN) */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" style={styles.arrowButton} />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>Rent</Text>
@@ -88,6 +88,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 14,
+    height: 120
   },
 
   headerTitle: {
@@ -96,6 +97,10 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
     marginLeft: 12,
+    marginTop: 20
+  },
+  arrowButton: {
+    marginTop: 20
   },
 
   headerIcons: {
