@@ -31,49 +31,6 @@ type NotificationItem = {
   daysAgo: string;
 };
 
-const DATA: NotificationItem[] = [
-  {
-    id: "1",
-    title: "Maintenance Payment Information",
-    description:
-      "The amount collected helps maintain common amenities and overall property upkeep.",
-    type: "ALERT",
-    daysAgo: "3 Days Ago",
-  },
-  {
-    id: "2",
-    title: "Lift Not Working",
-    description:
-      "Ticket Successfully Submitted. Your Ticket ID: 27576063. Check Updates by clicking this notification.",
-    type: "SUCCESS",
-    daysAgo: "180 Days Ago",
-  },
-  {
-    id: "3",
-    title: "Maintenance Payment Alert",
-    description:
-      "Please complete your maintenance payment to avoid service interruptions.",
-    type: "ALERT",
-    daysAgo: "33 Days Ago",
-  },
-  {
-    id: "4",
-    title: "Monthly Apartment Meeting",
-    description:
-      "Tomorrow at 6:00 PM we have our monthly meeting; all residents are requested to attend.",
-    type: "INFO",
-    daysAgo: "35 Days Ago",
-  },
-  {
-    id: "5",
-    title: "Vinayaka Chavithi Festival Information",
-    description:
-      "We are pleased to invite all residents to celebrate the auspicious Vinayaka Chavithi Festival together at our apartment community.",
-    type: "INFO",
-    daysAgo: "180 Days Ago",
-  },
-];
-
 export default function NotificationsScreen() {
   const [data, setData] = useState<NotificationItem[]>([]);
   const phone = useProfileStore((profile) => profile.phone);
