@@ -1,4 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import { BASE_URL } from "./config";
+import useAuthStore from "./store/authStore";
 import {
   View,
   Text,
@@ -8,12 +11,23 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
+import useProfileStore from "./store/profileStore";
+type BackendNotification = {
+  id: number;
+  title: string;
+  body: string;
+  type: string; // SYSTEM | NOTICE | ALERT
+  createdAt: string; // ISO string
+  isRead: boolean;
+};
+
+type UIType = "ALERT" | "SUCCESS" | "INFO";
 
 type NotificationItem = {
   id: string;
   title: string;
   description: string;
-  type: "ALERT" | "SUCCESS" | "INFO";
+  type: UIType;
   daysAgo: string;
 };
 
@@ -61,6 +75,51 @@ const DATA: NotificationItem[] = [
 ];
 
 export default function NotificationsScreen() {
+  const [data, setData] = useState<NotificationItem[]>([]);
+  const phone = useProfileStore((profile) => profile.phone);
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+  const fetchNotifications = async () => {
+    try {
+      const res = await axios.get(`${BASE_URL}/notifications/${phone}`);
+      console.log("Response from notifications: ", res);
+      const mapped: NotificationItem[] = res.data.map(
+        (n: BackendNotification) => ({
+          id: String(n.id),
+          title: n.title,
+          description: n.body,
+          type: mapBackendTypeToUI(n.type),
+          daysAgo: getDaysAgo(n.createdAt),
+        }),
+      );
+      setData(mapped);
+    } catch (err) {
+      console.log("Failed to load notifications", err);
+    }
+  };
+
+  const mapBackendTypeToUI = (type: string): UIType => {
+    switch (type) {
+      case "ALERT":
+        return "ALERT";
+      case "SUCCESS":
+        return "SUCCESS";
+      default:
+        return "INFO";
+    }
+  };
+
+  const getDaysAgo = (dateString: string): string => {
+    const created = new Date(dateString).getTime();
+    const now = Date.now();
+    const diffDays = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "1 Day Ago";
+    return `${diffDays} Days Ago`;
+  };
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -69,7 +128,7 @@ export default function NotificationsScreen() {
         {/* HEADER */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+            <Ionicons name="arrow-back" size={24} color="#fff" style={styles.arrowButton} />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>Notifications</Text>
@@ -80,7 +139,7 @@ export default function NotificationsScreen() {
         {/* CONTENT */}
         <View style={styles.container}>
           <ScrollView showsVerticalScrollIndicator={false}>
-            {DATA.map((item) => {
+            {data.map((item) => {
               const isAlert = item.type === "ALERT";
               const isSuccess = item.type === "SUCCESS";
 
@@ -99,8 +158,8 @@ export default function NotificationsScreen() {
                         isAlert
                           ? "alert-circle-outline"
                           : isSuccess
-                          ? "checkmark-circle-outline"
-                          : "information-circle-outline"
+                            ? "checkmark-circle-outline"
+                            : "information-circle-outline"
                       }
                       size={22}
                       color={isAlert ? "#C1282D" : "#08401E"}
@@ -143,7 +202,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 16,
     paddingBottom: 18,
-    height: 130
+    height: 130,
   },
 
   headerTitle: {
@@ -151,6 +210,10 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
     marginLeft: 12,
+    marginTop: 70
+  },
+  arrowButton: {
+    marginTop: 70
   },
 
   container: {

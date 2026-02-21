@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "966751165277",
+    "project_id": "nestiti-app",
+    "storage_bucket": "nestiti-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:966751165277:android:90211623146c85df9fe6b4",
+        "android_client_info": {
+          "package_name": "com.nestiti"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAChPPYmSdNIUcoAzRnFzQ7AY9TBa2lN78"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
