@@ -24,6 +24,7 @@ import useAuthStore from "./store/authStore";
 import { getProfile } from "./services/profile.service";
 import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
+import { requestNotificationPermission } from "./useNotificationPermission";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -61,7 +62,24 @@ export default function LoginScreen() {
 
       const profileData = await getProfile(phone);
       setProfile(profileData);
-
+      const token = await requestNotificationPermission();
+      if (token) {
+        // await api.registerDeviceToken(token);
+        console.log("Token from firebase: ", token);
+        await axios.post(
+          `${BASE_URL}/devices/register`,
+          {
+            expoPushToken: token,
+            platform: Platform.OS.toUpperCase(),
+            phone: phone
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${jwtToken}`,
+            },
+          },
+        );
+      }
       try {
         const buildingRes = await axios.get(
           `${process.env.EXPO_PUBLIC_BASE_URL}/building/profile/${phone}`,
