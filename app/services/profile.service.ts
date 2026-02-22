@@ -21,7 +21,7 @@ export const createProfile = async (
     `${process.env.EXPO_PUBLIC_BASE_URL}/profile/create`,
     body
   );
-  return res.data; // ProfileResponseResource
+  return res.data;
 };
 
 export const updateProfile = async (phone: string, password: string) => {
@@ -34,7 +34,7 @@ export const updateProfile = async (phone: string, password: string) => {
     `${process.env.EXPO_PUBLIC_BASE_URL}/profile/update`,
     body
   );
-  return res.data; // ProfileResponseResource
+  return res.data;
 };
 
 export const getProfile = async (phone: string) => {

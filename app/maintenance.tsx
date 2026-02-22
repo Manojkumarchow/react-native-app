@@ -32,7 +32,7 @@ export default function MaintenanceScreen() {
   const username = useProfileStore((s) => s.phone);
 
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 10 }, (_, i) => `${currentYear - i}`);
+  const years = Array.from({ length: 3 }, (_, i) => `${currentYear - i}`);
 
   const [selectedYear, setSelectedYear] = useState(`${currentYear}`);
   const [showYearDropdown, setShowYearDropdown] = useState(false);
@@ -44,7 +44,7 @@ export default function MaintenanceScreen() {
     try {
       setLoading(true);
       const res = await axios.get(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/maintenance/${username}`
+        `${process.env.EXPO_PUBLIC_BASE_URL}/maintenance/${username}`,
       );
       setMaintenance(res.data);
     } catch (e) {
@@ -60,13 +60,13 @@ export default function MaintenanceScreen() {
 
   /* ---------------- FILTER BY YEAR ---------------- */
   const filteredMaintenance = maintenance.filter((m) =>
-    (m.paidDate || m.dueDate || "").startsWith(selectedYear)
+    (m.paidDate || m.dueDate || "").startsWith(selectedYear),
   );
 
   /* ---------------- ACTIONS ---------------- */
   const markAsPaid = async (id: number) => {
     await axios.patch(
-      `${process.env.EXPO_PUBLIC_BASE_URL}/maintenance/${id}/pay`
+      `${process.env.EXPO_PUBLIC_BASE_URL}/maintenance/${id}/pay`,
     );
     fetchMaintenance();
   };
@@ -77,7 +77,7 @@ export default function MaintenanceScreen() {
         `${process.env.EXPO_PUBLIC_BASE_URL}/maintenance/${id}/invoice`,
         {
           responseType: "arraybuffer", // 🔑 VERY IMPORTANT
-        }
+        },
       );
 
       // Convert arraybuffer → base64
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     marginTop: 10,
-    height: 60
+    height: 60,
   },
 
   headerTitle: {
