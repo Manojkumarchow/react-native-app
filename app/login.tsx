@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { BASE_URL } from "./config";
+import api from "./services/api";
 
 import {
   View,
@@ -62,10 +63,11 @@ export default function LoginScreen() {
 
       const profileData = await getProfile(phone);
       setProfile(profileData);
+      console.log("Profile Data: ", profileData);
+      
       const token = await requestNotificationPermission();
       console.log("Token from firebase: ", token);
       if (token) {
-        // await api.registerDeviceToken(token);
         const response = await axios.post(
           `${BASE_URL}/devices/register`,
           {
@@ -80,17 +82,14 @@ export default function LoginScreen() {
           },
         );
         console.log("Token response after device registration: ", response.data);
-        
       }
       try {
-        const buildingRes = await axios.get(
-          `${process.env.EXPO_PUBLIC_BASE_URL}/building/profile/${phone}`,
-        );
+        const buildingId = profileData.buildingId;
+        const buildingRes = await axios.get(`${process.env.EXPO_PUBLIC_BASE_URL}/building/${buildingId}`);
         setBuildingData(buildingRes.data);
       } catch (err) {
         console.log("Building fetch failed", err);
       }
-
       setTimeout(() => router.replace("/home"), 800);
     } catch (err) {
       console.log(err);

@@ -6,7 +6,7 @@ interface ProfileState {
   email: string | null;
   phone: string | null;
   flat: string | null;
-  building: string | null;
+  buildingId: string | null;
   address: string | null;
   avatarUri: string | null;
   role: string | null;
@@ -22,7 +22,7 @@ const useProfileStore = create<ProfileState>((set) => ({
   email: null,
   phone: null,
   flat: null,
-  building: null,
+  buildingId: null,
   address: null,
   avatarUri: null,
   role: null,
