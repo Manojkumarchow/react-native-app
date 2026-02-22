@@ -63,10 +63,10 @@ export default function LoginScreen() {
       const profileData = await getProfile(phone);
       setProfile(profileData);
       const token = await requestNotificationPermission();
+      console.log("Token from firebase: ", token);
       if (token) {
         // await api.registerDeviceToken(token);
-        console.log("Token from firebase: ", token);
-        await axios.post(
+        const response = await axios.post(
           `${BASE_URL}/devices/register`,
           {
             expoPushToken: token,
@@ -79,6 +79,8 @@ export default function LoginScreen() {
             },
           },
         );
+        console.log("Token response after device registration: ", response.data);
+        
       }
       try {
         const buildingRes = await axios.get(

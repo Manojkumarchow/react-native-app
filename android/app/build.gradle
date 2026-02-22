@@ -89,7 +89,7 @@ android {
 
     namespace 'com.anonymous.helloworldappapp'
     defaultConfig {
-        applicationId 'com.anonymous.helloworldappapp'
+        applicationId 'com.nestiti'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -152,10 +152,10 @@ android {
     }
 }
 
-plugins {
-    id 'com.android.application'
-    id 'com.google.gms.google-services'
-}
+// plugins {
+//     id 'com.android.application'
+//     id 'com.google.gms.google-services'
+// }
 
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
@@ -189,3 +189,5 @@ dependencies {
     implementation 'com.google.firebase:firebase-analytics'
 
 }
+
+apply plugin: 'com.google.gms.google-services'
