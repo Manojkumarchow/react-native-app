@@ -37,6 +37,20 @@ export const updateProfile = async (phone: string, password: string) => {
   return res.data;
 };
 
+export const updatePin = async (phone: string, pin: string) => {
+  const body = {
+    phone,
+    pin,
+    password: pin,
+  };
+
+  const res = await api.patch(
+    `${process.env.EXPO_PUBLIC_BASE_URL}/profile/update`,
+    body
+  );
+  return res.data;
+};
+
 export const getProfile = async (phone: string) => {
   const res = await api.get(
     `${process.env.EXPO_PUBLIC_BASE_URL}/profile/${phone}`

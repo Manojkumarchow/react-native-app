@@ -1,17 +1,18 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 
 const BRAND_BLUE = "#1c98ed";
 const CARD_BG = "#ffffff";
 
-export default function OTPSuccess() {
+export default function ForgotOtpSuccessScreen() {
   const router = useRouter();
+  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const resolvedPhone = Array.isArray(phone) ? phone[0] : phone ?? "";
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false, title: "Success" }} />
-
+      <Stack.Screen options={{ headerShown: false, title: "OTP Verified" }} />
       <View style={styles.bg}>
         <View style={styles.header}>
           <Image
@@ -20,21 +21,26 @@ export default function OTPSuccess() {
             resizeMode="contain"
           />
         </View>
+
         <View style={styles.card}>
-          <View style={styles.circle}>
+          <View style={styles.successCircle}>
             <Text style={styles.check}>✓</Text>
           </View>
-
-          <Text style={styles.title}>Successfully Verified</Text>
+          <Text style={styles.title}>OTP Verified Successfully</Text>
           <Text style={styles.subtitle}>
-            Your verification has been completed successfully
+            You can now create a new PIN for {resolvedPhone}.
           </Text>
 
           <TouchableOpacity
             style={styles.button}
-            onPress={() => router.push("/login")}
+            onPress={() =>
+              router.replace({
+                pathname: "/reset-pin",
+                params: { phone: resolvedPhone },
+              })
+            }
           >
-            <Text style={styles.buttonText}>Continue</Text>
+            <Text style={styles.buttonText}>Create New PIN</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -43,7 +49,10 @@ export default function OTPSuccess() {
 }
 
 const styles = StyleSheet.create({
-  bg: { flex: 1, backgroundColor: BRAND_BLUE },
+  bg: {
+    flex: 1,
+    backgroundColor: BRAND_BLUE,
+  },
   header: {
     alignItems: "center",
     justifyContent: "center",
@@ -64,8 +73,7 @@ const styles = StyleSheet.create({
     paddingBottom: 88,
     alignItems: "center",
   },
-
-  circle: {
+  successCircle: {
     width: 76,
     height: 76,
     borderRadius: 38,
@@ -75,21 +83,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 14,
   },
-  check: { fontSize: 40, color: BRAND_BLUE, lineHeight: 42 },
-
+  check: {
+    fontSize: 40,
+    color: BRAND_BLUE,
+    lineHeight: 42,
+  },
   title: {
     fontSize: 20,
     fontWeight: "500",
-    textAlign: "center",
     color: "#000",
+    textAlign: "center",
   },
   subtitle: {
-    marginTop: 8,
-    textAlign: "center",
     color: "#666",
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 8,
     marginBottom: 22,
   },
-
   button: {
     backgroundColor: BRAND_BLUE,
     height: 48,
@@ -98,5 +109,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: "100%",
   },
-  buttonText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  buttonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });

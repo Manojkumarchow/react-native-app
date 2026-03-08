@@ -1,17 +1,23 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet, Image } from "react-native";
 import { Stack, useRouter } from "expo-router";
 
 const BRAND_BLUE = "#1c98ed";
 const CARD_BG = "#ffffff";
 
-export default function OTPSuccess() {
+export default function ResetPinSuccessScreen() {
   const router = useRouter();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.replace("/login");
+    }, 1800);
+    return () => clearTimeout(timer);
+  }, [router]);
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false, title: "Success" }} />
-
+      <Stack.Screen options={{ headerShown: false, title: "PIN Reset Success" }} />
       <View style={styles.bg}>
         <View style={styles.header}>
           <Image
@@ -20,22 +26,15 @@ export default function OTPSuccess() {
             resizeMode="contain"
           />
         </View>
+
         <View style={styles.card}>
-          <View style={styles.circle}>
+          <View style={styles.successCircle}>
             <Text style={styles.check}>✓</Text>
           </View>
-
-          <Text style={styles.title}>Successfully Verified</Text>
+          <Text style={styles.title}>PIN Reset Successful</Text>
           <Text style={styles.subtitle}>
-            Your verification has been completed successfully
+            Redirecting you to login screen...
           </Text>
-
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => router.push("/login")}
-          >
-            <Text style={styles.buttonText}>Continue</Text>
-          </TouchableOpacity>
         </View>
       </View>
     </>
@@ -43,7 +42,10 @@ export default function OTPSuccess() {
 }
 
 const styles = StyleSheet.create({
-  bg: { flex: 1, backgroundColor: BRAND_BLUE },
+  bg: {
+    flex: 1,
+    backgroundColor: BRAND_BLUE,
+  },
   header: {
     alignItems: "center",
     justifyContent: "center",
@@ -64,8 +66,7 @@ const styles = StyleSheet.create({
     paddingBottom: 88,
     alignItems: "center",
   },
-
-  circle: {
+  successCircle: {
     width: 76,
     height: 76,
     borderRadius: 38,
@@ -75,28 +76,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 14,
   },
-  check: { fontSize: 40, color: BRAND_BLUE, lineHeight: 42 },
-
+  check: {
+    fontSize: 40,
+    color: BRAND_BLUE,
+    lineHeight: 42,
+  },
   title: {
     fontSize: 20,
     fontWeight: "500",
-    textAlign: "center",
     color: "#000",
+    textAlign: "center",
   },
   subtitle: {
-    marginTop: 8,
-    textAlign: "center",
     color: "#666",
-    marginBottom: 22,
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 8,
   },
-
-  button: {
-    backgroundColor: BRAND_BLUE,
-    height: 48,
-    borderRadius: 100,
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-  },
-  buttonText: { color: "#fff", fontSize: 14, fontWeight: "600" },
 });

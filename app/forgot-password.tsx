@@ -7,14 +7,22 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Image,
   ActivityIndicator,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
-import FrostedCard from "./components/FrostedCard";
 import Toast from "react-native-toast-message";
 import { sendOTP } from "./services/otp.service";
 import { getProfile } from "./services/profile.service";
+
+const BRAND_BLUE = "#1c98ed";
+const CARD_BG = "#ffffff";
+const BORDER_COLOR = "#a1a1aa";
+const PLACEHOLDER_COLOR = "#9ca3af";
+const MUTED_TEXT = "#777";
+const LABEL_BG = "#e4f8ff";
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -34,11 +42,11 @@ export default function ForgotPasswordScreen() {
     try {
       setLoading(true);
       await getProfile(phone);
-      const otpRes = await sendOTP(phone);
-
+      const response = await sendOTP(phone);
+      console.log(response);
       router.push({
         pathname: "/otp",
-        params: { phone, otp: otpRes.otp, resetFlow: "true" },
+        params: { phone, resetFlow: "true" },
       });
     } catch {
       Toast.show({
@@ -52,91 +60,133 @@ export default function ForgotPasswordScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false, title: "Forgot Password" }} />
-
-      <View style={styles.bg}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ flex: 1 }}
-        >
-          <ScrollView contentContainerStyle={styles.scrollContent}>
-            <View style={styles.centerWrapper}>
-              <View style={styles.cardWidth}>
-                <FrostedCard>
-                  <Text style={styles.title}>What’s your phone?</Text>
-                  <Text style={styles.subtitle}>
-                    We’ll send a code to your phone number
-                  </Text>
-
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Phone Number"
-                    keyboardType="phone-pad"
-                    maxLength={10}
-                    value={phone}
-                    onChangeText={(t) => setPhone(t.replace(/[^0-9]/g, ""))}
-                  />
-
-                  <TouchableOpacity
-                    style={styles.button}
-                    onPress={handleContinue}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.buttonText}>Continue</Text>
-                    )}
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.signinRow}
-                    onPress={() => router.replace("/login")}
-                  >
-                    <Text>I remember my password?</Text>
-                    <Text style={styles.signinLink}> Login</Text>
-                  </TouchableOpacity>
-                </FrostedCard>
-              </View>
+      <Stack.Screen options={{ headerShown: false, title: "Forgot PIN" }} />
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.bg}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.flex}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+          >
+            <View style={styles.header}>
+              <Image
+                source={require("./../assets/images/nestiti-logo.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
 
-      <Toast />
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Forgot your PIN?</Text>
+              <Text style={styles.cardSubtitle}>
+                Enter your mobile number to receive a 4-digit OTP.
+              </Text>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.floatingLabel}>Mobile Number</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter Mobile Number"
+                  placeholderTextColor={PLACEHOLDER_COLOR}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                  value={phone}
+                  onChangeText={(t) => setPhone(t.replace(/[^0-9]/g, ""))}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.nextButton}
+                onPress={handleContinue}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.nextButtonText}>Send OTP</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+          <Toast />
+        </View>
+      </TouchableWithoutFeedback>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  bg: { flex: 1, backgroundColor: "#B3D6F7" },
-  scrollContent: {
-    flexGrow: 1,                 // ⭐ REQUIRED
-    justifyContent: "center",    // ⭐ centers vertically
-    alignItems: "center",
-    paddingVertical: 24,
+  flex: { flex: 1 },
+  bg: {
+    flex: 1,
+    backgroundColor: BRAND_BLUE,
   },
-  centerWrapper: { alignItems: "center", paddingHorizontal: 16 },
-  cardWidth: { width: "100%", maxWidth: 420 },
-
-  title: { fontSize: 24, fontWeight: "700", color: "#0A174E" },
-  subtitle: { marginBottom: 24, color: "#444" },
-
-  input: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#6C63FF",
-    fontSize: 16,
+  header: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 22,
+    paddingBottom: 12,
+  },
+  logo: {
+    width: 235,
+    height: 235,
+  },
+  card: {
+    marginTop: 4,
+    backgroundColor: CARD_BG,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 19,
+    paddingTop: 20,
+    paddingBottom: 88,
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: "500",
+    color: "#000",
     marginBottom: 20,
   },
-
-  button: {
-    backgroundColor: "#1C98ED",
-    paddingVertical: 14,
-    borderRadius: 32,
-    alignItems: "center",
+  cardSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 20,
   },
-  buttonText: { color: "#fff", fontSize: 18, fontWeight: "700" },
-
-  signinRow: { flexDirection: "row", justifyContent: "center", marginTop: 16 },
-  signinLink: { fontWeight: "700", marginLeft: 4 },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  floatingLabel: {
+    position: "absolute",
+    left: 12,
+    top: -8,
+    backgroundColor: LABEL_BG,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    fontSize: 12,
+    color: MUTED_TEXT,
+    zIndex: 1,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: BORDER_COLOR,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: "#000",
+  },
+  nextButton: {
+    backgroundColor: BRAND_BLUE,
+    height: 48,
+    borderRadius: 100,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+  nextButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });

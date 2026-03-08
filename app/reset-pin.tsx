@@ -5,133 +5,115 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
   Image,
+  ActivityIndicator,
 } from "react-native";
-import { Stack, useRouter, useLocalSearchParams } from "expo-router";
-import { sendOTP, verifyOTP } from "./services/otp.service";
-import { createProfile } from "./services/profile.service";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import Toast from "react-native-toast-message";
+import { updatePin } from "./services/profile.service";
 
 const BRAND_BLUE = "#1c98ed";
 const CARD_BG = "#ffffff";
 const SEGMENT_BG = "#f4f4f5";
 const BORDER_COLOR = "#a1a1aa";
 const ERROR_BORDER = "#c81616";
-const MUTED_TEXT = "#777";
 const DISABLED_BG = "#d9d9d9";
 const DISABLED_TEXT = "#a1a1aa";
+const MUTED_TEXT = "#777";
 
-export default function OTPVerify() {
+export default function ResetPinScreen() {
   const router = useRouter();
-  const { phone, name, password, role, buildingId, resetFlow } =
-    useLocalSearchParams();
+  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const resolvedPhone = Array.isArray(phone) ? phone[0] : phone ?? "";
 
-  const [otp, setOtp] = useState(["", "", "", ""]);
-  const [hasError, setHasError] = useState(false);
+  const [pin, setPin] = useState(["", "", "", ""]);
+  const [confirmPin, setConfirmPin] = useState(["", "", "", ""]);
+  const [showPin, setShowPin] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [hasMismatchError, setHasMismatchError] = useState(false);
   const [errorText, setErrorText] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
 
-  const inputs = [
+  const pinRefs = [
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+  ];
+  const confirmRefs = [
     useRef<TextInput>(null),
     useRef<TextInput>(null),
     useRef<TextInput>(null),
     useRef<TextInput>(null),
   ];
 
-  const resolvedPhone = Array.isArray(phone) ? phone[0] : phone;
-  const resolvedName = Array.isArray(name) ? name[0] : name;
-  const resolvedPassword = Array.isArray(password) ? password[0] : password;
-  const resolvedRole = (Array.isArray(role) ? role[0] : role) as
-    | "ADMIN"
-    | "USER";
-  const resolvedBuildingId = Number(
-    Array.isArray(buildingId) ? buildingId[0] : buildingId
-  );
+  const pinValue = pin.join("");
+  const confirmPinValue = confirmPin.join("");
+  const isComplete = pinValue.length === 4 && confirmPinValue.length === 4;
 
-  const otpValue = otp.join("");
-  const isComplete = otpValue.length === 4;
-
-  const handleResend = async () => {
-    try {
-      setIsLoading(true);
-      setHasError(false);
-      setErrorText("");
-      await sendOTP(resolvedPhone);
-      setOtp(["", "", "", ""]);
-      inputs[0].current?.focus();
-    } catch {
-      setHasError(true);
-      setErrorText("Failed to resend OTP");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleOtpChange = (index: number, value: string) => {
-    const sanitized = value.replace(/[^0-9]/g, "").slice(-1);
-    const nextOtp = [...otp];
-    nextOtp[index] = sanitized;
-    setOtp(nextOtp);
-    setHasError(false);
+  const handlePinChange = (
+    index: number,
+    value: string,
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    refs: React.RefObject<TextInput>[]
+  ) => {
+    const digit = value.replace(/[^0-9]/g, "").slice(-1);
+    setter((prev) => {
+      const next = [...prev];
+      next[index] = digit;
+      return next;
+    });
+    setHasMismatchError(false);
     setErrorText("");
 
-    if (sanitized && index < 3) {
-      inputs[index + 1].current?.focus();
+    if (digit && index < 3) {
+      refs[index + 1].current?.focus();
     }
   };
 
-  const handleKeyPress = (index: number, key: string) => {
-    if (key === "Backspace" && !otp[index] && index > 0) {
-      inputs[index - 1].current?.focus();
+  const handleKeyPress = (
+    index: number,
+    key: string,
+    currentValues: string[],
+    refs: React.RefObject<TextInput>[]
+  ) => {
+    if (key === "Backspace" && !currentValues[index] && index > 0) {
+      refs[index - 1].current?.focus();
     }
   };
 
-  const handleVerify = async () => {
-    if (!isComplete || isLoading) return;
+  const handleResetPin = async () => {
+    if (!isComplete || loading) return;
+    if (pinValue !== confirmPinValue) {
+      setHasMismatchError(true);
+      setErrorText("PINs do not match. Please try again.");
+      return;
+    }
 
     try {
-      setIsLoading(true);
-      setHasError(false);
+      setLoading(true);
+      setHasMismatchError(false);
       setErrorText("");
 
-      const verification = await verifyOTP(resolvedPhone, otpValue);
-      if (!verification.verified) {
-        setHasError(true);
-        setErrorText(verification.message || "OTP Incorrect! Please try again.");
-        return;
-      }
-
-      if (resetFlow === "true") {
-        router.replace({
-          pathname: "/forgot-otp-success",
-          params: { phone: resolvedPhone },
-        });
-        return;
-      }
-
-      await createProfile(
-        resolvedName,
-        resolvedPhone,
-        resolvedPassword,
-        resolvedRole,
-        String(resolvedBuildingId)
-      );
-      router.push("/forgot-otp-success");
+      await updatePin(resolvedPhone, pinValue);
+      router.replace("/reset-pin-success");
     } catch {
-      setHasError(true);
-      setErrorText("Verification failed");
+      Toast.show({
+        type: "error",
+        text1: "PIN reset failed",
+        text2: "Please try again.",
+      });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false, title: "OTP Verification" }} />
+      <Stack.Screen options={{ headerShown: false, title: "Reset PIN" }} />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.bg}>
           <KeyboardAvoidingView
@@ -151,40 +133,60 @@ export default function OTPVerify() {
               <View style={styles.segmentedControl}>
                 <TouchableOpacity style={[styles.segment, styles.segmentActive]}>
                   <Text style={[styles.segmentText, styles.segmentTextActive]}>
-                    OTP
+                    RESET PIN
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.segment} disabled>
-                  <Text style={styles.segmentText}>RESET PIN</Text>
+                  <Text style={styles.segmentText}>CONFIRM</Text>
                 </TouchableOpacity>
               </View>
 
-              {hasError ? (
+              {hasMismatchError ? (
                 <Text style={styles.errorTitle}>
-                  OTP <Text style={styles.errorHighlight}>Incorrect</Text>! Please
-                  try again.
+                  PIN <Text style={styles.errorHighlight}>Incorrect match</Text>!
                 </Text>
               ) : (
-                <Text style={styles.cardTitle}>Enter 4-digit OTP</Text>
+                <Text style={styles.cardTitle}>Create and confirm new PIN</Text>
               )}
+              <Text style={styles.subtitle}>{resolvedPhone}</Text>
 
-              <Text style={styles.subtitle}>
-                {`Code sent to ${resolvedPhone ?? "your number"}`}
-              </Text>
-
-              <View style={styles.otpRow}>
+              <Text style={styles.pinLabel}>Create New PIN</Text>
+              <View style={styles.pinRow}>
                 {[0, 1, 2, 3].map((i) => (
                   <TextInput
-                    key={i}
-                    ref={inputs[i]}
-                    style={[styles.otpBox, hasError && styles.otpBoxError]}
+                    key={`new-${i}`}
+                    ref={pinRefs[i]}
+                    style={[styles.pinBox, hasMismatchError && styles.pinBoxError]}
+                    value={pin[i]}
+                    secureTextEntry={!showPin}
+                    onChangeText={(v) => handlePinChange(i, v, setPin, pinRefs)}
+                    onKeyPress={({ nativeEvent }) =>
+                      handleKeyPress(i, nativeEvent.key, pin, pinRefs)
+                    }
                     keyboardType="number-pad"
                     maxLength={1}
-                    value={otp[i]}
-                    onChangeText={(v) => handleOtpChange(i, v)}
-                    onKeyPress={({ nativeEvent }) =>
-                      handleKeyPress(i, nativeEvent.key)
+                    selectTextOnFocus
+                  />
+                ))}
+              </View>
+
+              <Text style={styles.pinLabel}>Confirm New PIN</Text>
+              <View style={styles.pinRow}>
+                {[0, 1, 2, 3].map((i) => (
+                  <TextInput
+                    key={`confirm-${i}`}
+                    ref={confirmRefs[i]}
+                    style={[styles.pinBox, hasMismatchError && styles.pinBoxError]}
+                    value={confirmPin[i]}
+                    secureTextEntry={!showPin}
+                    onChangeText={(v) =>
+                      handlePinChange(i, v, setConfirmPin, confirmRefs)
                     }
+                    onKeyPress={({ nativeEvent }) =>
+                      handleKeyPress(i, nativeEvent.key, confirmPin, confirmRefs)
+                    }
+                    keyboardType="number-pad"
+                    maxLength={1}
                     selectTextOnFocus
                   />
                 ))}
@@ -192,36 +194,30 @@ export default function OTPVerify() {
 
               {!!errorText && <Text style={styles.errorText}>{errorText}</Text>}
 
-              <TouchableOpacity onPress={handleResend} disabled={isLoading}>
-                <Text style={styles.resendText}>
-                  Didn’t receive code? <Text style={styles.resendLink}>Resend</Text>
-                </Text>
-              </TouchableOpacity>
-
               <TouchableOpacity
                 style={[
                   styles.nextButton,
-                  (!isComplete || isLoading) && styles.nextButtonDisabled,
+                  (!isComplete || loading) && styles.nextButtonDisabled,
                 ]}
-                onPress={handleVerify}
-                disabled={!isComplete || isLoading}
-                activeOpacity={0.8}
+                onPress={handleResetPin}
+                disabled={!isComplete || loading}
               >
-                {isLoading ? (
+                {loading ? (
                   <ActivityIndicator color={DISABLED_TEXT} />
                 ) : (
                   <Text
                     style={[
                       styles.nextButtonText,
-                      (!isComplete || isLoading) && styles.nextButtonTextDisabled,
+                      (!isComplete || loading) && styles.nextButtonTextDisabled,
                     ]}
                   >
-                    Verify OTP
+                    Reset PIN
                   </Text>
                 )}
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
+          <Toast />
         </View>
       </TouchableWithoutFeedback>
     </>
@@ -304,39 +300,35 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     fontSize: 12,
   },
-  otpRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-    marginBottom: 14,
+  pinLabel: {
+    fontSize: 12,
+    color: "#444",
+    marginBottom: 8,
+    fontWeight: "500",
   },
-  otpBox: {
+  pinRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 16,
+  },
+  pinBox: {
     width: 52,
     height: 44,
     borderWidth: 1.5,
+    borderColor: BORDER_COLOR,
     borderRadius: 8,
-    textAlign: "center",
     fontSize: 18,
     fontWeight: "500",
-    borderColor: BORDER_COLOR,
     color: "#000",
+    textAlign: "center",
   },
-  otpBoxError: {
+  pinBoxError: {
     borderColor: ERROR_BORDER,
   },
   errorText: {
     color: ERROR_BORDER,
+    marginBottom: 10,
     fontSize: 13,
-    marginBottom: 8,
-  },
-  resendText: {
-    color: MUTED_TEXT,
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  resendLink: {
-    color: BRAND_BLUE,
-    fontWeight: "600",
   },
   nextButton: {
     backgroundColor: BRAND_BLUE,
