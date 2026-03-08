@@ -4,7 +4,7 @@
     "slug": "nestiti",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/app-icon.jpeg",
     "scheme": "helloworldappappapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -14,10 +14,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#2b96de",
+        "foregroundImage": "./assets/images/app-icon.jpeg"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -49,8 +47,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "a6173b39-bb05-4939-b67e-ae0b586eb0e6"
+        "projectId": "e8f3b43e-524e-46f2-94c6-3f82e8abd059"
       }
-    }
+    },
+    "owner": "manojchow72"
   }
 }

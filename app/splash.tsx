@@ -16,7 +16,7 @@ export default function SplashScreen() {
 
     // Redirect after 2 seconds
     const timer = setTimeout(() => {
-      router.replace("/login");
+      router.replace("/auth");
     }, 2000);
 
     return () => clearTimeout(timer);
@@ -26,7 +26,7 @@ export default function SplashScreen() {
     <View style={styles.container}>
       <Animated.View style={{ opacity: fadeAnim }}>
         <Image
-          source={require("./../assets/images/nestiti.jpeg")}
+          source={require("./../assets/images/nestiti-logo.png")}
           style={styles.logo}
           resizeMode="contain"
         />

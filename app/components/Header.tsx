@@ -18,7 +18,7 @@ export default function Header() {
           source={
             avatarUri
               ? { uri: avatarUri }
-              : require("../../assets/images/nestity.jpeg")
+              : require("../../assets/images/nestiti-logo.png")
           }
           style={styles.avatar}
         />

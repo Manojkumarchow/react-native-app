@@ -8,11 +8,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  FlatList,
   TouchableWithoutFeedback,
   Keyboard,
+  Image,
 } from "react-native";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, useLocalSearchParams, type Href } from "expo-router";
 import axios from "axios";
 
 import FrostedCard from "./components/FrostedCard";
@@ -30,9 +30,18 @@ type Building = {
 
 export default function SignupScreen() {
   const router = useRouter();
+  const { prefillName, prefillPhone } = useLocalSearchParams<{
+    prefillName?: string;
+    prefillPhone?: string;
+  }>();
 
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [fullName, setFullName] = useState(prefillName ?? "");
+  const [phone, setPhone] = useState(prefillPhone ?? "");
+
+  useEffect(() => {
+    if (prefillName) setFullName(prefillName);
+    if (prefillPhone) setPhone(prefillPhone);
+  }, [prefillName, prefillPhone]);
   const [password, setPassword] = useState("");
 
   const [flatNo, setFlatNo] = useState("");
@@ -52,6 +61,29 @@ export default function SignupScreen() {
   const [role, setRole] = useState<"ADMIN" | "USER">("ADMIN");
 
   const passwordRef = useRef<TextInput>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  const scrollToFocusedInput = () => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 150);
+  };
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   /* ---------------------------------
      Fetch Buildings (UNCHANGED)
@@ -153,35 +185,61 @@ export default function SignupScreen() {
       >
         <View style={styles.bg}>
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.flex}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
           >
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.scrollContent}
-            >
-              <View style={styles.cardWrapper}>
+            {/* Header: Logo visible above card */}
+            <View style={styles.header}>
+              <Image
+                source={require("./../assets/images/nestiti-logo.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+
+            {/* Card attached to bottom */}
+            <View style={styles.card}>
+              <ScrollView
+                ref={scrollViewRef}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[
+                  styles.cardScroll,
+                  { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 40 : 80 },
+                ]}
+              >
                 <FrostedCard>
                   <Text style={styles.title}>Create an account</Text>
-                  <Text style={styles.subtitle}>Register your account</Text>
+                  <Text style={styles.subtitle}>
+                    {prefillName && prefillPhone
+                      ? "Complete your registration"
+                      : "Register your account"}
+                  </Text>
 
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Full Name"
-                    placeholderTextColor="#5A6C8A"
-                    value={fullName}
-                    onChangeText={setFullName}
-                  />
+                  {!prefillName && (
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Full Name"
+                      placeholderTextColor="#5A6C8A"
+                      value={fullName}
+                      onChangeText={setFullName}
+                      onFocus={scrollToFocusedInput}
+                    />
+                  )}
 
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Phone Number"
-                    placeholderTextColor={"#5A6C8A"}
-                    keyboardType="number-pad"
-                    maxLength={10}
-                    value={phone}
-                    onChangeText={setPhone}
-                  />
+                  {!prefillPhone && (
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Phone Number"
+                      onFocus={scrollToFocusedInput}
+                      placeholderTextColor={"#5A6C8A"}
+                      keyboardType="number-pad"
+                      maxLength={10}
+                      value={phone}
+                      onChangeText={setPhone}
+                    />
+                  )}
 
                   {/* BUILDING */}
                   <View style={styles.dropdownWrapper}>
@@ -194,7 +252,10 @@ export default function SignupScreen() {
                           ? `${selectedBuilding.buildingId} - ${selectedBuilding.buildingName}`
                           : buildingQuery
                       }
-                      onFocus={() => setShowBuildingDropdown(true)}
+                      onFocus={() => {
+                        setShowBuildingDropdown(true);
+                        scrollToFocusedInput();
+                      }}
                       onChangeText={(t) => {
                         setBuildingQuery(t);
                         setShowBuildingDropdown(true);
@@ -233,7 +294,10 @@ export default function SignupScreen() {
                     <TouchableOpacity
                       style={styles.selectInput}
                       disabled={!selectedBuilding}
-                      onPress={() => setShowFloorDropdown((prev) => !prev)}
+                      onPress={() => {
+                        setShowFloorDropdown((prev) => !prev);
+                        scrollToFocusedInput();
+                      }}
                     >
                       <Text
                         style={[
@@ -270,12 +334,14 @@ export default function SignupScreen() {
                     keyboardType="number-pad"
                     value={flatNo}
                     onChangeText={setFlatNo}
+                    onFocus={scrollToFocusedInput}
                   />
 
                   <TextInput
                     ref={passwordRef}
                     style={styles.input}
                     placeholder="Password"
+                    onFocus={scrollToFocusedInput}
                     placeholderTextColor="#5A6C8A"
                     secureTextEntry
                     value={password}
@@ -313,13 +379,13 @@ export default function SignupScreen() {
                     <Text style={styles.signinText}>
                       Already have an account?
                     </Text>
-                    <TouchableOpacity onPress={() => router.replace("/login")}>
+                    <TouchableOpacity onPress={() => router.replace("/auth" as Href)}>
                       <Text style={styles.signinLink}>Login</Text>
                     </TouchableOpacity>
                   </View>
                 </FrostedCard>
-              </View>
-            </ScrollView>
+              </ScrollView>
+            </View>
           </KeyboardAvoidingView>
         </View>
       </TouchableWithoutFeedback>
@@ -331,22 +397,32 @@ export default function SignupScreen() {
    Styles (UI-only changes)
 ---------------------------------- */
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   bg: {
     flex: 1,
-    backgroundColor: "#B3D6F7",
+    backgroundColor: "#1c98ed",
   },
-
-  scrollContent: {
-    flexGrow: 1, // ⭐ REQUIRED
-    justifyContent: "center", // ⭐ centers vertically
+  header: {
+    flex: 1,
     alignItems: "center",
-    paddingVertical: 24,
+    justifyContent: "flex-start",
+    paddingTop: 35,
   },
-
-  cardWrapper: {
-    width: "100%",
-    maxWidth: 420,
+  logo: {
+    width: 280,
+    height: 280,
+  },
+  card: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    maxHeight: "72%",
     paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  cardScroll: {
+    flexGrow: 1,
   },
 
   signinRow: {

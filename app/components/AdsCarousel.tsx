@@ -11,7 +11,7 @@ import NetworkImage from "./NetworkImage";
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = Math.min(900, width - 32);
 
-const LOCAL_HERO = require("./../../assets/images/nestity.jpeg"); // local asset in assets/
+const LOCAL_HERO = require("./../../assets/images/nestiti-logo.png"); // local asset in assets/
 
 export default function AdsCarousel() {
   const [index, setIndex] = useState(0);
