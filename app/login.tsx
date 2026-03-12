@@ -1,12 +1,16 @@
-import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
+import { BackHandler } from "react-native";
+import AuthScreen from "./auth";
 
 export default function LoginScreen() {
-  const router = useRouter();
-
   useEffect(() => {
-    router.replace("/auth");
-  }, [router]);
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", () => {
+      BackHandler.exitApp();
+      return true;
+    });
 
-  return null;
+    return () => backHandler.remove();
+  }, []);
+
+  return <AuthScreen />;
 }

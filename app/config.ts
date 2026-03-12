@@ -1,1 +1,3 @@
-export const BASE_URL = __DEV__ ? "http://16.170.115.179:8080/whistleup": "http://16.170.115.179:8080/whistleup";
+export const BASE_URL = __DEV__
+  ? "http://192.168.1.21:8080/whistleup"
+  : "http://192.168.1.21:8080/whistleup";

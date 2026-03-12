@@ -1,96 +1,157 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
   ActivityIndicator,
-  Modal,
+  FlatList,
   Pressable,
-  useWindowDimensions,
-  Platform,
-  Image,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { useRouter, Stack } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
-
-import TicketCard from "./components/TicketCard";
-import FrostedCard from "./components/FrostedCard";
 import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
 
-/* ---------------------------------
-   TYPES
----------------------------------- */
+type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
+type FilterTab = "OPEN" | "IN_PROGRESS" | "RESOLVED";
+
 type Ticket = {
-  id: number;
+  id: string;
   title: string;
   description: string;
-  status: string;
-  imageUrls: string[];
-  raisedBy?: string;
-  flatNumber?: string;
+  status: TicketStatus;
+  createdAt: string;
+  updatedAt: string;
+  raisedBy: string;
+  flatNumber: string;
+  imageUrl: string;
+};
+
+const HALLWAY_PHOTO =
+  "https://www.figma.com/api/mcp/asset/d254e125-014c-43ea-b7a1-01f8f35dc9ba";
+
+const FALLBACK_TICKETS: Ticket[] = [
+  {
+    id: "ISS123567",
+    title: "Staircase light not working on 3rd floor.",
+    description:
+      "All three lights in the 3rd floor corridor are off. Emergency lights are on, but main lights are not switching on.",
+    status: "OPEN",
+    createdAt: new Date(Date.now() - 5 * 60000).toISOString(),
+    updatedAt: new Date(Date.now() - 5 * 60000).toISOString(),
+    raisedBy: "RAHUL",
+    flatNumber: "302",
+    imageUrl: HALLWAY_PHOTO,
+  },
+  {
+    id: "ISS123568",
+    title: "Water leakage near Block B lift lobby.",
+    description:
+      "Water seepage observed near the lift area. Requires maintenance inspection and immediate fix.",
+    status: "IN_PROGRESS",
+    createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 60000).toISOString(),
+    raisedBy: "KIRAN",
+    flatNumber: "204",
+    imageUrl: HALLWAY_PHOTO,
+  },
+  {
+    id: "ISS123569",
+    title: "Main gate lock issue fixed",
+    description:
+      "Main gate lock mechanism has been repaired and tested successfully.",
+    status: "RESOLVED",
+    createdAt: new Date(Date.now() - 24 * 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 60000).toISOString(),
+    raisedBy: "PRIYA",
+    flatNumber: "401",
+    imageUrl: HALLWAY_PHOTO,
+  },
+];
+
+const tabOptions: { key: FilterTab; label: string }[] = [
+  { key: "OPEN", label: "Open" },
+  { key: "IN_PROGRESS", label: "In Progress" },
+  { key: "RESOLVED", label: "Resolved" },
+];
+
+const normalizeStatus = (item: any): TicketStatus => {
+  const raw = String(item?.status || item?.issueStatus || "").toUpperCase();
+  if (item?.resolved === true || raw.includes("RESOLVED")) return "RESOLVED";
+  if (raw.includes("PROGRESS") || raw.includes("PENDING")) return "IN_PROGRESS";
+  return "OPEN";
+};
+
+const timeLabel = (dateStr: string, status: TicketStatus) => {
+  const t = new Date(dateStr).getTime();
+  if (Number.isNaN(t)) return status === "OPEN" ? "Posted just now" : "Updated just now";
+  const min = Math.max(1, Math.floor((Date.now() - t) / 60000));
+  if (min < 60) return `${status === "OPEN" ? "Posted" : "Updated"} ${min}min ago`;
+  const hr = Math.floor(min / 60);
+  return `${status === "OPEN" ? "Posted" : "Updated"} ${hr}h ago`;
 };
 
 export default function AllTicketsScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const params = useLocalSearchParams<{
+    status?: string;
+    updatedId?: string;
+    updatedStatus?: string;
+  }>();
 
-  // ---- PROFILE DATA ----
   const username = useProfileStore((s) => s.phone);
   const role = useProfileStore((s) => s.role);
   const profileId = useBuildingStore((s) => s.adminPhone);
 
-  // ---- STATE ----
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [usingFallback, setUsingFallback] = useState(false);
+  const [activeTab, setActiveTab] = useState<FilterTab>("OPEN");
 
-  // ---- MODAL STATE ----
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [resolving, setResolving] = useState(false);
-
-  /* ---------------------------------
-     FETCH TICKETS
-  ---------------------------------- */
-  const fetchTickets = async (
-    resolvedUsername?: string | null,
-    resolvedProfileId?: string | null
-  ) => {
+  const fetchTickets = async (resolvedUsername?: string | null, resolvedProfileId?: string | null) => {
     try {
       setLoading(true);
-
-      let url = "";
-      if (role === "ADMIN") {
-        url = `${process.env.EXPO_PUBLIC_BASE_URL}/issues/assignee/${resolvedProfileId}`;
-      } else {
-        url = `${process.env.EXPO_PUBLIC_BASE_URL}/issues/profile/${resolvedUsername}`;
-      }
+      const url =
+        role === "ADMIN"
+          ? `${process.env.EXPO_PUBLIC_BASE_URL}/issues/assignee/${resolvedProfileId}`
+          : `${process.env.EXPO_PUBLIC_BASE_URL}/issues/profile/${resolvedUsername}`;
 
       const res = await axios.get(url);
-      console.log("All Tickets: ", res.data);
-      console.log("URL: ", url);
-      
       const mapped: Ticket[] = Array.isArray(res.data)
-        ? res.data.filter(Boolean).map((item: any) => ({
-          id: item.complaintId,
-          title: item.title ?? "Untitled Complaint",
-          description: item.description ?? "",
-          status: item.resolved ? "Resolved" : "Under Review",
-          imageUrls: item.imageUrls ?? [],
-          raisedBy: item.raisedBy ?? "-",
-          flatNumber: item.flatNumber ?? "-",
-        }))
+        ? res.data.filter(Boolean).map((item: any, index: number) => ({
+            id: String(item.complaintId ?? item.id ?? `ISS${index + 1000}`),
+            title: item.title ?? "Untitled issue",
+            description: item.description ?? "",
+            status: normalizeStatus(item),
+            createdAt: item.createdAt ?? new Date().toISOString(),
+            updatedAt: item.updatedAt ?? item.createdAt ?? new Date().toISOString(),
+            raisedBy: item.raisedBy ?? "-",
+            flatNumber: String(item.flatNumber ?? "-"),
+            imageUrl:
+              Array.isArray(item.imageUrls) && item.imageUrls.length
+                ? String(item.imageUrls[0]).startsWith("http")
+                  ? item.imageUrls[0]
+                  : `${process.env.EXPO_PUBLIC_BASE_URL}${item.imageUrls[0]}`
+                : HALLWAY_PHOTO,
+          }))
         : [];
 
-      setTickets(mapped);
+      if (mapped.length === 0) {
+        setTickets(FALLBACK_TICKETS);
+        setUsingFallback(true);
+      } else {
+        setTickets(mapped);
+        setUsingFallback(false);
+      }
     } catch (err) {
       console.error("Fetch tickets error:", err);
-      setTickets([]);
+      setTickets(FALLBACK_TICKETS);
+      setUsingFallback(true);
     } finally {
       setLoading(false);
     }
@@ -100,345 +161,220 @@ export default function AllTicketsScreen() {
     if (!username) return;
     if (role === "ADMIN" && !profileId) return;
     fetchTickets(username, profileId);
-  }, [role, username, profileId]);
+  }, [username, profileId, role]);
+
+  useEffect(() => {
+    if (params.status && ["OPEN", "IN_PROGRESS", "RESOLVED"].includes(params.status.toUpperCase())) {
+      setActiveTab(params.status.toUpperCase() as FilterTab);
+    }
+  }, [params.status]);
+
+  useEffect(() => {
+    if (!params.updatedId || !params.updatedStatus) return;
+    const nextStatus = params.updatedStatus.toUpperCase() as TicketStatus;
+    setTickets((prev) =>
+      prev.map((item) =>
+        item.id === params.updatedId
+          ? {
+              ...item,
+              status: nextStatus,
+              updatedAt: new Date().toISOString(),
+            }
+          : item,
+      ),
+    );
+    if (["OPEN", "IN_PROGRESS", "RESOLVED"].includes(nextStatus)) {
+      setActiveTab(nextStatus);
+    }
+  }, [params.updatedId, params.updatedStatus]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchTickets(username, profileId).finally(() =>
-      setRefreshing(false)
-    );
+    fetchTickets(username, profileId).finally(() => setRefreshing(false));
   }, [username, profileId, role]);
 
-  /* ---------------------------------
-     MODAL HANDLERS
-  ---------------------------------- */
-  const openTicketModal = async (ticket: Ticket) => {
-    if (role !== "ADMIN") return;
+  const filteredTickets = useMemo(
+    () => tickets.filter((item) => item.status === activeTab),
+    [tickets, activeTab],
+  );
 
-    try {
-      const res = await axios.get(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/issues/${ticket.id}/images`
-      );
+  const renderCard = ({ item }: { item: Ticket }) => {
+    const statusConfig =
+      item.status === "OPEN"
+        ? {
+            idColor: "#C81616",
+            pillBg: "rgba(255,86,86,0.1)",
+            pillText: "#C81616",
+            label: "Open",
+          }
+        : item.status === "IN_PROGRESS"
+          ? {
+              idColor: "#A16207",
+              pillBg: "rgba(255,232,131,0.33)",
+              pillText: "#A16207",
+              label: "In Progress",
+            }
+          : {
+              idColor: "#36A033",
+              pillBg: "#DCFCE7",
+              pillText: "#36A033",
+              label: "Resolved",
+            };
 
-      const fullUrls =
-        res.data?.map((relativeUrl: string) => `${process.env.EXPO_PUBLIC_BASE_URL}${relativeUrl}`) ?? [];
-
-      setSelectedTicket({
-        ...ticket,
-        imageUrls: fullUrls,
-      });
-
-      setModalVisible(true);
-    } catch (err) {
-      console.error("Failed to fetch complaint images:", err);
-      setSelectedTicket(ticket);
-      setModalVisible(true);
-    }
+    return (
+      <Pressable
+        style={styles.ticketCard}
+        onPress={() =>
+          router.push({
+            pathname: "/ticket-detail",
+            params: {
+              id: item.id,
+              title: item.title,
+              description: item.description,
+              status: item.status,
+              raisedBy: item.raisedBy,
+              flatNumber: item.flatNumber,
+              postedAt: timeLabel(item.createdAt, "OPEN"),
+              imageUrl: item.imageUrl,
+            },
+          } as never)
+        }
+      >
+        <View style={styles.ticketTop}>
+          <Text style={[styles.ticketId, { color: statusConfig.idColor }]}>{item.id}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusConfig.pillBg }]}>
+            <Text style={[styles.statusDot, { color: statusConfig.pillText }]}>•</Text>
+            <Text style={[styles.statusText, { color: statusConfig.pillText }]}>
+              {statusConfig.label}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.ticketTitle}>{item.title}</Text>
+        <Text style={styles.ticketTime}>
+          {timeLabel(item.status === "OPEN" ? item.createdAt : item.updatedAt, item.status)}
+        </Text>
+      </Pressable>
+    );
   };
 
-
-  const closeModal = () => {
-    setModalVisible(false);
-    setSelectedTicket(null);
-  };
-
-  const markAsResolved = async () => {
-    if (!selectedTicket) return;
-
-    try {
-      setResolving(true);
-
-      await axios.put(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/issues/${selectedTicket.id}`
-      );
-
-      closeModal();
-      fetchTickets(username, profileId);
-    } catch (err) {
-      console.error("Resolve ticket error:", err);
-    } finally {
-      setResolving(false);
-    }
-  };
-
-  /* ---------------------------------
-     RENDER
-  ---------------------------------- */
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-
-      <View style={styles.bg}>
-        {/* HEADER */}
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Feather name="arrow-left" size={26} color="#fff" />
-          </TouchableOpacity>
-
-          <Text style={styles.headerTitle}>
-            {role === "ADMIN" ? "Assigned Tickets" : "All Tickets"}
-          </Text>
-        </View>
-
-        {/* CONTENT */}
-        <View style={styles.cardContainer}>
-          {loading ? (
-            <ActivityIndicator size="large" color="#1C98ED" style={{ marginTop: 40 }} />
-          ) : (
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-              }
-            >
-              {tickets.length === 0 ? (
-                <Text style={styles.noTickets}>
-                  {role === "ADMIN"
-                    ? "No tickets assigned to you"
-                    : "No tickets found"}
-                </Text>
-              ) : (
-                tickets.map((ticket) => (
-                  <TicketCard
-                    key={ticket.id}
-                    ticket={ticket}
-                    onPress={() => openTicketModal(ticket)}
-                  />
-                ))
-              )}
-            </ScrollView>
-          )}
-        </View>
-      </View>
-
-      {/* ================= ADMIN MODAL ================= */}
-      {role === "ADMIN" && (
-        <Modal
-          visible={modalVisible}
-          transparent
-          animationType="fade"
-          statusBarTranslucent
-          onRequestClose={closeModal}
-        >
-          <Pressable style={styles.modalOverlay} onPress={closeModal}>
-            <Pressable
-              style={[styles.modalContent, { maxWidth: width * 0.9 }]}
-              onPress={() => { }}
-            >
-              <FrostedCard>
-                {/* HEADER */}
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>
-                    {selectedTicket?.title}
-                  </Text>
-                  <TouchableOpacity onPress={closeModal}>
-                    <Feather name="x" size={20} color="#222" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* STATUS */}
-                <Text style={styles.modalStatus}>
-                  Status: {selectedTicket?.status}
-                </Text>
-
-                {/* META INFO */}
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>Raised By:</Text>
-                  <Text style={styles.metaValue}>
-                    {selectedTicket?.raisedBy}
-                  </Text>
-                </View>
-
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>Flat No:</Text>
-                  <Text style={styles.metaValue}>
-                    {selectedTicket?.flatNumber}
-                  </Text>
-                </View>
-
-                {/* DESCRIPTION */}
-                {!!selectedTicket?.description && (
-                  <Text style={styles.modalDesc}>
-                    {selectedTicket.description}
-                  </Text>
-                )}
-
-                {/* IMAGE GALLERY */}
-                {(selectedTicket?.imageUrls ?? []).length > 0 && (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.imageRow}
-                  >
-                    {selectedTicket?.imageUrls.map((url, idx) => (
-                      <View key={idx} style={styles.imageWrapper}>
-                        <Image
-                          source={{ uri: url }}
-                          style={styles.image}
-                          resizeMode="cover"
-                        />
-                      </View>
-                    ))}
-                  </ScrollView>
-                )}
-
-                {/* RESOLVE BUTTON */}
-                {selectedTicket?.status !== "Resolved" && (
-                  <TouchableOpacity
-                    style={[
-                      styles.resolveBtn,
-                      resolving && { opacity: 0.6 },
-                    ]}
-                    onPress={markAsResolved}
-                    disabled={resolving}
-                  >
-                    {resolving ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.resolveText}>
-                        Mark as Resolved
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                )}
-              </FrostedCard>
-            </Pressable>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.headerCard}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Feather name="arrow-left" size={22} color="#181818" />
           </Pressable>
-        </Modal>
-      )}
+          <Text style={styles.headerTitle}>Issues</Text>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabRow}
+        >
+          {tabOptions.map((tab) => {
+            const active = activeTab === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                style={[styles.filterChip, active && styles.filterChipActive]}
+                onPress={() => setActiveTab(tab.key)}
+              >
+                <Text style={[styles.filterText, active && styles.filterTextActive]}>
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {usingFallback && (
+          <Text style={styles.fallbackHint}>
+            Showing sample issues because backend returned empty/error.
+          </Text>
+        )}
+
+        {loading ? (
+          <ActivityIndicator size="large" color="#1C98ED" style={{ marginTop: 28 }} />
+        ) : (
+          <FlatList
+            data={filteredTickets}
+            keyExtractor={(item) => item.id}
+            renderItem={renderCard}
+            contentContainerStyle={styles.listContent}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            ListEmptyComponent={
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyTitle}>No issues found</Text>
+                <Text style={styles.emptySub}>Try a different status filter.</Text>
+              </View>
+            }
+          />
+        )}
+      </SafeAreaView>
     </>
   );
 }
 
-/* ---------------- STYLES ---------------- */
-
 const styles = StyleSheet.create({
-  bg: {
-    flex: 1,
-    backgroundColor: "#1C98ED",
-  },
-
-  headerRow: {
-    marginTop: Platform.OS === "ios" ? 55 : 40,
-    paddingHorizontal: 20,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  headerTitle: {
-    marginLeft: 14,
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#fff",
-  },
-
-  cardContainer: {
-    flex: 1,
-    backgroundColor: "#fff",
-    marginTop: 25,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-
-  noTickets: {
-    textAlign: "center",
-    marginTop: 40,
-    fontSize: 16,
-    color: "#777",
-    fontWeight: "600",
-  },
-
-  /* -------- MODAL -------- */
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
+  safe: { flex: 1, backgroundColor: "#FAFAFA" },
+  headerCard: {
+    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     paddingHorizontal: 16,
-  },
-
-  modalContent: {
-    width: "100%",
-  },
-
-  modalHeader: {
+    paddingTop: 10,
+    paddingBottom: 14,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#222",
-    flex: 1,
-    marginRight: 8,
+  backBtn: { marginRight: 8, padding: 4 },
+  headerTitle: { fontSize: 18, fontWeight: "500", color: "#000000" },
+  tabRow: { paddingTop: 14, paddingHorizontal: 16, gap: 10, paddingBottom: 12 },
+  filterChip: {
+    minWidth: 138,
+    height: 44,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#1C98ED",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FAFAFA",
   },
-
-  modalStatus: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1C98ED",
-    marginBottom: 12,
+  filterChipActive: { backgroundColor: "#1C98ED" },
+  filterText: { color: "#1C98ED", fontSize: 16, fontWeight: "400" },
+  filterTextActive: { color: "#FAFAFA" },
+  fallbackHint: { color: "#64748B", fontSize: 12, marginHorizontal: 16, marginBottom: 6 },
+  listContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
+  ticketCard: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E6E6E6",
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 109,
+    justifyContent: "center",
   },
-
-  metaRow: {
+  ticketTop: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  ticketId: { flex: 1, fontSize: 14, fontWeight: "500" },
+  statusBadge: {
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     flexDirection: "row",
-    marginBottom: 6,
-  },
-
-  metaLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#333",
-    width: 90,
-  },
-
-  metaValue: {
-    fontSize: 13,
-    color: "#555",
-    flex: 1,
-  },
-
-  modalDesc: {
-    marginTop: 10,
-    fontSize: 14,
-    color: "#555",
-    lineHeight: 20,
-  },
-
-  imageRow: {
-    marginTop: 14,
-  },
-
-  imageWrapper: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    overflow: "hidden",
-    marginRight: 10,
-    backgroundColor: "#eee",
-  },
-
-  image: {
-    width: "100%",
-    height: "100%",
-  },
-
-  resolveBtn: {
-    marginTop: 20,
-    backgroundColor: "#1C98ED",
-    paddingVertical: 12,
-    borderRadius: 14,
     alignItems: "center",
+    gap: 2,
   },
-
-  resolveText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 15,
-  },
+  statusDot: { fontSize: 10, fontWeight: "700" },
+  statusText: { fontSize: 10, fontWeight: "400" },
+  ticketTitle: { fontSize: 14, fontWeight: "500", color: "#000000", marginBottom: 7 },
+  ticketTime: { fontSize: 10, color: "#A1A1AA", fontWeight: "400" },
+  emptyWrap: { alignItems: "center", marginTop: 48 },
+  emptyTitle: { color: "#111827", fontWeight: "600", fontSize: 16, marginBottom: 4 },
+  emptySub: { color: "#6B7280", fontSize: 13 },
 });

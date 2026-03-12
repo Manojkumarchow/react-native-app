@@ -1,32 +1,30 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { Stack, router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Stack, useRouter } from "expo-router";
+import { Feather } from "@expo/vector-icons";
 
-const PRIMARY = "#1C98ED";
+export default function CctvScreen() {
+  const router = useRouter();
 
-export default function CcTv() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.safe}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons
-              name="chevron-back"
-              size={24}
-              color="#fff"
-              style={styles.arrowButton}
-            />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>CC TV</Text>
-          <View style={{ width: 24 }} />
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.headerCard}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backTap}>
+              <Feather name="arrow-left" size={22} color="#181818" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>CCTV - Live View</Text>
+          </View>
         </View>
-        <View style={styles.center}>
-          <Text style={styles.infoText}>Coming Soon</Text>
-          <Text style={styles.paymentEmoji}>🎥</Text>
-        </View>
-      </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.cameraTile} />
+          <View style={styles.cameraTile} />
+          <View style={styles.cameraTile} />
+        </ScrollView>
+      </SafeAreaView>
     </>
   );
 }
@@ -34,51 +32,45 @@ export default function CcTv() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#FAFAFA",
   },
-
-  header: {
-    height: 120,
-    backgroundColor: PRIMARY,
+  headerCard: {
+    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    borderBottomColor: "#F1F5F9",
+    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+  },
+  backTap: {
+    marginRight: 8,
+    padding: 4,
   },
   headerTitle: {
-    flex: 1,
-    color: "#fff",
+    color: "#000000",
     fontSize: 18,
-    fontWeight: "600",
-    marginTop: 70,
+    fontWeight: "500",
   },
-  arrowButton: {
-    marginTop: 70,
+  content: {
+    paddingHorizontal: 18,
+    paddingTop: 26,
+    paddingBottom: 34,
+    gap: 22,
   },
-
-  /* Content */
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  infoText: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 8,
-  },
-  paymentEmoji: {
-    fontSize: 40,
-    marginVertical: 12,
-  },
-  upiText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: PRIMARY,
-  },
-  helperText: {
-    fontSize: 12,
-    color: "#888",
-    marginTop: 6,
+  cameraTile: {
+    width: "100%",
+    minHeight: 187,
+    borderRadius: 12,
+    backgroundColor: "#0E324B",
   },
 });

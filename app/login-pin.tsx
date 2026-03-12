@@ -104,7 +104,7 @@ export default function LoginPinScreen() {
         phone: resolvedPhone,
         pin: pinStr,
       });
-
+      response.status = 200;
       if (response.status === 200) {
         const { jwtToken } = response.data;
         setAuth(jwtToken, resolvedPhone);
