@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -18,6 +19,8 @@ import axios from "axios";
 import FrostedCard from "./components/FrostedCard";
 import { sendOTP } from "./services/otp.service";
 import { getProfile } from "./services/profile.service";
+import { BASE_URL } from "./config";
+import { getErrorMessage } from "./services/error";
 
 /* ---------------------------------
    Types
@@ -48,6 +51,7 @@ export default function SignupScreen() {
   const [floor, setFloor] = useState<number | null>(null);
 
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(
@@ -92,7 +96,7 @@ export default function SignupScreen() {
     console.log("🚀 Buildings API call started");
 
     axios
-      .get(`${process.env.EXPO_PUBLIC_BASE_URL}/building/all`)
+      .get(`${BASE_URL}/building/all`)
       .then((res) => {
         console.log("✅ Buildings API success");
         console.log("📦 Raw response:", res);
@@ -130,6 +134,7 @@ export default function SignupScreen() {
      Signup Logic (UNCHANGED)
   ---------------------------------- */
   const handleSignup = async () => {
+    if (loading) return;
     setError("");
 
     if (
@@ -144,9 +149,11 @@ export default function SignupScreen() {
       return;
     }
 
+    setLoading(true);
     try {
       await getProfile(phone);
       setError("User already exists");
+      setLoading(false);
       return;
     } catch {}
 
@@ -165,8 +172,10 @@ export default function SignupScreen() {
           flatNo,
         },
       });
-    } catch {
-      setError("Failed to send OTP");
+    } catch (error) {
+      setError(getErrorMessage(error, "Failed to send OTP"));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -370,8 +379,13 @@ export default function SignupScreen() {
                   <TouchableOpacity
                     style={styles.button}
                     onPress={handleSignup}
+                    disabled={loading}
                   >
-                    <Text style={styles.buttonText}>Signup</Text>
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.buttonText}>Signup</Text>
+                    )}
                   </TouchableOpacity>
 
                   {!!error && <Text style={styles.error}>{error}</Text>}

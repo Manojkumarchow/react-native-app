@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Modal,
   Pressable,
@@ -12,6 +13,10 @@ import {
 } from "react-native";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { createProfile } from "../services/profile.service";
+import { getErrorMessage } from "../services/error";
+import useBuildingStore from "../store/buildingStore";
+import Toast from "react-native-toast-message";
 
 type Variant = "owner" | "tenant" | "admin";
 
@@ -41,6 +46,8 @@ export default function AddResidentFormScreen({ variant }: Props) {
   const [instantAccess, setInstantAccess] = useState(true);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const buildingId = useBuildingStore((s) => s.buildingId);
 
   const title = useMemo(() => {
     if (variant === "owner") return "Add Owner";
@@ -54,10 +61,67 @@ export default function AddResidentFormScreen({ variant }: Props) {
     return "Create Admin";
   }, [variant]);
 
+  const backendRole = useMemo(() => {
+    if (variant === "owner") return "OWNER" as const;
+    if (variant === "tenant") return "USER" as const;
+    return "SYSTEM_ADMIN" as const;
+  }, [variant]);
+
   const togglePermission = (item: string) => {
     setSelectedPermissions((prev) =>
-      prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item]
+      prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item],
     );
+  };
+
+  const handleCreateResident = async () => {
+    if (!fullName.trim()) {
+      Toast.show({
+        type: "error",
+        text1: "Name required",
+        text2: "Please enter full name.",
+      });
+      return;
+    }
+    if (phone.trim().length !== 10) {
+      Toast.show({
+        type: "error",
+        text1: "Invalid phone number",
+        text2: "Please enter a valid 10-digit mobile number.",
+      });
+      return;
+    }
+    if (!buildingId) {
+      Toast.show({
+        type: "error",
+        text1: "Building missing",
+        text2: "Building data is missing. Please try again.",
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const floorValue = floors[floorIdx].replace(/\D/g, "");
+      const tempPassword = `${phone.slice(-4)}`;
+      await createProfile(
+        fullName.trim(),
+        phone.trim(),
+        tempPassword,
+        backendRole,
+        String(buildingId),
+        floorValue,
+        flats[flatIdx],
+      );
+      setShowSuccess(true);
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "Failed to add resident",
+        text2: getErrorMessage(error),
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -167,7 +231,7 @@ export default function AddResidentFormScreen({ variant }: Props) {
           <>
             <Label text="Lease End Date" top={12} optional />
             <Input
-              placeholder="mm/dd/yyyy"
+              placeholder="dd/mm/yyyy"
               value={leaseEnd}
               onChangeText={setLeaseEnd}
             />
@@ -195,7 +259,10 @@ export default function AddResidentFormScreen({ variant }: Props) {
                 return (
                   <Pressable
                     key={item}
-                    style={[styles.permissionChip, active && styles.permissionChipActive]}
+                    style={[
+                      styles.permissionChip,
+                      active && styles.permissionChipActive,
+                    ]}
                     onPress={() => togglePermission(item)}
                   >
                     <Text
@@ -218,16 +285,24 @@ export default function AddResidentFormScreen({ variant }: Props) {
                 color="#DC2626"
               />
               <Text style={styles.warningText}>
-                This user will have administrative access to society data. Please
-                ensure the information is correct.
+                This user will have administrative access to society data.
+                Please ensure the information is correct.
               </Text>
             </View>
           </>
         ) : null}
       </View>
 
-      <Pressable style={styles.primaryBtn} onPress={() => setShowSuccess(true)}>
-        <Text style={styles.primaryBtnText}>{submitLabel}</Text>
+      <Pressable
+        style={styles.primaryBtn}
+        onPress={handleCreateResident}
+        disabled={submitting}
+      >
+        {submitting ? (
+          <ActivityIndicator color="#FAFAFA" />
+        ) : (
+          <Text style={styles.primaryBtnText}>{submitLabel}</Text>
+        )}
       </Pressable>
 
       <Modal visible={showSuccess} transparent animationType="fade">
@@ -238,11 +313,14 @@ export default function AddResidentFormScreen({ variant }: Props) {
             </View>
             <Text style={styles.modalTitle}>Invite Sent successfully!</Text>
             <View style={styles.illustrationBox}>
-              <Image source={{ uri: successIllustration }} style={styles.modalImage} />
+              <Image
+                source={{ uri: successIllustration }}
+                style={styles.modalImage}
+              />
             </View>
             <Text style={styles.modalSubtitle}>
-              An invitation with app download link has been sent to the resident's
-              mobile number.
+              An invitation with app download link has been sent to the
+              resident&apos;s mobile number.
             </Text>
 
             <Pressable

@@ -7,12 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { useRouter } from "expo-router";
 import useAuthStore from "./store/authStore";
 import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
+import { BASE_URL } from "./config";
 
 interface EventItem {
   eventId: string;
@@ -37,7 +38,7 @@ export default function Events() {
   const fetchEvents = async () => {
     try {
       const res = await axios.get(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/events/${buildingId}`
+        `${BASE_URL}/events/${buildingId}`
       );
       setEvents(res.data || []);
     } catch (error) {

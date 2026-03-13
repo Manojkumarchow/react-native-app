@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Linking,
   Pressable,
@@ -12,6 +13,9 @@ import {
 } from "react-native";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, Stack } from "expo-router";
+import axios from "axios";
+import { BASE_URL } from "./config";
+import useBuildingStore from "./store/buildingStore";
 type Resident = {
   id: string;
   name: string;
@@ -23,19 +27,6 @@ type Resident = {
 const avatarUri =
   "https://www.figma.com/api/mcp/asset/84d44808-4b5b-40ca-9c62-df413083a57f";
 
-const allData: Resident[] = [
-  { id: "1", name: "Ravi Kumar", flat: "A-102", subtitle: "Tenant - 102", phone: "9876543210" },
-  { id: "2", name: "Kiran Rao", flat: "A-103", subtitle: "Owner - 103", phone: "9876543211" },
-  { id: "3", name: "Priya Sharma", flat: "B-204", subtitle: "Tenant - 204", phone: "9876543212" },
-  { id: "4", name: "Amit Verma", flat: "B-205", subtitle: "Owner - 205", phone: "9876543213" },
-  { id: "5", name: "Nisha Reddy", flat: "C-301", subtitle: "Tenant - 301", phone: "9876543214" },
-  { id: "6", name: "Sandeep N", flat: "C-302", subtitle: "Owner - 302", phone: "9876543215" },
-  { id: "7", name: "Meena Iyer", flat: "D-401", subtitle: "Tenant - 401", phone: "9876543216" },
-  { id: "8", name: "Arjun K", flat: "D-402", subtitle: "Owner - 402", phone: "9876543217" },
-  { id: "9", name: "Pooja Das", flat: "E-501", subtitle: "Tenant - 501", phone: "9876543218" },
-  { id: "10", name: "Rahul Jain", flat: "E-502", subtitle: "Owner - 502", phone: "9876543219" },
-];
-
 const pendingData: Resident[] = [
   { id: "p1", name: "Ravi Kumar", flat: "A-102", subtitle: "Tenant - 102" },
   { id: "p2", name: "Ravi Kumar", flat: "A-102", subtitle: "Tenant - 102" },
@@ -43,8 +34,39 @@ const pendingData: Resident[] = [
 
 export default function ResidentsScreen() {
   const router = useRouter();
+  const buildingId = useBuildingStore((s) => s.buildingId);
   const [activeTab, setActiveTab] = useState<"all" | "pending">("all");
   const [search, setSearch] = useState("");
+  const [allData, setAllData] = useState<Resident[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchResidents = async () => {
+      if (!buildingId) {
+        setAllData([]);
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        const res = await axios.get(`${BASE_URL}/residents/building/${buildingId}`);
+        const rows = Array.isArray(res.data) ? res.data : [];
+        const mapped: Resident[] = rows.map((item: any, idx: number) => ({
+          id: String(item.phone ?? idx),
+          name: item.name ?? "Unknown",
+          flat: `${item.floorNo ?? "-"}`,
+          subtitle: `Resident ${item.floorNo ?? "-"}`,
+          phone: item.phone,
+        }));
+        setAllData(mapped);
+      } catch {
+        setAllData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchResidents();
+  }, [buildingId]);
 
   const sourceData = activeTab === "all" ? allData : pendingData;
   const filtered = useMemo(() => {
@@ -116,6 +138,7 @@ export default function ResidentsScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.listContainer} showsVerticalScrollIndicator={false}>
+          {loading ? <ActivityIndicator size="large" color="#1C98ED" style={{ marginTop: 20 }} /> : null}
           {filtered.map((item) => (
             <View key={item.id} style={styles.card}>
               <Image source={{ uri: avatarUri }} style={styles.avatar} />

@@ -13,6 +13,7 @@ import {
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
+import { BASE_URL } from "./config";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
@@ -83,10 +84,9 @@ export default function TicketDetailScreen() {
   const updateStatus = async (nextStatus: TicketStatus) => {
     try {
       setSaving(true);
-
-      if (nextStatus === "RESOLVED") {
-        await axios.put(`${process.env.EXPO_PUBLIC_BASE_URL}/issues/${ticketId}`);
-      }
+      await axios.patch(`${BASE_URL}/issues/${ticketId}/status`, {
+        status: nextStatus,
+      });
 
       setStatus(nextStatus);
       setLastUpdatedStatus(nextStatus);

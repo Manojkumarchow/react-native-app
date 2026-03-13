@@ -44,7 +44,7 @@ export default function EditAccount() {
     setLoading(true);
     try {
       const res = await api.patch(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/profile/update`,
+        `/profile/update`,
         {
           userId: profile.userId,
           name,

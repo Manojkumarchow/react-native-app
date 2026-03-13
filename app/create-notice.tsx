@@ -21,6 +21,7 @@ import axios from "axios";
 import { Ionicons } from "@expo/vector-icons";
 import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
+import { BASE_URL } from "./config";
 
 type BackendNoticeType = "ALERT" | "INFO" | "HIGH" | "MEDIUM" | "LOW" | "EVENT";
 type NoticeCategory = "NOTICE" | "ANNOUNCEMENT" | "EVENT";
@@ -111,6 +112,7 @@ export default function CreateNotice() {
   const [loading, setLoading] = useState(true);
   const [usingFallback, setUsingFallback] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const fetchNotices = async () => {
     if (!buildingId) {
@@ -122,7 +124,7 @@ export default function CreateNotice() {
 
     try {
       setLoading(true);
-      const res = await axios.get(`${process.env.EXPO_PUBLIC_BASE_URL}/notices/${buildingId}`);
+      const res = await axios.get(`${BASE_URL}/notices/${buildingId}`);
       const apiData = Array.isArray(res.data) ? (res.data as Notice[]) : [];
       if (!apiData.length) {
         setNotices(STATIC_NOTICES);
@@ -160,15 +162,17 @@ export default function CreateNotice() {
   };
 
   const sendNotice = async () => {
-    if (!isValid) return;
+    if (!isValid || sending) return;
 
     try {
-      await axios.post(`${process.env.EXPO_PUBLIC_BASE_URL}/notices/create`, {
+      setSending(true);
+      await axios.post(`${BASE_URL}/notices/create`, {
         title,
         description,
         type: mapCategoryToCreateType(category),
         profileId: profile.phone,
         buildingId,
+        audience,
       });
 
       setShowSuccessModal(true);
@@ -180,6 +184,8 @@ export default function CreateNotice() {
         text1: "Error",
         text2: "Some error occurred while sending notice",
       });
+    } finally {
+      setSending(false);
     }
   };
 
@@ -367,9 +373,13 @@ export default function CreateNotice() {
                   <Pressable
                     style={[styles.sendBtn, !isValid && styles.disabledBtn]}
                     onPress={sendNotice}
-                    disabled={!isValid}
+                    disabled={!isValid || sending}
                   >
-                    <Text style={styles.sendBtnText}>Send Now</Text>
+                    {sending ? (
+                      <ActivityIndicator color="#FAFAFA" />
+                    ) : (
+                      <Text style={styles.sendBtnText}>Send Now</Text>
+                    )}
                   </Pressable>
                 </View>
               </ScrollView>

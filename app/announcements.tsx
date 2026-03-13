@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -9,6 +10,10 @@ import {
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import axios from "axios";
+import { BASE_URL } from "./config";
+import useBuildingStore from "./store/buildingStore";
+import { getErrorMessage } from "./services/error";
 
 type UpdateKind = "Notice" | "Announcements" | "Events";
 type FeedFilter = "All" | UpdateKind;
@@ -53,13 +58,54 @@ const FEED_ITEMS: Array<{
 
 export default function Announcement() {
   const router = useRouter();
+  const buildingId = useBuildingStore((s) => s.buildingId);
   const [activeTopTab, setActiveTopTab] = useState<"Updates" | "Chat">("Updates");
   const [activeFilter, setActiveFilter] = useState<FeedFilter>("All");
+  const [items, setItems] = useState(FEED_ITEMS);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    const fetchFeed = async () => {
+      if (!buildingId) {
+        setItems(FEED_ITEMS);
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        const res = await axios.get(`${BASE_URL}/community/feed/${buildingId}`);
+        const feedItems = Array.isArray(res.data?.items) ? res.data.items : [];
+        if (!feedItems.length) {
+          setItems(FEED_ITEMS);
+          return;
+        }
+        const mapped = feedItems.map((item: any) => ({
+          id: String(item.id ?? `${item.type}-${Math.random()}`),
+          type:
+            item.type === "Announcements" || item.type === "Events" || item.type === "Notice"
+              ? item.type
+              : "Notice",
+          title: item.title ?? "Untitled update",
+          body: item.body ?? "",
+          time: item.createdAt
+            ? new Date(item.createdAt).toLocaleString()
+            : "Just now",
+        }));
+        setItems(mapped);
+      } catch (error) {
+        console.log("Community feed error:", getErrorMessage(error));
+        setItems(FEED_ITEMS);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFeed();
+  }, [buildingId]);
 
   const filteredItems = useMemo(() => {
-    if (activeFilter === "All") return FEED_ITEMS;
-    return FEED_ITEMS.filter((item) => item.type === activeFilter);
-  }, [activeFilter]);
+    if (activeFilter === "All") return items;
+    return items.filter((item) => item.type === activeFilter);
+  }, [activeFilter, items]);
 
   return (
     <>
@@ -127,7 +173,10 @@ export default function Announcement() {
               })}
             </ScrollView>
 
-            {filteredItems.map((item) => {
+            {loading ? (
+              <ActivityIndicator size="large" color="#1C98ED" style={{ marginTop: 24 }} />
+            ) : (
+              filteredItems.map((item) => {
               const isAnnouncement = item.type === "Announcements";
               const isEvent = item.type === "Events";
               const accentColor = isAnnouncement
@@ -141,7 +190,7 @@ export default function Announcement() {
                   ? styles.badgeBlue
                   : styles.badgeRed;
 
-              return (
+                return (
                 <View key={item.id} style={styles.noticeCard}>
                   <View style={[styles.noticeAccent, { backgroundColor: accentColor }]} />
                   <View style={styles.noticeBody}>
@@ -163,8 +212,9 @@ export default function Announcement() {
                     ) : null}
                   </View>
                 </View>
-              );
-            })}
+                );
+              })
+            )}
           </ScrollView>
         ) : (
           <View style={styles.chatPlaceholder}>

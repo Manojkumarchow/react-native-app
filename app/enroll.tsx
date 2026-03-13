@@ -15,6 +15,7 @@ import Toast from "react-native-toast-message";
 import * as Location from "expo-location";
 import Geocoder from "react-native-geocoding";
 import useProfileStore from "./store/profileStore";
+import { BASE_URL } from "./config";
 
 /* ---------------------------------
    GOOGLE MAPS
@@ -213,7 +214,7 @@ export default function EnrollBuildingScreen() {
       };
 
       const response = await axios.post(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/building/create`,
+        `${BASE_URL}/building/create`,
         payload
       );
 

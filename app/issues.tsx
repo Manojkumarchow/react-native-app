@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Pressable,
@@ -13,6 +14,11 @@ import {
 import { Stack, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import axios from "axios";
+import { BASE_URL } from "./config";
+import useProfileStore from "./store/profileStore";
+import useBuildingStore from "./store/buildingStore";
+import { getErrorMessage } from "./services/error";
 
 type TopTab = "NEW" | "MY_ISSUES";
 type IssueStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
@@ -76,12 +82,58 @@ const statusTheme = (status: IssueStatus) =>
 
 export default function IssuesScreen() {
   const router = useRouter();
+  const profilePhone = useProfileStore((s) => s.phone);
+  const buildingId = useBuildingStore((s) => s.buildingId);
   const [activeTab, setActiveTab] = useState<TopTab>("NEW");
   const [activeStatus, setActiveStatus] = useState<IssueStatus>("OPEN");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [pickedImages, setPickedImages] = useState<string[]>([]);
   const [issues, setIssues] = useState<IssueItem[]>(SAMPLE_ISSUES);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchIssues = async () => {
+      if (!profilePhone) {
+        setIssues(SAMPLE_ISSUES);
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        const res = await axios.get(`${BASE_URL}/issues/profile/${profilePhone}`);
+        const apiData = Array.isArray(res.data) ? res.data : [];
+        if (!apiData.length) {
+          setIssues(SAMPLE_ISSUES);
+          return;
+        }
+        const mapped: IssueItem[] = apiData.map((item: any) => ({
+          id: String(item.complaintId ?? item.id),
+          title: item.title ?? "Untitled issue",
+          description: item.description ?? "",
+          status:
+            String(item.status).toUpperCase() === "RESOLVED"
+              ? "RESOLVED"
+              : String(item.status).toUpperCase().includes("PROGRESS")
+                ? "IN_PROGRESS"
+                : "OPEN",
+          timeLabel: "Posted recently",
+          images: Array.isArray(item.imageUrls)
+            ? item.imageUrls.map((url: string) =>
+                url.startsWith("http") ? url : `${BASE_URL}${url}`
+              )
+            : [],
+        }));
+        setIssues(mapped);
+      } catch {
+        setIssues(SAMPLE_ISSUES);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchIssues();
+  }, [profilePhone]);
 
   const filteredIssues = useMemo(
     () => issues.filter((item) => item.status === activeStatus),
@@ -110,26 +162,70 @@ export default function IssuesScreen() {
     }
   };
 
-  const createIssue = () => {
+  const createIssue = async () => {
     if (!title.trim() || !description.trim()) {
       Alert.alert("Missing fields", "Please enter issue title and description.");
       return;
     }
-    const nextIssue: IssueItem = {
-      id: `ISS${Math.floor(100000 + Math.random() * 900000)}`,
-      title: title.trim(),
-      description: description.trim(),
-      status: "OPEN",
-      timeLabel: "Posted just now",
-      images: pickedImages.length ? pickedImages : SAMPLE_ISSUES[0].images,
-    };
-    setIssues((prev) => [nextIssue, ...prev]);
-    setTitle("");
-    setDescription("");
-    setPickedImages([]);
-    setActiveTab("MY_ISSUES");
-    setActiveStatus("OPEN");
-    Alert.alert("Issue raised", "Your issue has been submitted successfully.");
+    if (!profilePhone) {
+      Alert.alert("Profile missing", "Please login again and retry.");
+      return;
+    }
+    try {
+      setSaving(true);
+      const formData = new FormData();
+      formData.append(
+        "complaint",
+        JSON.stringify({
+          title: title.trim(),
+          description: description.trim(),
+          username: profilePhone,
+          timestamp: new Date().toISOString(),
+          type: "ALERT",
+          isResolved: false,
+          assigneeProfile: null,
+          buildingId: buildingId ? String(buildingId) : null,
+          status: "OPEN",
+        })
+      );
+
+      pickedImages.forEach((uri, index) => {
+        const name = uri.split("/").pop() || `issue-${index}.jpg`;
+        formData.append("files", {
+          uri,
+          name,
+          type: "image/jpeg",
+        } as any);
+      });
+
+      const res = await axios.post(`${BASE_URL}/issues/register`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const created = res.data;
+      const nextIssue: IssueItem = {
+        id: String(created?.complaintId ?? `ISS${Date.now()}`),
+        title: created?.title ?? title.trim(),
+        description: created?.description ?? description.trim(),
+        status: "OPEN",
+        timeLabel: "Posted just now",
+        images: Array.isArray(created?.imageUrls)
+          ? created.imageUrls.map((url: string) =>
+              url.startsWith("http") ? url : `${BASE_URL}${url}`
+            )
+          : [],
+      };
+      setIssues((prev) => [nextIssue, ...prev]);
+      setTitle("");
+      setDescription("");
+      setPickedImages([]);
+      setActiveTab("MY_ISSUES");
+      setActiveStatus("OPEN");
+      Alert.alert("Issue raised", "Your issue has been submitted successfully.");
+    } catch (error) {
+      Alert.alert("Issue creation failed", getErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -181,20 +277,27 @@ export default function IssuesScreen() {
                 </View>
               ))}
             </View>
-            <Pressable style={styles.raiseBtn} onPress={createIssue}>
-              <Text style={styles.raiseBtnText}>Raise Issue</Text>
+            <Pressable style={styles.raiseBtn} onPress={createIssue} disabled={saving}>
+              {saving ? (
+                <ActivityIndicator color="#FAFAFA" />
+              ) : (
+                <Text style={styles.raiseBtnText}>Raise Issue</Text>
+              )}
             </Pressable>
           </ScrollView>
         ) : (
-          <View style={{ flex: 1, paddingTop: 14 }}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-              {STATUS_FILTERS.map((f) => (
-                <Pressable key={f.key} style={[styles.filterChip, activeStatus === f.key && styles.filterChipActive]} onPress={() => setActiveStatus(f.key)}>
-                  <Text style={[styles.filterText, activeStatus === f.key && styles.filterTextActive]}>{f.label}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-            <ScrollView contentContainerStyle={styles.issueList} showsVerticalScrollIndicator={false}>
+          <View style={styles.listLayout}>
+            <View style={styles.filterRowWrap}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                {STATUS_FILTERS.map((f) => (
+                  <Pressable key={f.key} style={[styles.filterChip, activeStatus === f.key && styles.filterChipActive]} onPress={() => setActiveStatus(f.key)}>
+                    <Text style={[styles.filterText, activeStatus === f.key && styles.filterTextActive]}>{f.label}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+            <ScrollView style={styles.issueListScroll} contentContainerStyle={styles.issueList} showsVerticalScrollIndicator={false}>
+              {loading ? <ActivityIndicator size="large" color="#1C98ED" style={{ marginTop: 24 }} /> : null}
               {filteredIssues.map((issue) => {
                 const theme = statusTheme(issue.status);
                 return (
@@ -281,8 +384,19 @@ const styles = StyleSheet.create({
   removePill: { position: "absolute", right: 4, top: 4, width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.6)" },
   raiseBtn: { marginTop: 26, height: 48, borderRadius: 100, backgroundColor: "#1C98ED", alignItems: "center", justifyContent: "center" },
   raiseBtnText: { color: "#FAFAFA", fontSize: 22, fontWeight: "500" },
+  listLayout: { flex: 1, paddingTop: 14, minHeight: 0 },
+  filterRowWrap: { flexShrink: 0 },
   filterRow: { gap: 10, paddingHorizontal: 16, paddingBottom: 12 },
-  filterChip: { minWidth: 140, borderRadius: 24, borderWidth: 1, borderColor: "#1C98ED", paddingHorizontal: 20, paddingVertical: 10, alignItems: "center" },
+  issueListScroll: { flex: 1, minHeight: 0 },
+  filterChip: {
+    minWidth: 140,
+    borderRadius: 24, 
+    borderWidth: 1, 
+    borderColor: "#1C98ED", 
+    paddingHorizontal: 20, 
+    paddingVertical: 10, 
+    alignItems: "center" 
+  },
   filterChipActive: { backgroundColor: "#1C98ED" },
   filterText: { fontSize: 16, color: "#1C98ED", fontWeight: "400" },
   filterTextActive: { color: "#FAFAFA" },

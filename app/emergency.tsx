@@ -15,6 +15,7 @@ import { Stack, router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import useAuthStore from "./store/authStore";
 import useProfileStore from "./store/profileStore";
+import { BASE_URL } from "./config";
 
 type Contact = {
   name: string;
@@ -38,7 +39,7 @@ export default function AddContact() {
   const fetchContacts = async () => {
     try {
       const res = await axios.get(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/profile/${username}/contacts`
+        `${BASE_URL}/profile/${username}/contacts`
       );
       setContacts(res.data || []);
     } catch (err) {
@@ -70,7 +71,7 @@ export default function AddContact() {
     try {
       setLoading(true);
 
-      await axios.patch(`${process.env.EXPO_PUBLIC_BASE_URL}/profile/update`, {
+      await axios.patch(`${BASE_URL}/profile/update`, {
         phone: username, // identifier
         contacts: updatedContacts,
       });

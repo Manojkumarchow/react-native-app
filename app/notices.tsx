@@ -21,6 +21,7 @@ import { router } from "expo-router";
 import Toast from "react-native-toast-message";
 import useBuildingStore from "./store/buildingStore";
 import useProfileStore from "./store/profileStore";
+import { BASE_URL } from "./config";
 
 type BackendNoticeType = "ALERT" | "INFO" | "HIGH" | "MEDIUM" | "LOW" | "EVENT";
 type NoticeCategory = "NOTICE" | "ANNOUNCEMENT" | "EVENT";
@@ -71,12 +72,15 @@ const STATIC_NOTICES: Notice[] = [
 
 const mapNoticeTypeToCategory = (type: string): NoticeCategory => {
   const value = type?.toUpperCase();
-  if (value === "HIGH" || value === "ALERT" || value === "NOTICE") return "NOTICE";
+  if (value === "HIGH" || value === "ALERT" || value === "NOTICE")
+    return "NOTICE";
   if (value === "EVENT" || value === "LOW") return "EVENT";
   return "ANNOUNCEMENT";
 };
 
-const mapCategoryToCreateType = (category: NoticeCategory): "HIGH" | "MEDIUM" | "LOW" => {
+const mapCategoryToCreateType = (
+  category: NoticeCategory,
+): "HIGH" | "MEDIUM" | "LOW" => {
   if (category === "NOTICE") return "HIGH";
   if (category === "EVENT") return "LOW";
   return "MEDIUM";
@@ -111,6 +115,7 @@ export default function Notices() {
   const [loading, setLoading] = useState(true);
   const [usingFallback, setUsingFallback] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const fetchNotices = async () => {
     if (!buildingId) {
@@ -122,7 +127,7 @@ export default function Notices() {
 
     try {
       setLoading(true);
-      const res = await axios.get(`${process.env.EXPO_PUBLIC_BASE_URL}/notices/${buildingId}`);
+      const res = await axios.get(`${BASE_URL}/notices/${buildingId}`);
       const apiData = Array.isArray(res.data) ? (res.data as Notice[]) : [];
       if (!apiData.length) {
         setNotices(STATIC_NOTICES);
@@ -145,7 +150,10 @@ export default function Notices() {
   }, [buildingId]);
 
   const filteredHistory = useMemo(
-    () => notices.filter((item) => mapNoticeTypeToCategory(item.type) === historyFilter),
+    () =>
+      notices.filter(
+        (item) => mapNoticeTypeToCategory(item.type) === historyFilter,
+      ),
     [notices, historyFilter],
   );
 
@@ -160,15 +168,17 @@ export default function Notices() {
   };
 
   const sendNotice = async () => {
-    if (!isValid) return;
+    if (!isValid || sending) return;
 
     try {
-      await axios.post(`${process.env.EXPO_PUBLIC_BASE_URL}/notices/create`, {
+      setSending(true);
+      await axios.post(`${BASE_URL}/notices/create`, {
         title,
         description,
         type: mapCategoryToCreateType(category),
         profileId: profile.phone,
         buildingId,
+        audience,
       });
 
       setShowSuccessModal(true);
@@ -180,13 +190,17 @@ export default function Notices() {
         text1: "Error",
         text2: "Some error occurred while sending notice",
       });
+    } finally {
+      setSending(false);
     }
   };
 
   const renderHistoryItem = ({ item }: { item: Notice }) => {
     const categoryLabel = mapNoticeTypeToCategory(item.type);
     const isNotice = categoryLabel === "NOTICE";
-    const pillBg = isNotice ? "rgba(220, 38, 38, 0.12)" : "rgba(28, 152, 237, 0.12)";
+    const pillBg = isNotice
+      ? "rgba(220, 38, 38, 0.12)"
+      : "rgba(28, 152, 237, 0.12)";
     const pillText = isNotice ? "#DC2626" : "#1C98ED";
     const leftBar = isNotice ? "#C81616" : "#1C98ED";
 
@@ -197,12 +211,16 @@ export default function Notices() {
           <View style={styles.noticeCardTop}>
             <View style={[styles.noticeTypePill, { backgroundColor: pillBg }]}>
               <Text style={[styles.noticeTypePillText, { color: pillText }]}>
-                {categoryLabel === "ANNOUNCEMENT" ? "Announcement" : categoryLabel}
+                {categoryLabel === "ANNOUNCEMENT"
+                  ? "Announcement"
+                  : categoryLabel}
               </Text>
             </View>
             <Text style={styles.noticeTime}>{timeAgo(item.createdAt)}</Text>
           </View>
-          <Text style={styles.noticeTitle}>{item.title || "Untitled notice"}</Text>
+          <Text style={styles.noticeTitle}>
+            {item.title || "Untitled notice"}
+          </Text>
           <Text numberOfLines={3} style={styles.noticeDescription}>
             {item.description || "No description available."}
           </Text>
@@ -221,7 +239,10 @@ export default function Notices() {
           <View style={styles.screen}>
             <View style={styles.headerCard}>
               <View style={styles.headerTop}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.iconTap}>
+                <TouchableOpacity
+                  onPress={() => router.back()}
+                  style={styles.iconTap}
+                >
                   <Ionicons name="arrow-back" size={22} color="#181818" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Post Notice</Text>
@@ -229,7 +250,10 @@ export default function Notices() {
 
               <View style={styles.rootTabWrap}>
                 <Pressable
-                  style={[styles.rootTab, activeRootTab === "NEW" && styles.rootTabActive]}
+                  style={[
+                    styles.rootTab,
+                    activeRootTab === "NEW" && styles.rootTabActive,
+                  ]}
                   onPress={() => setActiveRootTab("NEW")}
                 >
                   <Text
@@ -242,7 +266,10 @@ export default function Notices() {
                   </Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.rootTab, activeRootTab === "HISTORY" && styles.rootTabActive]}
+                  style={[
+                    styles.rootTab,
+                    activeRootTab === "HISTORY" && styles.rootTabActive,
+                  ]}
                   onPress={() => setActiveRootTab("HISTORY")}
                 >
                   <Text
@@ -279,8 +306,14 @@ export default function Notices() {
                           style={[styles.chip, active && styles.chipActive]}
                           onPress={() => setCategory(item)}
                         >
-                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                            {item === "ANNOUNCEMENT" ? "Announcement" : item}
+                          <Text
+                            style={[
+                              styles.chipText,
+                              active && styles.chipTextActive,
+                            ]}
+                          >
+                            {item ===
+                              `${item.charAt(0).toUpperCase() + item.slice(1)}`}
                           </Text>
                         </Pressable>
                       );
@@ -300,7 +333,9 @@ export default function Notices() {
                 </View>
 
                 <View style={styles.section}>
-                  <Text style={styles.sectionLabel}>Description (Optional)</Text>
+                  <Text style={styles.sectionLabel}>
+                    Description (Optional)
+                  </Text>
                   <TextInput
                     value={description}
                     onChangeText={setDescription}
@@ -341,14 +376,18 @@ export default function Notices() {
                   </ScrollView>
                 </View>
 
-                <View style={styles.scheduleCard}>
+                {/* <View style={styles.scheduleCard}>
                   <View style={styles.scheduleLeft}>
                     <View style={styles.scheduleIconWrap}>
                       <Ionicons name="time-outline" size={20} color="#2899CF" />
                     </View>
                     <View>
-                      <Text style={styles.scheduleTitle}>Schedule for later</Text>
-                      <Text style={styles.scheduleSub}>Set a specific date and time</Text>
+                      <Text style={styles.scheduleTitle}>
+                        Schedule for later
+                      </Text>
+                      <Text style={styles.scheduleSub}>
+                        Set a specific date and time
+                      </Text>
                     </View>
                   </View>
                   <Switch
@@ -357,7 +396,7 @@ export default function Notices() {
                     trackColor={{ false: "#E2E8F0", true: "#9CD8FA" }}
                     thumbColor="#FFFFFF"
                   />
-                </View>
+                </View> */}
 
                 <View style={styles.actionsRow}>
                   <Pressable style={styles.cancelBtn} onPress={clearForm}>
@@ -366,41 +405,57 @@ export default function Notices() {
                   <Pressable
                     style={[styles.sendBtn, !isValid && styles.disabledBtn]}
                     onPress={sendNotice}
-                    disabled={!isValid}
+                    disabled={!isValid || sending}
                   >
-                    <Text style={styles.sendBtnText}>Send Now</Text>
+                    {sending ? (
+                      <ActivityIndicator color="#FAFAFA" />
+                    ) : (
+                      <Text style={styles.sendBtnText}>Send Now</Text>
+                    )}
                   </Pressable>
                 </View>
               </ScrollView>
             ) : loading ? (
-              <ActivityIndicator size="large" color="#1C98ED" style={{ marginTop: 28 }} />
+              <ActivityIndicator
+                size="large"
+                color="#1C98ED"
+                style={{ marginTop: 28 }}
+              />
             ) : (
               <View style={styles.content}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.historyFilterRow}
-                >
-                  {NOTICE_FILTERS.map((item) => {
-                    const active = historyFilter === item;
-                    return (
-                      <Pressable
-                        key={item}
-                        style={[styles.historyFilterChip, active && styles.historyFilterChipActive]}
-                        onPress={() => setHistoryFilter(item)}
-                      >
-                        <Text
-                          style={[
-                            styles.historyFilterText,
-                            active && styles.historyFilterTextActive,
-                          ]}
-                        >
-                          {item === "ANNOUNCEMENT" ? "Announcements" : `${item}s`}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
+                {filteredHistory.length > 0 && (
+                  <View style={styles.historyFilterRowWrap}>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.historyFilterRow}
+                    >
+                      {NOTICE_FILTERS.map((item) => {
+                        const active = historyFilter === item;
+                        return (
+                          <Pressable
+                            key={item}
+                            style={[
+                              styles.historyFilterChip,
+                              active && styles.historyFilterChipActive,
+                            ]}
+                            onPress={() => setHistoryFilter(item)}
+                          >
+                            <Text
+                              style={[
+                                styles.historyFilterText,
+                                active && styles.historyFilterTextActive,
+                              ]}
+                            >
+                              {item ===
+                                `${item.charAt(0).toUpperCase() + item.slice(1)}s`}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
 
                 {usingFallback && (
                   <Text style={styles.fallbackHint}>
@@ -408,21 +463,23 @@ export default function Notices() {
                   </Text>
                 )}
 
-                <FlatList
-                  data={filteredHistory}
-                  keyExtractor={(item) => item.noticeId}
-                  renderItem={renderHistoryItem}
-                  contentContainerStyle={styles.historyList}
-                  showsVerticalScrollIndicator={false}
-                  ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                      <Text style={styles.emptyTitle}>No notices found</Text>
-                      <Text style={styles.emptySub}>
-                        Try another type filter or create a new notice.
-                      </Text>
-                    </View>
-                  }
-                />
+                <View style={styles.historyListWrap}>
+                  <FlatList
+                    data={filteredHistory}
+                    keyExtractor={(item) => item.noticeId}
+                    renderItem={renderHistoryItem}
+                    contentContainerStyle={styles.historyList}
+                    showsVerticalScrollIndicator={false}
+                    ListEmptyComponent={
+                      <View style={styles.emptyState}>
+                        <Text style={styles.emptyTitle}>No notices found</Text>
+                        <Text style={styles.emptySub}>
+                          Try another type filter or create a new notice.
+                        </Text>
+                      </View>
+                    }
+                  />
+                </View>
               </View>
             )}
           </View>
@@ -508,10 +565,17 @@ const styles = StyleSheet.create({
   },
   rootTabText: { color: "#64748B", fontSize: 14, fontWeight: "500" },
   rootTabTextActive: { color: "#2899CF" },
-  content: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
+  content: { flex: 1, paddingHorizontal: 16, paddingTop: 16, minHeight: 0 },
+  historyFilterRowWrap: { flexShrink: 0 },
+  historyListWrap: { flex: 1, minHeight: 0 },
   newTabContent: { paddingBottom: 30 },
   section: { marginBottom: 16 },
-  sectionLabel: { color: "#0F172A", fontSize: 14, fontWeight: "500", marginBottom: 10 },
+  sectionLabel: {
+    color: "#0F172A",
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 10,
+  },
   chipRow: { gap: 10, paddingRight: 16 },
   chip: {
     backgroundColor: "#FFFFFF",
@@ -591,21 +655,25 @@ const styles = StyleSheet.create({
   },
   disabledBtn: { opacity: 0.5 },
   sendBtnText: { color: "#FAFAFA", fontSize: 14, fontWeight: "500" },
-  historyFilterRow: { gap: 10, paddingBottom: 12, paddingRight: 12 },
+  historyFilterRow: { gap: 10, paddingHorizontal: 16, paddingBottom: 12 },
   historyFilterChip: {
+    minWidth: 140,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: "#1C98ED",
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    minHeight: 42,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FAFAFA",
   },
   historyFilterChipActive: { backgroundColor: "#1C98ED" },
-  historyFilterText: { color: "#1C98ED", fontSize: 16, fontWeight: "400" },
+  historyFilterText: { fontSize: 16, color: "#1C98ED", fontWeight: "400" },
   historyFilterTextActive: { color: "#FAFAFA" },
-  fallbackHint: { color: "#64748B", fontSize: 12, marginBottom: 10, marginLeft: 2 },
+  fallbackHint: {
+    color: "#64748B",
+    fontSize: 12,
+    marginBottom: 10,
+    marginLeft: 2,
+  },
   historyList: { paddingBottom: 18, gap: 12 },
   noticeCard: {
     backgroundColor: "#FFFFFF",
@@ -626,11 +694,26 @@ const styles = StyleSheet.create({
   noticeTypePill: { borderRadius: 8, paddingHorizontal: 9, paddingVertical: 3 },
   noticeTypePillText: { fontSize: 14, fontWeight: "500" },
   noticeTime: { color: "#94A3B8", fontSize: 10, fontWeight: "500" },
-  noticeTitle: { color: "#0F172A", fontSize: 14, fontWeight: "500", marginBottom: 8 },
+  noticeTitle: {
+    color: "#0F172A",
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 8,
+  },
   noticeDescription: { color: "#64748B", fontSize: 10, lineHeight: 15 },
   emptyState: { paddingVertical: 48, alignItems: "center" },
-  emptyTitle: { color: "#111827", fontWeight: "600", fontSize: 16, marginBottom: 6 },
-  emptySub: { color: "#6B7280", fontSize: 13, textAlign: "center", paddingHorizontal: 24 },
+  emptyTitle: {
+    color: "#111827",
+    fontWeight: "600",
+    fontSize: 16,
+    marginBottom: 6,
+  },
+  emptySub: {
+    color: "#6B7280",
+    fontSize: 13,
+    textAlign: "center",
+    paddingHorizontal: 24,
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(157,157,157,0.71)",
@@ -656,7 +739,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 16,
   },
-  modalTitle: { color: "#1A1A1A", fontSize: 20, fontWeight: "700", marginBottom: 10 },
+  modalTitle: {
+    color: "#1A1A1A",
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 10,
+  },
   modalDescription: {
     color: "#6B7280",
     fontSize: 14,

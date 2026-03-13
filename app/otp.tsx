@@ -15,6 +15,7 @@ import {
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { sendOTP, verifyOTP } from "./services/otp.service";
 import { createProfile } from "./services/profile.service";
+import { getErrorMessage } from "./services/error";
 
 const BRAND_BLUE = "#1c98ed";
 const CARD_BG = "#ffffff";
@@ -27,7 +28,7 @@ const DISABLED_TEXT = "#a1a1aa";
 
 export default function OTPVerify() {
   const router = useRouter();
-  const { phone, name, password, role, buildingId, resetFlow } =
+  const { phone, name, password, role, buildingId, floor, flatNo, resetFlow } =
     useLocalSearchParams();
 
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -47,10 +48,14 @@ export default function OTPVerify() {
   const resolvedPassword = Array.isArray(password) ? password[0] : password;
   const resolvedRole = (Array.isArray(role) ? role[0] : role) as
     | "ADMIN"
-    | "USER";
+    | "USER"
+    | "OWNER"
+    | "SYSTEM_ADMIN";
   const resolvedBuildingId = Number(
     Array.isArray(buildingId) ? buildingId[0] : buildingId
   );
+  const resolvedFloor = Array.isArray(floor) ? floor[0] : floor;
+  const resolvedFlatNo = Array.isArray(flatNo) ? flatNo[0] : flatNo;
 
   const otpValue = otp.join("");
   const isComplete = otpValue.length === 4;
@@ -118,12 +123,14 @@ export default function OTPVerify() {
         resolvedPhone,
         resolvedPassword,
         resolvedRole,
-        String(resolvedBuildingId)
+        String(resolvedBuildingId),
+        resolvedFloor,
+        resolvedFlatNo
       );
-      router.push("/forgot-otp-success");
-    } catch {
+      router.push("/otp-success");
+    } catch (error) {
       setHasError(true);
-      setErrorText("Verification failed");
+      setErrorText(getErrorMessage(error, "Verification failed"));
     } finally {
       setIsLoading(false);
     }

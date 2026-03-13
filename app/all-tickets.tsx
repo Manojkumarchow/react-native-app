@@ -15,6 +15,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
 import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
+import { BASE_URL } from "./config";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 type FilterTab = "OPEN" | "IN_PROGRESS" | "RESOLVED";
@@ -118,8 +119,8 @@ export default function AllTicketsScreen() {
       setLoading(true);
       const url =
         role === "ADMIN"
-          ? `${process.env.EXPO_PUBLIC_BASE_URL}/issues/assignee/${resolvedProfileId}`
-          : `${process.env.EXPO_PUBLIC_BASE_URL}/issues/profile/${resolvedUsername}`;
+          ? `${BASE_URL}/issues/assignee/${resolvedProfileId}`
+          : `${BASE_URL}/issues/profile/${resolvedUsername}`;
 
       const res = await axios.get(url);
       const mapped: Ticket[] = Array.isArray(res.data)
@@ -136,7 +137,7 @@ export default function AllTicketsScreen() {
               Array.isArray(item.imageUrls) && item.imageUrls.length
                 ? String(item.imageUrls[0]).startsWith("http")
                   ? item.imageUrls[0]
-                  : `${process.env.EXPO_PUBLIC_BASE_URL}${item.imageUrls[0]}`
+                  : `${BASE_URL}${item.imageUrls[0]}`
                 : HALLWAY_PHOTO,
           }))
         : [];

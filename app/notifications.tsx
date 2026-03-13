@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { BASE_URL } from "./config";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   SafeAreaView,
@@ -18,7 +19,7 @@ import useProfileStore from "./store/profileStore";
 type BackendNotification = {
   id: number;
   title: string;
-  body: string;
+  message: string;
   type: string;
   createdAt: string;
 };
@@ -72,24 +73,29 @@ const FALLBACK_DATA: NotificationItem[] = [
 
 export default function NotificationsScreen() {
   const [items, setItems] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [usingFallback, setUsingFallback] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>("ALL");
   const phone = useProfileStore((s) => s.phone);
 
   useEffect(() => {
     const run = async () => {
+      setLoading(true);
       if (!phone) {
         setItems(FALLBACK_DATA);
         setUsingFallback(true);
+        setLoading(false);
         return;
       }
       try {
-        const res = await axios.get(`${BASE_URL}/notifications/${phone}`);
+        const res = await axios.get(`${BASE_URL}/notifications`, {
+          params: { phone },
+        });
         const mapped = Array.isArray(res.data)
           ? (res.data as BackendNotification[]).map((n) => ({
               id: String(n.id),
               title: n.title || "Notification",
-              description: n.body || "",
+              description: n.message || "",
               type: mapBackendTypeToUI(n.type),
               timeLabel: toRelativeTime(n.createdAt),
             }))
@@ -104,6 +110,8 @@ export default function NotificationsScreen() {
       } catch {
         setItems(FALLBACK_DATA);
         setUsingFallback(true);
+      } finally {
+        setLoading(false);
       }
     };
     run();
@@ -157,7 +165,10 @@ export default function NotificationsScreen() {
             </Text>
           ) : null}
 
-          {filtered.map((item) => {
+          {loading ? (
+            <ActivityIndicator size="large" color="#1C98ED" style={{ marginTop: 22 }} />
+          ) : (
+            filtered.map((item) => {
             const isAlert = item.type === "ALERT";
             const isSuccess = item.type === "SUCCESS";
             const color = isAlert ? "#C1282D" : isSuccess ? "#15803D" : "#1C98ED";
@@ -166,7 +177,7 @@ export default function NotificationsScreen() {
               : isSuccess
                 ? "rgba(22,163,74,0.12)"
                 : "rgba(28,152,237,0.12)";
-            return (
+              return (
               <View key={item.id} style={styles.card}>
                 <View style={[styles.leftAccent, { backgroundColor: color }]} />
                 <View style={styles.cardBody}>
@@ -194,8 +205,9 @@ export default function NotificationsScreen() {
                   <Text style={styles.desc}>{item.description}</Text>
                 </View>
               </View>
-            );
-          })}
+              );
+            })
+          )}
         </ScrollView>
       </SafeAreaView>
     </>

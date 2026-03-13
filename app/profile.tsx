@@ -23,7 +23,7 @@ type ProfileAction = {
   iconBg?: string;
   iconColor?: string;
   titleColor?: string;
-  onPress: () => void;
+  onPress?: () => void;
 };
 
 const PRIMARY = "#1C98ED";
@@ -63,7 +63,7 @@ export default function ProfileScreen() {
       icon: "home-outline",
       title: "My Flat Details",
       subtitle: `Flat ${flatLabel}, ${buildingLabel}`,
-      onPress: goToFlatDetails,
+      // onPress: goToFlatDetails,
     },
     {
       key: "emergency",
@@ -94,7 +94,7 @@ export default function ProfileScreen() {
       icon: "home-outline",
       title: "My Flat Details",
       subtitle: `Flat ${flatLabel}, ${buildingLabel}`,
-      onPress: goToFlatDetails,
+      // onPress: goToFlatDetails,
     },
     {
       key: "agreement",

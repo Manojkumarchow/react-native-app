@@ -18,6 +18,7 @@ import axios from "axios";
 import Toast from "react-native-toast-message";
 import useBuildingStore from "./store/buildingStore";
 import useProfileStore from "./store/profileStore";
+import { BASE_URL } from "./config";
 
 export default function WatchmenScreen() {
   const router = useRouter();
@@ -73,7 +74,7 @@ export default function WatchmenScreen() {
       };
 
       await axios.put(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/building/update/services`,
+        `${BASE_URL}/building/update/services`,
         {
           buildingId: buildingId,
           watchmen: watchmenPayload,

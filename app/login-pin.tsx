@@ -15,6 +15,7 @@ import {
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import { Feather } from "@expo/vector-icons";
+import Toast from "react-native-toast-message";
 
 import { BASE_URL } from "./config";
 import useAuthStore from "./store/authStore";
@@ -22,6 +23,7 @@ import { getProfile } from "./services/profile.service";
 import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
 import { requestNotificationPermission } from "./useNotificationPermission";
+import { getErrorMessage } from "./services/error";
 
 const BRAND_BLUE = "#1c98ed";
 const CARD_BG = "#ffffff";
@@ -104,7 +106,6 @@ export default function LoginPinScreen() {
         phone: resolvedPhone,
         pin: pinStr,
       });
-      response.status = 200;
       if (response.status === 200) {
         const { jwtToken } = response.data;
         setAuth(jwtToken, resolvedPhone);
@@ -127,7 +128,7 @@ export default function LoginPinScreen() {
         try {
           const buildingId = profileData.buildingId;
           const buildingRes = await axios.get(
-            `${process.env.EXPO_PUBLIC_BASE_URL}/building/${buildingId}`
+            `${BASE_URL}/building/${buildingId}`
           );
           setBuildingData(buildingRes.data);
         } catch {
@@ -137,9 +138,19 @@ export default function LoginPinScreen() {
         router.replace("/login-success");
       } else {
         setHasError(true);
+        Toast.show({
+          type: "error",
+          text1: "Login failed",
+          text2: "Invalid phone or PIN. Please try again.",
+        });
       }
-    } catch {
+    } catch (error) {
       setHasError(true);
+      Toast.show({
+        type: "error",
+        text1: "Login failed",
+        text2: getErrorMessage(error, "Invalid phone or PIN. Please try again."),
+      });
     } finally {
       setLoading(false);
     }

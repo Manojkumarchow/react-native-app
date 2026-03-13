@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Switch,
   View,
   Text,
@@ -11,6 +13,11 @@ import {
 } from "react-native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
+import axios from "axios";
+import { BASE_URL } from "./config";
+import useProfileStore from "./store/profileStore";
+import useBuildingStore from "./store/buildingStore";
+import { getErrorMessage } from "./services/error";
 
 type Step = 1 | 2 | 3 | 4;
 type WaterMode = "FIXED" | "MASTER" | "INDIVIDUAL" | "MIXED";
@@ -21,6 +28,8 @@ const ALL_FLATS = ["A-101", "A-102", "A-103", "B-101", "B-201", "B-202", "B-203"
 
 export default function MaintenanceScreen() {
   const router = useRouter();
+  const profileId = useProfileStore((s) => s.phone);
+  const buildingId = useBuildingStore((s) => s.buildingId);
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
   const currentMonthIndex = currentDate.getMonth();
@@ -86,6 +95,7 @@ export default function MaintenanceScreen() {
   const [dueDateOpen, setDueDateOpen] = useState(false);
   const dueDateOptions = ["10 May 2025", "15 May 2025", "20 May 2025", "25 May 2025"];
   const [paymentDueDate, setPaymentDueDate] = useState(dueDateOptions[0]);
+  const [submitting, setSubmitting] = useState(false);
 
   const parseAmount = (value: string) => {
     const clean = value.replace(/[^0-9]/g, "");
@@ -260,6 +270,66 @@ export default function MaintenanceScreen() {
       }
       setStep(4);
       return;
+    }
+    if (step === 4) {
+      submitMaintenance();
+    }
+  };
+
+  const submitMaintenance = async () => {
+    if (!profileId || !buildingId) {
+      Alert.alert("Missing data", "Profile/building is missing. Please relogin.");
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const month = Math.max(1, monthNames.findIndex((m) => m === selectedMonth) + 1);
+      const dueDate = new Date(paymentDueDate).toISOString().split("T")[0];
+      const payload = {
+        profileId,
+        buildingId: String(buildingId),
+        year: Number(selectedYear),
+        month,
+        dueDate,
+        totalFlats: flatsCount,
+        watchmanSalary: parseAmount(watchmanSalary),
+        garbageCollection: parseAmount(garbageCollection),
+        liftMaintenance: parseAmount(liftMaintenance),
+        electricityCommon: parseAmount(electricityCommon),
+        motorPump: parseAmount(motorPump),
+        miscellaneous: parseAmount(miscellaneous),
+        waterMode,
+        fixedWaterBill: parseAmount(fixedWaterBill),
+        masterWaterBill: parseAmount(masterWaterBill),
+        individualRatePerUnit: parseAmount(individualRatePerUnit),
+        mixedRatePerUnit: parseAmount(mixedRatePerUnit),
+        mixedFixedPool: parseAmount(mixedFixedPool),
+        individualRows: individualRows.map((row) => ({
+          flatNumber: row.flatNumber,
+          reading: parseAmount(row.reading),
+          units: parseAmount(row.units),
+        })),
+        mixedMeterRows: mixedRows.map((row) => ({
+          flatNumber: row.flatNumber,
+          reading: parseAmount(row.reading),
+          units: parseAmount(row.units),
+        })),
+        flatCharges: perFlatRows.map((row) => ({
+          flatNumber: row.flat,
+          baseAmount: row.base,
+          waterAmount: row.water,
+          amount: row.total,
+        })),
+        allFlats: ALL_FLATS,
+      };
+      await axios.post(`${BASE_URL}/maintenance/create`, payload);
+      Alert.alert("Maintenance created", "Bills generated successfully.", [
+        { text: "OK", onPress: () => router.push("/ledger") },
+      ]);
+    } catch (error) {
+      Alert.alert("Failed to create maintenance", getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -651,7 +721,11 @@ export default function MaintenanceScreen() {
             <Text style={styles.cancelBtnText}>Cancel</Text>
           </Pressable>
           <Pressable style={styles.nextBtn} onPress={onNext}>
-            <Text style={styles.nextBtnText}>{nextText}</Text>
+            {submitting && step === 4 ? (
+              <ActivityIndicator color="#FAFAFA" />
+            ) : (
+              <Text style={styles.nextBtnText}>{nextText}</Text>
+            )}
           </Pressable>
         </View>
       </SafeAreaView>

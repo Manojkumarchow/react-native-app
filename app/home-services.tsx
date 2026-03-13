@@ -3,11 +3,29 @@ import { Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } fr
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { getServiceByKey, serviceCatalog, type ServiceKey } from "./data/homeServicesData";
+import axios from "axios";
+import { BASE_URL } from "./config";
 
 export default function HomeServicesScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ service?: string }>();
-  const selectedService = getServiceByKey(params.service);
+  const [catalog, setCatalog] = React.useState(serviceCatalog);
+  const selectedService =
+    catalog.find((service) => service.key === (params.service as ServiceKey)) ?? catalog[0];
+
+  React.useEffect(() => {
+    const fetchCatalog = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/service/catalog/all`);
+        if (Array.isArray(res.data) && res.data.length) {
+          setCatalog(res.data);
+        }
+      } catch {
+        setCatalog(serviceCatalog);
+      }
+    };
+    fetchCatalog();
+  }, []);
 
   return (
     <>
@@ -25,7 +43,7 @@ export default function HomeServicesScreen() {
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
-            {serviceCatalog.map((item) => {
+            {catalog.map((item) => {
               const active = item.key === selectedService.key;
               return (
                 <Pressable
