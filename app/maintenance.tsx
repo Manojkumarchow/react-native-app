@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -23,8 +23,6 @@ type Step = 1 | 2 | 3 | 4;
 type WaterMode = "FIXED" | "MASTER" | "INDIVIDUAL" | "MIXED";
 type WaterSubStep = "MODE" | "INDIVIDUAL" | "MIXED";
 type MeterRow = { flatNumber: string; reading: string; units: string };
-
-const ALL_FLATS = ["A-101", "A-102", "A-103", "B-101", "B-201", "B-202", "B-203", "C-301", "C-302", "C-303"];
 
 export default function MaintenanceScreen() {
   const router = useRouter();
@@ -73,28 +71,26 @@ export default function MaintenanceScreen() {
   const [mixedFixedPool, setMixedFixedPool] = useState("8000");
 
   const [individualRows, setIndividualRows] = useState<MeterRow[]>([
-    { flatNumber: "101", reading: "29", units: "29" },
-    { flatNumber: "102", reading: "35", units: "29" },
-    { flatNumber: "201", reading: "89", units: "29" },
-    { flatNumber: "202", reading: "23", units: "29" },
-    { flatNumber: "301", reading: "101", units: "29" },
-    { flatNumber: "302", reading: "80", units: "29" },
-    { flatNumber: "401", reading: "27", units: "29" },
+    { flatNumber: "", reading: "", units: "" },
   ]);
 
-  const [selectedMixedFlats, setSelectedMixedFlats] = useState<string[]>(["A-101", "B-201", "B-202", "B-203", "C-302", "C-303"]);
-  const [mixedRowsMap, setMixedRowsMap] = useState<Record<string, { reading: string; units: string }>>({
-    "A-101": { reading: "29", units: "29" },
-    "B-201": { reading: "89", units: "29" },
-    "B-202": { reading: "80", units: "29" },
-    "B-203": { reading: "27", units: "29" },
-    "C-302": { reading: "41", units: "29" },
-    "C-303": { reading: "58", units: "29" },
-  });
+  const [selectedMixedFlats, setSelectedMixedFlats] = useState<string[]>([]);
+  const [mixedRowsMap, setMixedRowsMap] = useState<Record<string, { reading: string; units: string }>>({});
+  const [allFlats, setAllFlats] = useState<string[]>([]);
+  const [flatError, setFlatError] = useState<string | null>(null);
 
   const [dueDateOpen, setDueDateOpen] = useState(false);
-  const dueDateOptions = ["10 May 2025", "15 May 2025", "20 May 2025", "25 May 2025"];
-  const [paymentDueDate, setPaymentDueDate] = useState(dueDateOptions[0]);
+  const dueDateOptions = useMemo(() => {
+    const monthIndex = monthNames.findIndex((m) => m === selectedMonth);
+    const yearNum = Number(selectedYear);
+    const makeLabel = (day: number) => {
+      if (monthIndex < 0 || !Number.isFinite(yearNum)) return "";
+      const d = new Date(yearNum, monthIndex, day);
+      return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    };
+    return [makeLabel(10), makeLabel(15), makeLabel(20), makeLabel(25)].filter(Boolean);
+  }, [selectedMonth, selectedYear]);
+  const [paymentDueDate, setPaymentDueDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const parseAmount = (value: string) => {
@@ -104,7 +100,40 @@ export default function MaintenanceScreen() {
   const inputFormatter = (value: string) => value.replace(/[^0-9]/g, "");
   const formatInr = (value: number) => `₹${Math.max(0, value).toLocaleString("en-IN")}`;
 
-  const flatsCount = ALL_FLATS.length;
+  const flatsCount = allFlats.length;
+
+  useEffect(() => {
+    const run = async () => {
+      if (!buildingId) {
+        setAllFlats([]);
+        setFlatError("Building is not configured for this account.");
+        return;
+      }
+      try {
+        setFlatError(null);
+        const res = await axios.get(`${BASE_URL}/residents/building/${buildingId}`);
+        const rows = Array.isArray(res.data) ? res.data : [];
+        const flats = Array.from(
+          new Set(
+            rows
+              .map((item: any) => String(item.flatNo ?? item.flatNumber ?? "").trim())
+              .filter(Boolean),
+          ),
+        );
+        setAllFlats(flats);
+      } catch {
+        setAllFlats([]);
+        setFlatError("Unable to fetch flats for this building.");
+      }
+    };
+    run();
+  }, [buildingId]);
+
+  useEffect(() => {
+    if (dueDateOptions.length > 0 && (!paymentDueDate || !dueDateOptions.includes(paymentDueDate))) {
+      setPaymentDueDate(dueDateOptions[0]);
+    }
+  }, [dueDateOptions, paymentDueDate]);
 
   const enteredExpensesTotal = useMemo(
     () =>
@@ -130,21 +159,19 @@ export default function MaintenanceScreen() {
   );
 
   const monthSummary = useMemo(() => {
-    const selectedYearNum = Number(selectedYear);
     const selectedMonthIdx = monthNames.findIndex((m) => m === selectedMonth);
-    const fallback = { totalExpenses: 18000, perFlat: 1800, collection: "10 / 10 flats paid", waterMode: "Fixed Split" };
-    if (selectedMonthIdx === -1) return fallback;
-    const seed = selectedYearNum * 31 + selectedMonthIdx * 17;
-    const totalExpenses = 15000 + (seed % 8) * 900;
-    const perFlat = Math.round(totalExpenses / flatsCount);
-    const paidFlats = 7 + (seed % 4);
+    const perFlat = flatsCount > 0 ? Math.round(enteredExpensesTotal / flatsCount) : 0;
+    if (selectedMonthIdx === -1) {
+      return { totalExpenses: enteredExpensesTotal, perFlat, collection: `0 / ${flatsCount} flats paid`, waterMode };
+    }
+    const totalExpenses = enteredExpensesTotal;
     return {
       totalExpenses,
       perFlat,
-      collection: `${paidFlats} / ${flatsCount} flats paid`,
-      waterMode: "Fixed Split",
+      collection: `0 / ${flatsCount} flats paid`,
+      waterMode,
     };
-  }, [selectedYear, selectedMonth, flatsCount]);
+  }, [selectedMonth, flatsCount, enteredExpensesTotal, waterMode]);
 
   const mixedRows = useMemo(
     () =>
@@ -162,11 +189,11 @@ export default function MaintenanceScreen() {
     const masterPerFlat = flatsCount > 0 ? Math.round(parseAmount(masterWaterBill) / flatsCount) : 0;
 
     if (waterMode === "FIXED") {
-      ALL_FLATS.forEach((flat) => map.set(flat, fixedPerFlat));
+      allFlats.forEach((flat) => map.set(flat, fixedPerFlat));
       return map;
     }
     if (waterMode === "MASTER") {
-      ALL_FLATS.forEach((flat) => map.set(flat, masterPerFlat));
+      allFlats.forEach((flat) => map.set(flat, masterPerFlat));
       return map;
     }
     if (waterMode === "INDIVIDUAL") {
@@ -178,7 +205,7 @@ export default function MaintenanceScreen() {
     const mixedRate = parseAmount(mixedRatePerUnit);
     const nonMetered = Math.max(1, flatsCount - selectedMixedFlats.length);
     const nonMeteredShare = Math.round(parseAmount(mixedFixedPool) / nonMetered);
-    ALL_FLATS.forEach((flat) => {
+    allFlats.forEach((flat) => {
       if (selectedMixedFlats.includes(flat)) {
         map.set(flat, parseAmount(mixedRowsMap[flat]?.units ?? "") * mixedRate);
       } else {
@@ -200,7 +227,7 @@ export default function MaintenanceScreen() {
   ]);
 
   const perFlatBase = flatsCount > 0 ? Math.round(enteredExpensesTotal / flatsCount) : 0;
-  const perFlatRows = ALL_FLATS.map((flat) => {
+  const perFlatRows = allFlats.map((flat) => {
     const water = waterByFlat.get(flat) ?? 0;
     return {
       flat,
@@ -284,7 +311,9 @@ export default function MaintenanceScreen() {
     try {
       setSubmitting(true);
       const month = Math.max(1, monthNames.findIndex((m) => m === selectedMonth) + 1);
-      const dueDate = new Date(paymentDueDate).toISOString().split("T")[0];
+      const dueDate = paymentDueDate
+        ? new Date(paymentDueDate).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0];
       const payload = {
         profileId,
         buildingId: String(buildingId),
@@ -320,7 +349,7 @@ export default function MaintenanceScreen() {
           waterAmount: row.water,
           amount: row.total,
         })),
-        allFlats: ALL_FLATS,
+        allFlats,
       };
       await axios.post(`${BASE_URL}/maintenance/create`, payload);
       Alert.alert("Maintenance created", "Bills generated successfully.", [
@@ -355,6 +384,7 @@ export default function MaintenanceScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+          {flatError ? <Text style={styles.warningText}>{flatError}</Text> : null}
           {step === 1 ? (
             <>
               <View style={styles.noteCard}>
@@ -553,7 +583,7 @@ export default function MaintenanceScreen() {
                   <>
                     <Text style={styles.fixedInputLabel}>Tap flats that have individual meters:</Text>
                     <View style={styles.flatChipsWrap}>
-                      {ALL_FLATS.map((flat) => {
+                      {allFlats.map((flat) => {
                         const selected = selectedMixedFlats.includes(flat);
                         return (
                           <Pressable key={flat} style={[styles.flatChip, selected ? styles.flatChipActive : styles.flatChipInactive]} onPress={() => toggleMixedFlat(flat)}>

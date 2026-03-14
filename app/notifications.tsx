@@ -15,6 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
 import useProfileStore from "./store/profileStore";
+import { getErrorMessage } from "./services/error";
 
 type BackendNotification = {
   id: number;
@@ -45,36 +46,10 @@ const FILTERS: { key: FilterType; label: string }[] = [
 const FIGMA_AD_IMAGE =
   "https://www.figma.com/api/mcp/asset/d254e125-014c-43ea-b7a1-01f8f35dc9ba";
 
-const FALLBACK_DATA: NotificationItem[] = [
-  {
-    id: "f-1",
-    title: "Maintenance Bill Generated",
-    description:
-      "Your maintenance bill for this month is now available. Please review and pay before due date.",
-    type: "INFO",
-    timeLabel: "2 hours ago",
-  },
-  {
-    id: "f-2",
-    title: "Water Supply Alert",
-    description:
-      "Water supply will be interrupted tomorrow between 10 AM and 1 PM due to overhead tank cleaning.",
-    type: "ALERT",
-    timeLabel: "1 day ago",
-  },
-  {
-    id: "f-3",
-    title: "Payment Received",
-    description: "Your payment has been received successfully and receipt has been generated.",
-    type: "SUCCESS",
-    timeLabel: "3 days ago",
-  },
-];
-
 export default function NotificationsScreen() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingFallback, setUsingFallback] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>("ALL");
   const phone = useProfileStore((s) => s.phone);
 
@@ -82,12 +57,13 @@ export default function NotificationsScreen() {
     const run = async () => {
       setLoading(true);
       if (!phone) {
-        setItems(FALLBACK_DATA);
-        setUsingFallback(true);
+        setItems([]);
+        setErrorText("Profile phone is missing. Please login again.");
         setLoading(false);
         return;
       }
       try {
+        setErrorText(null);
         const res = await axios.get(`${BASE_URL}/notifications`, {
           params: { phone },
         });
@@ -100,16 +76,10 @@ export default function NotificationsScreen() {
               timeLabel: toRelativeTime(n.createdAt),
             }))
           : [];
-        if (mapped.length > 0) {
-          setItems(mapped);
-          setUsingFallback(false);
-        } else {
-          setItems(FALLBACK_DATA);
-          setUsingFallback(true);
-        }
-      } catch {
-        setItems(FALLBACK_DATA);
-        setUsingFallback(true);
+        setItems(mapped);
+      } catch (error) {
+        setItems([]);
+        setErrorText(getErrorMessage(error, "Unable to fetch notifications."));
       } finally {
         setLoading(false);
       }
@@ -159,14 +129,12 @@ export default function NotificationsScreen() {
             </View>
           </View>
 
-          {usingFallback ? (
-            <Text style={styles.hintText}>
-              Showing sample notifications because backend returned empty/error.
-            </Text>
-          ) : null}
+          {errorText ? <Text style={styles.hintText}>{errorText}</Text> : null}
 
           {loading ? (
             <ActivityIndicator size="large" color="#1C98ED" style={{ marginTop: 22 }} />
+          ) : filtered.length === 0 ? (
+            <Text style={styles.hintText}>No notifications available.</Text>
           ) : (
             filtered.map((item) => {
             const isAlert = item.type === "ALERT";

@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
   SafeAreaView,
@@ -12,9 +13,12 @@ import {
 } from "react-native";
 import { Stack, router } from "expo-router";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import axios from "axios";
 import Toast from "react-native-toast-message";
 import useBuildingStore from "./store/buildingStore";
 import useProfileStore from "./store/profileStore";
+import { BASE_URL } from "./config";
+import { getErrorMessage } from "./services/error";
 
 type AdminTopTab = "PERSONAL" | "APARTMENT";
 type TenantTopTab = "RENT" | "MAINTENANCE";
@@ -25,106 +29,141 @@ type ExpenseRow = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
 };
 
-type ApartmentMonthData = {
-  key: string;
-  label: string;
+type PaymentCurrent = {
+  id: number;
+  title: string;
+  amount: number;
+  dueDate: string | null;
+  status: "PENDING" | "PAID" | string;
+  paidDate: string | null;
+};
+
+type PaymentProfileSummary = {
+  profileId: string;
+  buildingId: string;
+  year: number;
+  month: string;
+  maintenanceCurrent: PaymentCurrent | null;
+  maintenanceHistory: PaymentCurrent[];
+  rentCurrent: PaymentCurrent | null;
+  rentHistory: PaymentCurrent[];
+};
+
+type PaymentApartmentSummary = {
+  buildingId: string;
+  year: number;
+  month: string;
   totalCollection: number;
-  dueDateLabel: string;
   collected: number;
   pending: number;
   spent: number;
   flatsPaid: number;
   flatsTotal: number;
-  expenses: ExpenseRow[];
+  perFlatAmount: number;
+  dueDate: string | null;
+  items: { id?: number; name: string; amount: number }[];
 };
 
 const PRIMARY = "#1C98ED";
 const BG = "#FAFAFA";
-const PERSONAL_HISTORY = [
-  { month: "February Maintenance", date: "5 Feb 2026", amount: 1800, paid: true },
-  { month: "January Maintenance", date: "5 Jan 2026", amount: 1800, paid: true },
-];
-const TENANT_RENT_HISTORY = [
-  { month: "February Rent", date: "5 Feb 2026", amount: 15800, paid: true },
-  { month: "January Rent", date: "5 Jan 2026", amount: 15800, paid: true },
-];
-
-const APARTMENT_DATA: ApartmentMonthData[] = [
-  {
-    key: "2025-04",
-    label: "Apr 2025",
-    totalCollection: 28800,
-    dueDateLabel: "Due by 10 Apr 2025",
-    collected: 12200,
-    pending: 16600,
-    spent: 0,
-    flatsPaid: 6,
-    flatsTotal: 10,
-    expenses: [
-      { label: "Watchman Salary", amount: 12000, icon: "shield-home-outline" },
-      { label: "Garbage Collection", amount: 2000, icon: "trash-can-outline" },
-      { label: "Lift Maintenance", amount: 5000, icon: "elevator-passenger" },
-      { label: "Common Area Electricity", amount: 4000, icon: "lightning-bolt-outline" },
-      { label: "Motor Maintenance", amount: 2000, icon: "cog-outline" },
-      { label: "Miscellaneous", amount: 996, icon: "clipboard-text-outline" },
-    ],
-  },
-  {
-    key: "2025-03",
-    label: "Mar 2025",
-    totalCollection: 28800,
-    dueDateLabel: "Due by 10 Mar 2025",
-    collected: 28800,
-    pending: 0,
-    spent: 28000,
-    flatsPaid: 10,
-    flatsTotal: 10,
-    expenses: [
-      { label: "Watchman Salary", amount: 12000, icon: "shield-home-outline" },
-      { label: "Garbage Collection", amount: 2000, icon: "trash-can-outline" },
-      { label: "Lift Maintenance", amount: 5000, icon: "elevator-passenger" },
-      { label: "Common Area Electricity", amount: 4000, icon: "lightning-bolt-outline" },
-      { label: "Motor Maintenance", amount: 2000, icon: "cog-outline" },
-      { label: "Miscellaneous", amount: 996, icon: "clipboard-text-outline" },
-    ],
-  },
-];
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
+const MONTHS_FULL = [
+  "January",
+  "February",
+  "March",
+  "April",
   "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
+
+function formatDate(date: string | null | undefined): string {
+  if (!date) return "--";
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return "--";
+  return parsed.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function iconForExpense(label: string): keyof typeof MaterialCommunityIcons.glyphMap {
+  const text = label.toLowerCase();
+  if (text.includes("watchman")) return "shield-home-outline";
+  if (text.includes("garbage")) return "trash-can-outline";
+  if (text.includes("lift")) return "elevator-passenger";
+  if (text.includes("electric")) return "lightning-bolt-outline";
+  if (text.includes("motor")) return "cog-outline";
+  if (text.includes("water")) return "water-outline";
+  return "clipboard-text-outline";
+}
 
 export default function Payments() {
-  // const upiId = useBuildingStore((s) => s.upiId);
-  const upiId = "manojchow72@axl";
+  const upiId = useBuildingStore((s) => s.upiId);
+  const storeBuildingId = useBuildingStore((s) => s.buildingId);
   const role = useProfileStore((s) => s.role);
+  const profilePhone = useProfileStore((s) => s.phone);
+  const profileUserId = useProfileStore((s) => s.userId);
+  const profileBuildingId = useProfileStore((s) => s.buildingId);
   const normalizedRole = (role ?? "").toUpperCase();
   const isOwner = normalizedRole === "OWNER";
   const isTenant = normalizedRole === "USER" || normalizedRole === "TENANT";
   const isAdminView = !isOwner && !isTenant;
+  const profileId = profilePhone ?? profileUserId ?? "";
+  const buildingId = String(storeBuildingId ?? profileBuildingId ?? "");
+  const now = new Date();
+  const currentMonth = MONTHS_FULL[now.getMonth()];
+  const currentYear = String(now.getFullYear());
 
   const [adminTab, setAdminTab] = useState<AdminTopTab>("PERSONAL");
   const [tenantTab, setTenantTab] = useState<TenantTopTab>("RENT");
   const [monthPickerVisible, setMonthPickerVisible] = useState(false);
-  const [tempMonth, setTempMonth] = useState("Apr");
-  const [tempYear, setTempYear] = useState("2025");
-  const [selectedMonthYear, setSelectedMonthYear] = useState("Apr 2025");
+  const [tempMonth, setTempMonth] = useState(currentMonth);
+  const [tempYear, setTempYear] = useState(currentYear);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [profileSummary, setProfileSummary] = useState<PaymentProfileSummary | null>(null);
+  const [apartmentSummary, setApartmentSummary] = useState<PaymentApartmentSummary | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [apartmentLoading, setApartmentLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [apartmentError, setApartmentError] = useState<string | null>(null);
+
+  const selectedMonthYear = `${selectedMonth} ${selectedYear}`;
+  const activeCurrent = useMemo(() => {
+    if (isTenant && tenantTab === "RENT") return profileSummary?.rentCurrent ?? null;
+    return profileSummary?.maintenanceCurrent ?? null;
+  }, [isTenant, tenantTab, profileSummary]);
+
+  const activeHistory = useMemo(() => {
+    if (isTenant && tenantTab === "RENT") return profileSummary?.rentHistory ?? [];
+    return profileSummary?.maintenanceHistory ?? [];
+  }, [isTenant, tenantTab, profileSummary]);
 
   const apartmentData = useMemo(() => {
-    const found = APARTMENT_DATA.find((item) => item.label === selectedMonthYear);
-    return found ?? APARTMENT_DATA[0];
-  }, [selectedMonthYear]);
+    const expenses: ExpenseRow[] = (apartmentSummary?.items ?? []).map((item) => ({
+      label: item.name,
+      amount: item.amount,
+      icon: iconForExpense(item.name),
+    }));
+    return {
+      totalCollection: apartmentSummary?.totalCollection ?? 0,
+      dueDateLabel: apartmentSummary?.dueDate
+        ? `Due by ${formatDate(apartmentSummary.dueDate)}`
+        : `Due by --`,
+      collected: apartmentSummary?.collected ?? 0,
+      pending: apartmentSummary?.pending ?? 0,
+      spent: apartmentSummary?.spent ?? 0,
+      flatsPaid: apartmentSummary?.flatsPaid ?? 0,
+      flatsTotal: apartmentSummary?.flatsTotal ?? 0,
+      expenses,
+    };
+  }, [apartmentSummary]);
 
   const apartmentStatus =
     apartmentData.pending > 0
@@ -141,22 +180,88 @@ export default function Payments() {
           progressColor: "#059669",
         };
 
-  const paidPercent = Math.round((apartmentData.flatsPaid / apartmentData.flatsTotal) * 100);
+  const paidPercent =
+    apartmentData.flatsTotal > 0
+      ? Math.round((apartmentData.flatsPaid / apartmentData.flatsTotal) * 100)
+      : 0;
   const years = useMemo(
     () => Array.from({ length: 8 }, (_, i) => String(2022 + i)).reverse(),
     [],
   );
 
-  const handleUpiPress = async () => {
-    // if (upiId == undefined || !upiId || upiId == null || upiId == "") {
-    //   Toast.show({
-    //     type: "error",
-    //     text1: "Please add UPI ID in the profile",
-    //   });
-    //   return;
-    // }
+  useEffect(() => {
+    const run = async () => {
+      if (!profileId) return;
+      setProfileLoading(true);
+      setProfileError(null);
+      try {
+        const response = await axios.get<PaymentProfileSummary>(
+          `${BASE_URL}/payments/profile/${profileId}`,
+          {
+            params: {
+              year: Number(selectedYear),
+              month: selectedMonth,
+            },
+          },
+        );
+        setProfileSummary(response.data);
+      } catch (error) {
+        setProfileSummary(null);
+        setProfileError(getErrorMessage(error, "Unable to fetch profile payments."));
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+    run();
+  }, [profileId, selectedYear, selectedMonth]);
 
-    const upiUrl = `upi://pay?pa=${upiId}&pn=Nestiti%20Maintenance&tn=Monthly%20Maintenance&am=1800&cu=INR`;
+  useEffect(() => {
+    const run = async () => {
+      if (!isAdminView || adminTab !== "APARTMENT" || !buildingId) return;
+      setApartmentLoading(true);
+      setApartmentError(null);
+      try {
+        const response = await axios.get<PaymentApartmentSummary>(`${BASE_URL}/payments/apartment`, {
+          params: {
+            buildingId,
+            year: Number(selectedYear),
+            month: selectedMonth,
+          },
+        });
+        setApartmentSummary(response.data);
+      } catch (error) {
+        setApartmentSummary(null);
+        setApartmentError(getErrorMessage(error, "Unable to fetch apartment details."));
+      } finally {
+        setApartmentLoading(false);
+      }
+    };
+    run();
+  }, [isAdminView, adminTab, buildingId, selectedYear, selectedMonth]);
+
+  const handleUpiPress = async () => {
+    if (upiId == undefined || !upiId || upiId == null || upiId == "") {
+      Toast.show({
+        type: "error",
+        text1: "Please add UPI ID in the profile",
+      });
+      return;
+    }
+
+    const paymentAmount = activeCurrent?.amount ?? 0;
+    if (paymentAmount <= 0) {
+      Toast.show({
+        type: "error",
+        text1: "No amount due",
+        text2: "No payable amount available for the selected month.",
+      });
+      return;
+    }
+
+    const paymentTitle = isTenant && tenantTab === "RENT" ? "Monthly Rent" : "Monthly Maintenance";
+    const upiUrl = `upi://pay?pa=${upiId}&pn=Nestiti%20${encodeURIComponent(
+      paymentTitle,
+    )}&tn=${encodeURIComponent(paymentTitle)}&am=${paymentAmount}&cu=INR`;
 
     const supported = await Linking.canOpenURL(upiUrl);
 
@@ -173,7 +278,8 @@ export default function Payments() {
   };
 
   const applyMonthYear = () => {
-    setSelectedMonthYear(`${tempMonth} ${tempYear}`);
+    setSelectedMonth(tempMonth);
+    setSelectedYear(tempYear);
     setMonthPickerVisible(false);
   };
 
@@ -266,8 +372,10 @@ export default function Payments() {
                 <View style={styles.heroCard}>
                   <Text style={styles.heroLabel}>Total Due This Month</Text>
                   <View style={styles.heroAmountRow}>
-                    <Text style={styles.heroAmount}>₹1,800</Text>
-                    <Text style={styles.heroDate}>Due by 10 Apr 2025</Text>
+                    <Text style={styles.heroAmount}>
+                      ₹{(activeCurrent?.amount ?? 0).toLocaleString("en-IN")}
+                    </Text>
+                    <Text style={styles.heroDate}>Due by {formatDate(activeCurrent?.dueDate)}</Text>
                   </View>
                   <Pressable style={styles.heroPayBtn} onPress={handleUpiPress}>
                     <Text style={styles.heroPayText}>Pay Now</Text>
@@ -279,40 +387,49 @@ export default function Payments() {
                   <Text style={styles.viewAll}>View All</Text>
                 </View>
 
-                {PERSONAL_HISTORY.map((row) => (
-                  <View style={styles.historyCard} key={`${row.month}-${row.date}`}>
-                    <View style={styles.historyLeft}>
-                      <View style={styles.historyIconWrap}>
-                        <MaterialCommunityIcons
-                          name="history"
-                          size={18}
-                          color="#64748B"
-                        />
+                {profileLoading ? (
+                  <ActivityIndicator color={PRIMARY} style={{ marginTop: 16 }} />
+                ) : profileError ? (
+                  <Text style={styles.emptyText}>{profileError}</Text>
+                ) : activeHistory.length === 0 ? (
+                  <Text style={styles.emptyText}>No payment history available.</Text>
+                ) : (
+                  activeHistory.map((row) => (
+                    <View style={styles.historyCard} key={`${row.id}-${row.title}`}>
+                      <View style={styles.historyLeft}>
+                        <View style={styles.historyIconWrap}>
+                          <MaterialCommunityIcons
+                            name="history"
+                            size={18}
+                            color="#64748B"
+                          />
+                        </View>
+                        <View>
+                          <Text style={styles.historyTitle}>{row.title}</Text>
+                          <Text style={styles.historyDate}>{formatDate(row.paidDate ?? row.dueDate)}</Text>
+                        </View>
                       </View>
-                      <View>
-                        <Text style={styles.historyTitle}>{row.month}</Text>
-                        <Text style={styles.historyDate}>{row.date}</Text>
+                      <View style={styles.historyRight}>
+                        <Text style={styles.historyAmount}>₹{row.amount.toLocaleString("en-IN")}</Text>
+                        <View style={row.status === "PAID" ? styles.paidPill : styles.pendingPill}>
+                          <Text style={row.status === "PAID" ? styles.paidPillText : styles.pendingPillText}>
+                            {row.status}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                    <View style={styles.historyRight}>
-                      <Text style={styles.historyAmount}>₹{row.amount.toLocaleString("en-IN")}</Text>
-                      <View style={styles.paidPill}>
-                        <Text style={styles.paidPillText}>Paid</Text>
-                      </View>
-                    </View>
-                  </View>
-                ))}
+                  ))
+                )}
               </>
             ) : (
               <>
                 <View style={styles.apartmentTopRow}>
-                  <Text style={styles.apartmentTitle}>April Collection</Text>
+                  <Text style={styles.apartmentTitle}>{selectedMonth} Collection</Text>
                   <Pressable
                     style={styles.monthPickerBtn}
                     onPress={() => {
-                      const [m, y] = selectedMonthYear.split(" ");
-                      setTempMonth(m);
-                      setTempYear(y);
+                      setTempMonth(selectedMonth);
+                      setTempYear(selectedYear);
                       setMonthPickerVisible(true);
                     }}
                   >
@@ -321,6 +438,12 @@ export default function Payments() {
                     <Ionicons name="chevron-down" size={14} color="#1C98ED" />
                   </Pressable>
                 </View>
+
+                {apartmentLoading ? (
+                  <ActivityIndicator color={PRIMARY} style={{ marginTop: 16 }} />
+                ) : apartmentError ? (
+                  <Text style={styles.emptyText}>{apartmentError}</Text>
+                ) : null}
 
                 <View style={[styles.heroCard, styles.heroCardTall]}>
                   <Text style={styles.heroLabel}>{selectedMonthYear} · Total Collection</Text>
@@ -379,22 +502,28 @@ export default function Payments() {
                 <View style={styles.expenseWrap}>
                   <Text style={styles.expenseHeading}>Expense Breakdown</Text>
                   <View style={styles.expenseCard}>
-                    {apartmentData.expenses.map((row, idx) => (
-                      <View
-                        key={`${row.label}-${idx}`}
-                        style={[styles.expenseRow, idx > 0 && styles.expenseRowBorder]}
-                      >
-                        <View style={styles.expenseLeft}>
-                          <MaterialCommunityIcons
-                            name={row.icon}
-                            size={18}
-                            color="#94A3B8"
-                          />
-                          <Text style={styles.expenseLabel}>{row.label}</Text>
-                        </View>
-                        <Text style={styles.expenseAmount}>₹{row.amount.toLocaleString("en-IN")}</Text>
+                    {apartmentData.expenses.length === 0 ? (
+                      <View style={styles.expenseRow}>
+                        <Text style={styles.emptyText}>No expense items available for this month.</Text>
                       </View>
-                    ))}
+                    ) : (
+                      apartmentData.expenses.map((row, idx) => (
+                        <View
+                          key={`${row.label}-${idx}`}
+                          style={[styles.expenseRow, idx > 0 && styles.expenseRowBorder]}
+                        >
+                          <View style={styles.expenseLeft}>
+                            <MaterialCommunityIcons
+                              name={row.icon}
+                              size={18}
+                              color="#94A3B8"
+                            />
+                            <Text style={styles.expenseLabel}>{row.label}</Text>
+                          </View>
+                          <Text style={styles.expenseAmount}>₹{row.amount.toLocaleString("en-IN")}</Text>
+                        </View>
+                      ))
+                    )}
                     <View style={styles.expenseTotalRow}>
                       <Text style={styles.expenseTotalLabel}>Total Shared Expenses</Text>
                       <Text style={styles.expenseTotalAmount}>
@@ -412,10 +541,8 @@ export default function Payments() {
                   {isTenant && tenantTab === "RENT" ? "Total Rent Due This Month" : "Total Due This Month"}
                 </Text>
                 <View style={styles.heroAmountRow}>
-                  <Text style={styles.heroAmount}>
-                    {isTenant && tenantTab === "RENT" ? "₹15,800" : "₹1,800"}
-                  </Text>
-                  <Text style={styles.heroDate}>Due by 10 Apr 2025</Text>
+                  <Text style={styles.heroAmount}>₹{(activeCurrent?.amount ?? 0).toLocaleString("en-IN")}</Text>
+                  <Text style={styles.heroDate}>Due by {formatDate(activeCurrent?.dueDate)}</Text>
                 </View>
                 <Pressable style={styles.heroPayBtn} onPress={handleUpiPress}>
                   <Text style={styles.heroPayText}>Pay Now</Text>
@@ -427,29 +554,39 @@ export default function Payments() {
                 <Text style={styles.viewAll}>View All</Text>
               </View>
 
-              {(isTenant && tenantTab === "RENT" ? TENANT_RENT_HISTORY : PERSONAL_HISTORY).map((row) => (
-                <View style={styles.historyCard} key={`${row.month}-${row.date}`}>
-                  <View style={styles.historyLeft}>
-                    <View style={styles.historyIconWrap}>
-                      <MaterialCommunityIcons
-                        name="history"
-                        size={18}
-                        color="#64748B"
-                      />
+              {profileLoading ? (
+                <ActivityIndicator color={PRIMARY} style={{ marginTop: 16 }} />
+              ) : profileError ? (
+                <Text style={styles.emptyText}>{profileError}</Text>
+              ) : activeHistory.length === 0 ? (
+                <Text style={styles.emptyText}>No payment history available.</Text>
+              ) : (
+                activeHistory.map((row) => (
+                  <View style={styles.historyCard} key={`${row.id}-${row.title}`}>
+                    <View style={styles.historyLeft}>
+                      <View style={styles.historyIconWrap}>
+                        <MaterialCommunityIcons
+                          name="history"
+                          size={18}
+                          color="#64748B"
+                        />
+                      </View>
+                      <View>
+                        <Text style={styles.historyTitle}>{row.title}</Text>
+                        <Text style={styles.historyDate}>{formatDate(row.paidDate ?? row.dueDate)}</Text>
+                      </View>
                     </View>
-                    <View>
-                      <Text style={styles.historyTitle}>{row.month}</Text>
-                      <Text style={styles.historyDate}>{row.date}</Text>
+                    <View style={styles.historyRight}>
+                      <Text style={styles.historyAmount}>₹{row.amount.toLocaleString("en-IN")}</Text>
+                      <View style={row.status === "PAID" ? styles.paidPill : styles.pendingPill}>
+                        <Text style={row.status === "PAID" ? styles.paidPillText : styles.pendingPillText}>
+                          {row.status}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                  <View style={styles.historyRight}>
-                    <Text style={styles.historyAmount}>₹{row.amount.toLocaleString("en-IN")}</Text>
-                    <View style={styles.paidPill}>
-                      <Text style={styles.paidPillText}>Paid</Text>
-                    </View>
-                  </View>
-                </View>
-              ))}
+                ))
+              )}
             </>
           )}
         </ScrollView>
@@ -461,7 +598,7 @@ export default function Payments() {
             <Text style={styles.monthModalTitle}>Select month & year</Text>
             <View style={styles.monthYearRow}>
               <ScrollView style={styles.monthList} showsVerticalScrollIndicator={false}>
-                {MONTHS.map((m) => (
+                {MONTHS_FULL.map((m) => (
                   <Pressable
                     key={m}
                     style={[styles.monthItem, tempMonth === m && styles.monthItemActive]}
@@ -627,6 +764,9 @@ const styles = StyleSheet.create({
   historyAmount: { color: "#1A1A1A", fontSize: 14, fontWeight: "500" },
   paidPill: { backgroundColor: "#DCFCE7", borderRadius: 9999, paddingHorizontal: 8, paddingVertical: 2 },
   paidPillText: { color: "#16A34A", fontSize: 10, textTransform: "uppercase", fontWeight: "600" },
+  pendingPill: { backgroundColor: "#FEF3C7", borderRadius: 9999, paddingHorizontal: 8, paddingVertical: 2 },
+  pendingPillText: { color: "#A16207", fontSize: 10, textTransform: "uppercase", fontWeight: "600" },
+  emptyText: { color: "#64748B", fontSize: 13, marginTop: 8 },
   apartmentTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",

@@ -32,48 +32,6 @@ type Ticket = {
   imageUrl: string;
 };
 
-const HALLWAY_PHOTO =
-  "https://www.figma.com/api/mcp/asset/d254e125-014c-43ea-b7a1-01f8f35dc9ba";
-
-const FALLBACK_TICKETS: Ticket[] = [
-  {
-    id: "ISS123567",
-    title: "Staircase light not working on 3rd floor.",
-    description:
-      "All three lights in the 3rd floor corridor are off. Emergency lights are on, but main lights are not switching on.",
-    status: "OPEN",
-    createdAt: new Date(Date.now() - 5 * 60000).toISOString(),
-    updatedAt: new Date(Date.now() - 5 * 60000).toISOString(),
-    raisedBy: "RAHUL",
-    flatNumber: "302",
-    imageUrl: HALLWAY_PHOTO,
-  },
-  {
-    id: "ISS123568",
-    title: "Water leakage near Block B lift lobby.",
-    description:
-      "Water seepage observed near the lift area. Requires maintenance inspection and immediate fix.",
-    status: "IN_PROGRESS",
-    createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),
-    updatedAt: new Date(Date.now() - 60000).toISOString(),
-    raisedBy: "KIRAN",
-    flatNumber: "204",
-    imageUrl: HALLWAY_PHOTO,
-  },
-  {
-    id: "ISS123569",
-    title: "Main gate lock issue fixed",
-    description:
-      "Main gate lock mechanism has been repaired and tested successfully.",
-    status: "RESOLVED",
-    createdAt: new Date(Date.now() - 24 * 3600000).toISOString(),
-    updatedAt: new Date(Date.now() - 60000).toISOString(),
-    raisedBy: "PRIYA",
-    flatNumber: "401",
-    imageUrl: HALLWAY_PHOTO,
-  },
-];
-
 const tabOptions: { key: FilterTab; label: string }[] = [
   { key: "OPEN", label: "Open" },
   { key: "IN_PROGRESS", label: "In Progress" },
@@ -111,12 +69,25 @@ export default function AllTicketsScreen() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [usingFallback, setUsingFallback] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<FilterTab>("OPEN");
 
   const fetchTickets = async (resolvedUsername?: string | null, resolvedProfileId?: string | null) => {
+    if (!resolvedUsername && role !== "ADMIN") {
+      setTickets([]);
+      setErrorText("Profile phone is missing. Please login again.");
+      setLoading(false);
+      return;
+    }
+    if (role === "ADMIN" && !resolvedProfileId) {
+      setTickets([]);
+      setErrorText("Admin profile is missing. Please login again.");
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
+      setErrorText(null);
       const url =
         role === "ADMIN"
           ? `${BASE_URL}/issues/assignee/${resolvedProfileId}`
@@ -138,21 +109,14 @@ export default function AllTicketsScreen() {
                 ? String(item.imageUrls[0]).startsWith("http")
                   ? item.imageUrls[0]
                   : `${BASE_URL}${item.imageUrls[0]}`
-                : HALLWAY_PHOTO,
+                : "",
           }))
         : [];
 
-      if (mapped.length === 0) {
-        setTickets(FALLBACK_TICKETS);
-        setUsingFallback(true);
-      } else {
-        setTickets(mapped);
-        setUsingFallback(false);
-      }
-    } catch (err) {
-      console.error("Fetch tickets error:", err);
-      setTickets(FALLBACK_TICKETS);
-      setUsingFallback(true);
+      setTickets(mapped);
+    } catch {
+      setTickets([]);
+      setErrorText("Failed to fetch issues.");
     } finally {
       setLoading(false);
     }
@@ -290,11 +254,7 @@ export default function AllTicketsScreen() {
           })}
         </ScrollView>
 
-        {usingFallback && (
-          <Text style={styles.fallbackHint}>
-            Showing sample issues because backend returned empty/error.
-          </Text>
-        )}
+        {errorText ? <Text style={styles.fallbackHint}>{errorText}</Text> : null}
 
         {loading ? (
           <ActivityIndicator size="large" color="#1C98ED" style={{ marginTop: 28 }} />

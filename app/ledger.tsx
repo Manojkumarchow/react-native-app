@@ -34,86 +34,32 @@ const CURRENT_DATE = new Date();
 const CURRENT_MONTH = CURRENT_DATE.toLocaleString("en-US", { month: "short" });
 const CURRENT_YEAR = String(CURRENT_DATE.getFullYear());
 
-const BASE_EXPENSES = [
-  { label: "Watchman Salary", amount: 12000, icon: "shield-home-outline" as const },
-  { label: "Garbage Collection", amount: 2000, icon: "trash-can-outline" as const },
-  { label: "Lift Maintenance", amount: 5000, icon: "elevator-passenger" as const },
-  { label: "Common Area Electricity", amount: 4000, icon: "lightning-bolt-outline" as const },
-  { label: "Motor Maintenance", amount: 2000, icon: "cog-outline" as const },
-  { label: "Miscellaneous", amount: 996, icon: "clipboard-text-outline" as const },
-];
-
-const SAMPLE_MONTHS: MonthData[] = [
-  {
-    key: "2024-03",
-    monthYearLabel: "Mar 2024",
-    collectionTitle: "March Collection",
-    collected: 18000,
-    spent: 0,
-    balance: 2000,
-    flatsPaid: 6,
-    flatsTotal: 10,
-    status: "IN_PROGRESS",
-    expenses: BASE_EXPENSES,
-    pie: [
-      { label: "Watchman", value: 27, color: "#8B5CF6" },
-      { label: "Water", value: 23, color: "#F59E0B" },
-      { label: "Lift", value: 18, color: "#3B82F6" },
-      { label: "Electricity", value: 14, color: "#F97316" },
-      { label: "Garbage", value: 12, color: "#10B981" },
-      { label: "Miscellaneous", value: 2, color: "#94A3B8" },
-    ],
-  },
-  {
-    key: "2025-04",
-    monthYearLabel: "Apr 2025",
-    collectionTitle: "April Collection",
-    collected: 28800,
-    spent: 28000,
-    balance: 800,
-    flatsPaid: 10,
-    flatsTotal: 10,
-    status: "COMPLETED",
-    expenses: BASE_EXPENSES,
-    pie: [
-      { label: "Watchman", value: 30, color: "#8B5CF6" },
-      { label: "Water", value: 21, color: "#F59E0B" },
-      { label: "Lift", value: 17, color: "#3B82F6" },
-      { label: "Electricity", value: 14, color: "#F97316" },
-      { label: "Garbage", value: 13, color: "#10B981" },
-      { label: "Miscellaneous", value: 5, color: "#94A3B8" },
-    ],
-  },
-];
-
-const getCurrentDefaultData = (): MonthData => {
-  const defaultLabel = `${CURRENT_MONTH} ${CURRENT_YEAR}`;
-  return {
-    key: `${CURRENT_YEAR}-${String(CURRENT_DATE.getMonth() + 1).padStart(2, "0")}`,
-    monthYearLabel: defaultLabel,
-    collectionTitle: `${CURRENT_DATE.toLocaleString("en-US", { month: "long" })} Collection`,
-    collected: 18000,
-    spent: 0,
-    balance: 2000,
-    flatsPaid: 6,
-    flatsTotal: 10,
-    status: "IN_PROGRESS",
-    expenses: BASE_EXPENSES,
-    pie: SAMPLE_MONTHS[0].pie,
-  };
-};
-
-const INITIAL_DATA = (() => {
-  const currentLabel = `${CURRENT_MONTH} ${CURRENT_YEAR}`;
-  const found = SAMPLE_MONTHS.find((m) => m.monthYearLabel === currentLabel);
-  if (found) return SAMPLE_MONTHS;
-  return [getCurrentDefaultData(), ...SAMPLE_MONTHS];
-})();
-
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const YEARS = Array.from({ length: 9 }, (_, i) => String(2022 + i)).reverse();
 
 const formatCurrency = (value: number) => `₹${value.toLocaleString("en-IN")}`;
+const PIE_COLORS = ["#8B5CF6", "#F59E0B", "#3B82F6", "#F97316", "#10B981", "#94A3B8", "#06B6D4", "#F43F5E"];
+
+function mapExpenseIcon(label: string): keyof typeof MaterialCommunityIcons.glyphMap {
+  const text = label.toLowerCase();
+  if (text.includes("watchman")) return "shield-home-outline";
+  if (text.includes("garbage")) return "trash-can-outline";
+  if (text.includes("lift")) return "elevator-passenger";
+  if (text.includes("electric")) return "lightning-bolt-outline";
+  if (text.includes("motor")) return "cog-outline";
+  if (text.includes("water")) return "water-outline";
+  return "clipboard-text-outline";
+}
+
+function buildPieSegments(expenses: { label: string; amount: number }[]) {
+  const total = expenses.reduce((sum, item) => sum + item.amount, 0);
+  if (total <= 0) return [];
+  return expenses.map((item, idx) => ({
+    label: item.label,
+    value: Math.round((item.amount / total) * 100),
+    color: PIE_COLORS[idx % PIE_COLORS.length],
+  }));
+}
 
 function PieDonut({
   data,
@@ -171,23 +117,23 @@ export default function LedgerScreen() {
   const [tempMonth, setTempMonth] = useState(CURRENT_MONTH);
   const [tempYear, setTempYear] = useState(CURRENT_YEAR);
   const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
   const [backendLedger, setBackendLedger] = useState<{
     totalAmount: number;
     perFlatAmount: number;
     totalFlats: number;
     flatsPaid: number;
+    items: { name: string; amount: number }[];
+    month: string;
+    year: number;
   } | null>(null);
-
-  const activeData = useMemo(() => {
-    const found = INITIAL_DATA.find((m) => m.monthYearLabel === selectedLabel);
-    return found ?? INITIAL_DATA[0];
-  }, [selectedLabel]);
 
   useEffect(() => {
     const fetchLedger = async () => {
       if (!buildingId) return;
       try {
         setLoading(true);
+        setErrorText(null);
         const [month, year] = selectedLabel.split(" ");
         const res = await axios.get(`${BASE_URL}/ledgers`, {
           params: {
@@ -202,10 +148,19 @@ export default function LedgerScreen() {
             perFlatAmount: Number(res.data.perFlatAmount ?? 0),
             totalFlats: Number(res.data.totalFlats ?? 0),
             flatsPaid: Number(res.data.flatsPaid ?? 0),
+            items: Array.isArray(res.data.items)
+              ? res.data.items.map((item: any) => ({
+                  name: String(item.name ?? "Unknown"),
+                  amount: Number(item.amount ?? 0),
+                }))
+              : [],
+            month: String(res.data.month ?? month),
+            year: Number(res.data.year ?? year),
           });
         }
       } catch {
         setBackendLedger(null);
+        setErrorText("No ledger data found for this month.");
       } finally {
         setLoading(false);
       }
@@ -213,18 +168,36 @@ export default function LedgerScreen() {
     fetchLedger();
   }, [selectedLabel, buildingId]);
 
-  const uiData = useMemo(() => {
-    if (!backendLedger) return activeData;
+  const uiData = useMemo<MonthData>(() => {
+    const monthFromSelection = selectedLabel.split(" ")[0];
+    const yearFromSelection = selectedLabel.split(" ")[1];
+    const monthYearLabel = `${monthFromSelection} ${yearFromSelection}`;
+    const collectionTitle = `${monthFromSelection} Collection`;
+    const expenses = (backendLedger?.items ?? []).map((item) => ({
+      label: item.name,
+      amount: item.amount,
+      icon: mapExpenseIcon(item.name),
+    }));
+    const totalSpent = expenses.reduce((sum, i) => sum + i.amount, 0);
+    const collected = backendLedger?.totalAmount ?? 0;
+    const flatsTotal = backendLedger?.totalFlats ?? 0;
+    const flatsPaid = backendLedger?.flatsPaid ?? 0;
     return {
-      ...activeData,
-      collected: backendLedger.totalAmount || activeData.collected,
-      flatsTotal: backendLedger.totalFlats || activeData.flatsTotal,
-      flatsPaid: backendLedger.flatsPaid || activeData.flatsPaid,
-      balance: Math.max(0, (backendLedger.totalAmount || activeData.collected) - activeData.spent),
+      key: `${yearFromSelection}-${monthFromSelection}`,
+      monthYearLabel,
+      collectionTitle,
+      collected,
+      spent: totalSpent,
+      balance: Math.max(0, collected - totalSpent),
+      flatsPaid,
+      flatsTotal,
+      status: flatsTotal > 0 && flatsPaid >= flatsTotal ? "COMPLETED" : "IN_PROGRESS",
+      expenses,
+      pie: buildPieSegments(expenses),
     };
-  }, [activeData, backendLedger]);
+  }, [selectedLabel, backendLedger]);
 
-  const progressPct = Math.round((uiData.flatsPaid / uiData.flatsTotal) * 100);
+  const progressPct = uiData.flatsTotal > 0 ? Math.round((uiData.flatsPaid / uiData.flatsTotal) * 100) : 0;
   const statusUi =
     uiData.status === "COMPLETED"
       ? {
@@ -246,9 +219,9 @@ export default function LedgerScreen() {
   };
 
   const pieTotal = uiData.pie.reduce((sum, s) => sum + s.value, 0);
-  const sharePerFlat = Math.round(
-    uiData.expenses.reduce((sum, row) => sum + row.amount, 0) / uiData.flatsTotal,
-  );
+  const sharePerFlat = uiData.flatsTotal > 0
+    ? Math.round(uiData.expenses.reduce((sum, row) => sum + row.amount, 0) / uiData.flatsTotal)
+    : 0;
 
   return (
     <>
@@ -325,6 +298,7 @@ export default function LedgerScreen() {
             </View>
           </View>
           {loading ? <ActivityIndicator size="small" color="#1C98ED" /> : null}
+          {!loading && errorText ? <Text style={styles.shareText}>{errorText}</Text> : null}
 
           <View style={styles.expenseSection}>
             <Text style={styles.expenseTitle}>Expense Breakdown</Text>
@@ -338,12 +312,18 @@ export default function LedgerScreen() {
                   <Text style={styles.expenseAmount}>{formatCurrency(row.amount)}</Text>
                 </View>
               ))}
-              <View style={styles.expenseTotalRow}>
-                <Text style={styles.expenseTotalLabel}>Total Shared Expenses</Text>
-                <Text style={styles.expenseTotalAmount}>
-                  {formatCurrency(uiData.expenses.reduce((sum, i) => sum + i.amount, 0))}
-                </Text>
-              </View>
+              {uiData.expenses.length > 0 ? (
+                <View style={styles.expenseTotalRow}>
+                  <Text style={styles.expenseTotalLabel}>Total Shared Expenses</Text>
+                  <Text style={styles.expenseTotalAmount}>
+                    {formatCurrency(uiData.expenses.reduce((sum, i) => sum + i.amount, 0))}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.expenseRow}>
+                  <Text style={styles.expenseLabel}>No expense breakdown available.</Text>
+                </View>
+              )}
             </View>
           </View>
 

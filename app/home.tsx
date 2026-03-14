@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Linking,
   Modal,
@@ -12,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
+import axios from "axios";
 import {
   Feather,
   Ionicons,
@@ -20,6 +22,8 @@ import {
 } from "@expo/vector-icons";
 import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
+import { BASE_URL } from "./config";
+import { getErrorMessage } from "./services/error";
 
 const smartLocksBanner =
   "https://www.figma.com/api/mcp/asset/e1528a11-a6aa-4077-9988-03231743226e";
@@ -62,44 +66,37 @@ const quickActions = [
   },
 ];
 
-const homeServices = [
-  { key: "plumber", label: "Plumber", icon: "tools", serviceKey: "plumber" },
-  { key: "electrician", label: "Electrician", icon: "flash", serviceKey: "electrician" },
-  { key: "carpenter", label: "Carpenter", icon: "hammer", serviceKey: "carpenter" },
-  { key: "cleaner", label: "Cleaner", icon: "broom", serviceKey: "cleaner" },
-  { key: "painter", label: "Painter", icon: "roller", serviceKey: "painter" },
-  { key: "beautician", label: "Beautician", icon: "face-woman", serviceKey: "beautician" },
-];
+type HomeServiceCategory = {
+  key: string;
+  label: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap | string;
+};
 
-const tenantUpdates = [
-  {
-    id: "n1",
-    type: "Notice",
-    title: "Water Supply Maintenance",
-    time: "2 hours ago",
-    body: "Regular cleaning of overhead tanks scheduled for tomorrow between 10 AM to 2 PM.",
-  },
-  {
-    id: "a1",
-    type: "Announcements",
-    title: "Treasurer for the community is Mr. Govindh Ayyar",
-    time: "Aug 15, 09:00 AM",
-    body: "Flag hoisting followed by cultural activities at the main clubhouse lawn.",
-  },
-  {
-    id: "e1",
-    type: "Events",
-    title: "Independence Day Celebration",
-    time: "2 hours ago",
-    body: "Regular cleaning of overhead tanks scheduled for tomorrow between 10 AM to 2 PM.",
-  },
-];
+type CommunityItem = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  createdAt?: string;
+};
 
 export default function Home() {
   const router = useRouter();
-  const { name, avatarUri, buildingName, role, flatNo } = useProfileStore();
-  const watchmanPhone = useBuildingStore((state) => state.watchmen?.phone);
+  const { name, avatarUri, buildingName, role, flatNo, phone, userId, buildingId } = useProfileStore();
+  const { watchmen, buildingName: storeBuildingName, setBuildingData } = useBuildingStore();
+  const watchmanPhone = watchmen?.phone;
   const [showWatchmanSheet, setShowWatchmanSheet] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [serviceCategories, setServiceCategories] = useState<HomeServiceCategory[]>([]);
+  const [communityItems, setCommunityItems] = useState<CommunityItem[]>([]);
+  const [tenantDueAmount, setTenantDueAmount] = useState(0);
+  const [tenantDueNote, setTenantDueNote] = useState("No due this month");
+  const [tenantNoticesCount, setTenantNoticesCount] = useState(0);
+  const [adminTotalFlats, setAdminTotalFlats] = useState(0);
+  const [adminTotalResidents, setAdminTotalResidents] = useState(0);
+  const [adminApartmentDues, setAdminApartmentDues] = useState(0);
+  const [adminOpenIssues, setAdminOpenIssues] = useState(0);
 
   const filteredActions = useMemo(
     () =>
@@ -110,16 +107,143 @@ export default function Home() {
   );
 
   const initials = useMemo(() => {
-    if (!name) return "VP";
+    if (!name) return "?";
     const parts = name.trim().split(" ").filter(Boolean);
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
     return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
   }, [name]);
 
-  const callNumber = watchmanPhone || "+91 98000 12345";
+  const callNumber = watchmanPhone?.trim() ? watchmanPhone.trim() : "Not available";
   const callHref = `tel:${callNumber.replace(/\s+/g, "")}`;
+  const watchmanSubtitle = (storeBuildingName || buildingName)
+    ? `${storeBuildingName || buildingName} Security`
+    : "Security";
 
-  if (role === "USER") {
+  const isTenant = (role ?? "").toUpperCase() === "USER";
+  const profileId = phone ?? userId ?? "";
+  const resolvedBuildingId = buildingId ? String(buildingId) : "";
+
+  const updates = useMemo(() => communityItems.slice(0, 3), [communityItems]);
+
+  const timeAgo = (dateStr?: string) => {
+    if (!dateStr) return "Just now";
+    const time = new Date(dateStr).getTime();
+    if (Number.isNaN(time)) return "Just now";
+    const diffMin = Math.floor((Date.now() - time) / 60000);
+    if (diffMin < 1) return "Just now";
+    if (diffMin < 60) return `${diffMin} min ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr} hour${diffHr > 1 ? "s" : ""} ago`;
+    const diffDay = Math.floor(diffHr / 24);
+    return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
+  };
+
+  useEffect(() => {
+    const run = async () => {
+      setLoading(true);
+      setErrorText(null);
+      try {
+        const now = new Date();
+        const month = now.toLocaleString("en-US", { month: "long" });
+        const year = now.getFullYear();
+        const requests: Promise<any>[] = [
+          axios.get(`${BASE_URL}/service/catalog/all`),
+        ];
+        if (resolvedBuildingId) {
+          requests.push(axios.get(`${BASE_URL}/community/feed/${resolvedBuildingId}`));
+        } else {
+          requests.push(Promise.resolve({ data: { items: [] } }));
+        }
+        if (resolvedBuildingId) {
+          requests.push(axios.get(`${BASE_URL}/building/${resolvedBuildingId}`));
+        } else {
+          requests.push(Promise.resolve({ data: null }));
+        }
+        if (isTenant && profileId) {
+          requests.push(
+            axios.get(`${BASE_URL}/payments/profile/${profileId}`, { params: { month, year } }),
+          );
+        } else if (!isTenant && resolvedBuildingId) {
+          requests.push(
+            axios.get(`${BASE_URL}/payments/apartment`, {
+              params: { buildingId: resolvedBuildingId, month, year },
+            }),
+          );
+          requests.push(axios.get(`${BASE_URL}/issues/building/${resolvedBuildingId}`));
+        }
+
+        const responses = await Promise.all(requests);
+        const servicesRes = responses[0];
+        const communityRes = responses[1];
+        const buildingRes = responses[2];
+        if (buildingRes?.data) {
+          setBuildingData(buildingRes.data);
+        }
+
+        const catalog = Array.isArray(servicesRes?.data) ? servicesRes.data : [];
+        setServiceCategories(
+          catalog.map((item: any) => ({
+            key: String(item.key ?? item.label ?? Math.random()),
+            label: String(item.label ?? "Service"),
+            icon: String(item.icon ?? "tools"),
+          })),
+        );
+
+        const feedItems = Array.isArray(communityRes?.data?.items) ? communityRes.data.items : [];
+        const mappedFeed: CommunityItem[] = feedItems.map((item: any) => ({
+          id: String(item.id ?? Math.random()),
+          type: String(item.type ?? "Notice"),
+          title: String(item.title ?? "Update"),
+          body: String(item.body ?? ""),
+          createdAt: item.createdAt ? String(item.createdAt) : undefined,
+        }));
+        setCommunityItems(mappedFeed);
+        setTenantNoticesCount(mappedFeed.length);
+
+        if (isTenant && profileId) {
+          const paymentsRes = responses[2];
+          const current = paymentsRes?.data?.maintenanceCurrent;
+          const amount = Number(current?.amount ?? 0);
+          setTenantDueAmount(amount);
+          if (!current) {
+            setTenantDueNote("No due this month");
+          } else if (String(current.status ?? "").toUpperCase() === "PAID") {
+            setTenantDueNote("Paid");
+          } else if (current.dueDate) {
+            const dueDate = new Date(current.dueDate);
+            const today = new Date();
+            const daysDiff = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (daysDiff > 0) setTenantDueNote(`Overdue by ${daysDiff} day${daysDiff > 1 ? "s" : ""}`);
+            else setTenantDueNote(`Due by ${dueDate.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`);
+          } else {
+            setTenantDueNote("Due this month");
+          }
+        }
+
+        if (!isTenant && resolvedBuildingId) {
+          const buildingRes = responses[2];
+          const apartmentRes = responses[3];
+          const issuesRes = responses[4];
+          setAdminTotalFlats(Number(buildingRes?.data?.totalFlats ?? 0));
+          setAdminTotalResidents(Number(buildingRes?.data?.totalResidents ?? 0));
+          setAdminApartmentDues(Number(apartmentRes?.data?.pending ?? 0));
+          const allIssues = Array.isArray(issuesRes?.data) ? issuesRes.data : [];
+          const openCount = allIssues.filter((item: any) => {
+            const status = String(item?.status ?? "").toUpperCase();
+            return status === "OPEN" || status === "IN_PROGRESS";
+          }).length;
+          setAdminOpenIssues(openCount);
+        }
+      } catch (error) {
+        setErrorText(getErrorMessage(error, "Failed to load home data."));
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, [isTenant, profileId, resolvedBuildingId]);
+
+  if (isTenant) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
@@ -128,7 +252,7 @@ export default function Home() {
             <View style={styles.tenantHeaderTopRow}>
               <View>
                 <Text style={styles.greeting}>Good morning,</Text>
-                <Text style={styles.tenantUserName}>{name || "Govardhan Reddy"}</Text>
+                <Text style={styles.tenantUserName}>{name || "Resident"}</Text>
               </View>
 
               <View style={styles.headerIcons}>
@@ -148,7 +272,7 @@ export default function Home() {
             <View style={styles.locationRow}>
               <Ionicons name="location-outline" size={14} color="#94A3B8" />
               <Text style={styles.locationText}>
-                {buildingName || "Sunrise Residency"} · Tenant
+                {(buildingName || "Building")} · Tenant
               </Text>
             </View>
           </View>
@@ -158,11 +282,16 @@ export default function Home() {
             contentContainerStyle={styles.tenantContentContainer}
             showsVerticalScrollIndicator={false}
           >
+            {loading ? <ActivityIndicator color="#1C98ED" style={{ marginBottom: 12 }} /> : null}
+            {errorText ? <Text style={styles.noticeDescription}>{errorText}</Text> : null}
+            <Pressable style={styles.bannerCard}>
+              <Image source={{ uri: smartLocksBanner }} style={styles.bannerImage} resizeMode="cover" />
+            </Pressable>
             <View style={styles.tenantStatsRow}>
               <Pressable style={styles.duesCard} onPress={() => router.push("/payments")}>
                 <Text style={styles.duesLabel}>Dues</Text>
-                <Text style={styles.duesAmount}>₹1,800</Text>
-                <Text style={styles.duesFootnote}>Overdue by 5 days</Text>
+                <Text style={styles.duesAmount}>₹{tenantDueAmount.toLocaleString("en-IN")}</Text>
+                <Text style={styles.duesFootnote}>{tenantDueNote}</Text>
               </Pressable>
 
               <Pressable
@@ -172,8 +301,10 @@ export default function Home() {
                 }
               >
                 <Text style={styles.issuesLabel}>Notices</Text>
-                <Text style={styles.issuesAmount}>01</Text>
-                <Text style={styles.issuesFootnote}>New announcement</Text>
+                <Text style={styles.issuesAmount}>{String(tenantNoticesCount).padStart(2, "0")}</Text>
+                <Text style={styles.issuesFootnote}>
+                  {tenantNoticesCount > 0 ? "Latest community updates" : "No updates"}
+                </Text>
               </Pressable>
             </View>
 
@@ -228,12 +359,12 @@ export default function Home() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.servicesRow}
             >
-              {homeServices.map((item) => (
+              {serviceCategories.map((item) => (
                 <Pressable
                   key={item.key}
                   style={styles.serviceChip}
                   onPress={() =>
-                    router.push({ pathname: "/home-services", params: { service: item.serviceKey } } as never)
+                    router.push({ pathname: "/home-services", params: { service: item.key } } as never)
                   }
                 >
                   <MaterialCommunityIcons name={item.icon as any} size={16} color="#1C98ED" />
@@ -242,10 +373,6 @@ export default function Home() {
               ))}
             </ScrollView>
 
-            <Pressable style={styles.bannerCard} onPress={() => router.push("/home-services" as never)}>
-              <Image source={{ uri: smartLocksBanner }} style={styles.bannerImage} />
-            </Pressable>
-
             <View style={[styles.sectionRow, { marginTop: 4 }]}>
               <Text style={styles.tenantSectionTitle}>Community Updates</Text>
               <Pressable onPress={() => router.push("/announcements" as never)}>
@@ -253,7 +380,7 @@ export default function Home() {
               </Pressable>
             </View>
 
-            {tenantUpdates.map((item) => {
+            {updates.map((item) => {
               const isAnnouncement = item.type === "Announcements";
               const isEvent = item.type === "Events";
               const accentColor = isAnnouncement
@@ -276,20 +403,10 @@ export default function Home() {
                   <View style={styles.noticeContent}>
                     <View style={styles.noticeHeader}>
                       <Text style={[styles.noticeBadge, pillStyle]}>{item.type}</Text>
-                      <Text style={styles.noticeTime}>{item.time}</Text>
+                      <Text style={styles.noticeTime}>{timeAgo(item.createdAt)}</Text>
                     </View>
                     <Text style={styles.noticeTitle}>{item.title}</Text>
                     <Text style={styles.noticeDescription}>{item.body}</Text>
-                    {isAnnouncement ? (
-                      <View style={styles.announcementMetaRow}>
-                        <View style={styles.announcementMetaChip}>
-                          <Text style={styles.announcementMetaText}>Clubhouse</Text>
-                        </View>
-                        <View style={styles.announcementMetaChip}>
-                          <Text style={styles.announcementMetaText}>+14 Participating</Text>
-                        </View>
-                      </View>
-                    ) : null}
                   </View>
                 </Pressable>
               );
@@ -330,7 +447,7 @@ export default function Home() {
                       <Text style={styles.watchmanAvatarText}>👮</Text>
                     </View>
                     <Text style={styles.watchmanTitle}>Call Watchman</Text>
-                    <Text style={styles.watchmanSubtitle}>Sunrise Residency Security</Text>
+                    <Text style={styles.watchmanSubtitle}>{watchmanSubtitle}</Text>
                     <Text style={styles.watchmanPhone}>{callNumber}</Text>
 
                     <Pressable
@@ -371,7 +488,7 @@ export default function Home() {
               </View>
               <View>
                 <Text style={styles.greeting}>Good morning,</Text>
-                <Text style={styles.userName}>{name || "Vara Prasad"}</Text>
+                <Text style={styles.userName}>{name || "Resident"}</Text>
               </View>
             </View>
 
@@ -392,7 +509,7 @@ export default function Home() {
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={14} color="#94A3B8" />
             <Text style={styles.locationText}>
-              {buildingName || "Kondapur, Hyderabad"} {flatNo ? `· ${flatNo}` : ""}
+              {buildingName || "Building"} {flatNo ? `· ${flatNo}` : ""}
             </Text>
           </View>
         </View>
@@ -402,23 +519,28 @@ export default function Home() {
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
+          {loading ? <ActivityIndicator color="#1C98ED" style={{ marginBottom: 12 }} /> : null}
+          {errorText ? <Text style={styles.noticeDescription}>{errorText}</Text> : null}
+          <Pressable style={styles.bannerCard}>
+            <Image source={{ uri: smartLocksBanner }} style={styles.bannerImage} resizeMode="cover" />
+          </Pressable>
           <View style={styles.statsGrid}>
             <StatCard
               icon={<Ionicons name="business-outline" size={14} color="#2899CF" />}
               iconBg="#E6F4FA"
-              value="10"
+              value={String(adminTotalFlats)}
               label="Total Flats"
             />
             <StatCard
               icon={<Ionicons name="people-outline" size={14} color="#16A34A" />}
               iconBg="#DCFCE7"
-              value="28"
+              value={String(adminTotalResidents)}
               label="Total Residents"
             />
             <StatCard
               icon={<Ionicons name="wallet-outline" size={14} color="#D97706" />}
               iconBg="#FEF3C7"
-              value="28000"
+              value={String(adminApartmentDues)}
               label="Apartment Dues"
             />
             <StatCard
@@ -430,7 +552,7 @@ export default function Home() {
                 />
               }
               iconBg="rgba(220,38,38,0.12)"
-              value="03"
+              value={String(adminOpenIssues).padStart(2, "0")}
               label="Open Issues"
               onPress={() =>
                 router.push({ pathname: "/all-tickets", params: { status: "OPEN" } } as never)
@@ -458,13 +580,6 @@ export default function Home() {
             ))}
           </View>
 
-          <Pressable
-            style={styles.bannerCard}
-            onPress={() => router.push("/home-services" as never)}
-          >
-            <Image source={{ uri: smartLocksBanner }} style={styles.bannerImage} />
-          </Pressable>
-
           <View style={styles.sectionRow}>
             <Text style={styles.sectionTitle}>Home Services</Text>
             <Pressable onPress={() => router.push("/my-bookings" as never)}>
@@ -476,12 +591,12 @@ export default function Home() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.servicesRow}
           >
-            {homeServices.map((item) => (
+            {serviceCategories.map((item) => (
               <Pressable
                 key={item.key}
                 style={styles.serviceChip}
                 onPress={() =>
-                  router.push({ pathname: "/home-services", params: { service: item.serviceKey } } as never)
+                  router.push({ pathname: "/home-services", params: { service: item.key } } as never)
                 }
               >
                 <MaterialCommunityIcons
@@ -501,35 +616,33 @@ export default function Home() {
             </Pressable>
           </View>
 
-          <Pressable style={styles.noticeCard} onPress={() => router.push("/notices")}>
-            <View style={[styles.noticeAccent, { backgroundColor: "#C81616" }]} />
-            <View style={styles.noticeContent}>
-              <View style={styles.noticeHeader}>
-                <Text style={[styles.noticeBadge, styles.noticeBadgeRed]}>Notice</Text>
-                <Text style={styles.noticeTime}>2 hours ago</Text>
-              </View>
-              <Text style={styles.noticeTitle}>Water Supply Maintenance</Text>
-              <Text style={styles.noticeDescription}>
-                Regular cleaning of overhead tanks scheduled for tomorrow between 10
-                AM to 2 PM.
-              </Text>
-            </View>
-          </Pressable>
-
-          <Pressable style={styles.noticeCard} onPress={() => router.push("/events")}>
-            <View style={[styles.noticeAccent, { backgroundColor: "#1C98ED" }]} />
-            <View style={styles.noticeContent}>
-              <View style={styles.noticeHeader}>
-                <Text style={[styles.noticeBadge, styles.noticeBadgeBlue]}>Events</Text>
-                <Text style={styles.noticeTime}>2 hours ago</Text>
-              </View>
-              <Text style={styles.noticeTitle}>Independence Day Celebration</Text>
-              <Text style={styles.noticeDescription}>
-                Regular cleaning of overhead tanks scheduled for tomorrow between 10
-                AM to 2 PM.
-              </Text>
-            </View>
-          </Pressable>
+          {updates.map((item) => {
+            const isAnnouncement = item.type === "Announcements";
+            const isEvent = item.type === "Events";
+            const accentColor = isAnnouncement
+              ? "#A16207"
+              : isEvent
+                ? "#1C98ED"
+                : "#C81616";
+            const pillStyle = isAnnouncement
+              ? styles.noticeBadgeWarning
+              : isEvent
+                ? styles.noticeBadgeBlue
+                : styles.noticeBadgeRed;
+            return (
+              <Pressable key={item.id} style={styles.noticeCard} onPress={() => router.push("/announcements" as never)}>
+                <View style={[styles.noticeAccent, { backgroundColor: accentColor }]} />
+                <View style={styles.noticeContent}>
+                  <View style={styles.noticeHeader}>
+                    <Text style={[styles.noticeBadge, pillStyle]}>{item.type}</Text>
+                    <Text style={styles.noticeTime}>{timeAgo(item.createdAt)}</Text>
+                  </View>
+                  <Text style={styles.noticeTitle}>{item.title}</Text>
+                  <Text style={styles.noticeDescription}>{item.body}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
         </ScrollView>
 
         <View style={styles.bottomNav}>
@@ -566,7 +679,7 @@ export default function Home() {
                     <Text style={styles.watchmanAvatarText}>👮</Text>
                   </View>
                   <Text style={styles.watchmanTitle}>Call Watchman</Text>
-                  <Text style={styles.watchmanSubtitle}>Sunrise Residency Security</Text>
+                  <Text style={styles.watchmanSubtitle}>{watchmanSubtitle}</Text>
                   <Text style={styles.watchmanPhone}>{callNumber}</Text>
 
                   <Pressable

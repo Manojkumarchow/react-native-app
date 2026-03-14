@@ -22,6 +22,7 @@ import Toast from "react-native-toast-message";
 import useBuildingStore from "./store/buildingStore";
 import useProfileStore from "./store/profileStore";
 import { BASE_URL } from "./config";
+import { getErrorMessage } from "./services/error";
 
 type BackendNoticeType = "ALERT" | "INFO" | "HIGH" | "MEDIUM" | "LOW" | "EVENT";
 type NoticeCategory = "NOTICE" | "ANNOUNCEMENT" | "EVENT";
@@ -41,33 +42,6 @@ const AUDIENCE_OPTIONS: { key: Audience; label: string }[] = [
   { key: "ALL_RESIDENTS", label: "All Residents" },
   { key: "ALL_OWNERS", label: "All Owners" },
   { key: "ALL_TENANTS", label: "All Tenants" },
-];
-
-const STATIC_NOTICES: Notice[] = [
-  {
-    noticeId: "static-1",
-    title: "Lift Maintenance for 3 days",
-    description:
-      "Due to continuous power cuts, the lift doors are stuck and are not opening, so the lift is under maintenance for the next 3 days.",
-    type: "HIGH",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    noticeId: "static-2",
-    title: "Water Supply Maintenance",
-    description:
-      "Regular cleaning of overhead tanks scheduled for tomorrow between 10 AM to 2 PM.",
-    type: "ALERT",
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    noticeId: "static-3",
-    title: "Community Hall Booking Update",
-    description:
-      "The online booking process for the community hall is now available in the app.",
-    type: "INFO",
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-  },
 ];
 
 const mapNoticeTypeToCategory = (type: string): NoticeCategory => {
@@ -113,33 +87,27 @@ export default function Notices() {
 
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingFallback, setUsingFallback] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [sending, setSending] = useState(false);
 
   const fetchNotices = async () => {
     if (!buildingId) {
-      setNotices(STATIC_NOTICES);
-      setUsingFallback(true);
+      setNotices([]);
+      setErrorText("Building is not configured for this account.");
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
+      setErrorText(null);
       const res = await axios.get(`${BASE_URL}/notices/${buildingId}`);
       const apiData = Array.isArray(res.data) ? (res.data as Notice[]) : [];
-      if (!apiData.length) {
-        setNotices(STATIC_NOTICES);
-        setUsingFallback(true);
-      } else {
-        setNotices(apiData);
-        setUsingFallback(false);
-      }
+      setNotices(apiData);
     } catch (error) {
-      console.error("Failed to fetch notices", error);
-      setNotices(STATIC_NOTICES);
-      setUsingFallback(true);
+      setNotices([]);
+      setErrorText(getErrorMessage(error, "Failed to fetch notices."));
     } finally {
       setLoading(false);
     }
@@ -312,8 +280,11 @@ export default function Notices() {
                               active && styles.chipTextActive,
                             ]}
                           >
-                            {item ===
-                              `${item.charAt(0).toUpperCase() + item.slice(1)}`}
+                            {item === "ANNOUNCEMENT"
+                              ? "Announcement"
+                              : item === "EVENT"
+                                ? "Event"
+                                : "Notice"}
                           </Text>
                         </Pressable>
                       );
@@ -447,8 +418,11 @@ export default function Notices() {
                                 active && styles.historyFilterTextActive,
                               ]}
                             >
-                              {item ===
-                                `${item.charAt(0).toUpperCase() + item.slice(1)}s`}
+                              {item === "ANNOUNCEMENT"
+                                ? "Announcements"
+                                : item === "EVENT"
+                                  ? "Events"
+                                  : "Notices"}
                             </Text>
                           </Pressable>
                         );
@@ -457,11 +431,7 @@ export default function Notices() {
                   </View>
                 )}
 
-                {usingFallback && (
-                  <Text style={styles.fallbackHint}>
-                    Showing sample notices because backend returned empty/error.
-                  </Text>
-                )}
+                {errorText ? <Text style={styles.fallbackHint}>{errorText}</Text> : null}
 
                 <View style={styles.historyListWrap}>
                   <FlatList

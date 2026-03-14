@@ -38,40 +38,17 @@ const STATUS_FILTERS: { key: IssueStatus; label: string }[] = [
   { key: "RESOLVED", label: "Resolved" },
 ];
 
-const SAMPLE_ISSUES: IssueItem[] = [
-  {
-    id: "ISS123567",
-    title: "Staircase light not working on 3rd floor.",
-    description: "The light near Flat 3B has been off since yesterday night.",
-    status: "OPEN",
-    timeLabel: "Posted 5min ago",
-    images: [
-      "https://images.unsplash.com/photo-1524484485831-a92ffc0de03f?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80",
-    ],
-  },
-  {
-    id: "ISS123568",
-    title: "Plumber fixing water leakage in Block A.",
-    description: "Water leakage near the corridor has been reported.",
-    status: "IN_PROGRESS",
-    timeLabel: "Posted 24hrs ago",
-    images: [
-      "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=1200&q=80",
-    ],
-  },
-  {
-    id: "ISS123569",
-    title: "Drain blockage cleared.",
-    description: "Maintenance team cleared the drain blockage near Tower C.",
-    status: "RESOLVED",
-    timeLabel: "Posted 5min ago",
-    images: [
-      "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1563453392212-326f5e854473?auto=format&fit=crop&w=1200&q=80",
-    ],
-  },
-];
+const toRelativeTime = (dateStr?: string) => {
+  const createdMs = dateStr ? new Date(dateStr).getTime() : Date.now();
+  if (Number.isNaN(createdMs)) return "Posted just now";
+  const diffMin = Math.floor((Date.now() - createdMs) / 60000);
+  if (diffMin < 1) return "Posted just now";
+  if (diffMin < 60) return `Posted ${diffMin} min ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `Posted ${diffHr} hour${diffHr > 1 ? "s" : ""} ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `Posted ${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
+};
 
 const statusTheme = (status: IssueStatus) =>
   status === "OPEN"
@@ -89,25 +66,24 @@ export default function IssuesScreen() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [pickedImages, setPickedImages] = useState<string[]>([]);
-  const [issues, setIssues] = useState<IssueItem[]>(SAMPLE_ISSUES);
+  const [issues, setIssues] = useState<IssueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchIssues = async () => {
       if (!profilePhone) {
-        setIssues(SAMPLE_ISSUES);
+        setIssues([]);
+        setErrorText("Profile phone is missing. Please login again.");
         setLoading(false);
         return;
       }
       try {
         setLoading(true);
+        setErrorText(null);
         const res = await axios.get(`${BASE_URL}/issues/profile/${profilePhone}`);
         const apiData = Array.isArray(res.data) ? res.data : [];
-        if (!apiData.length) {
-          setIssues(SAMPLE_ISSUES);
-          return;
-        }
         const mapped: IssueItem[] = apiData.map((item: any) => ({
           id: String(item.complaintId ?? item.id),
           title: item.title ?? "Untitled issue",
@@ -118,7 +94,7 @@ export default function IssuesScreen() {
               : String(item.status).toUpperCase().includes("PROGRESS")
                 ? "IN_PROGRESS"
                 : "OPEN",
-          timeLabel: "Posted recently",
+          timeLabel: toRelativeTime(item.createdAt),
           images: Array.isArray(item.imageUrls)
             ? item.imageUrls.map((url: string) =>
                 url.startsWith("http") ? url : `${BASE_URL}${url}`
@@ -126,8 +102,9 @@ export default function IssuesScreen() {
             : [],
         }));
         setIssues(mapped);
-      } catch {
-        setIssues(SAMPLE_ISSUES);
+      } catch (error) {
+        setIssues([]);
+        setErrorText(getErrorMessage(error, "Failed to fetch issues."));
       } finally {
         setLoading(false);
       }
@@ -298,6 +275,10 @@ export default function IssuesScreen() {
             </View>
             <ScrollView style={styles.issueListScroll} contentContainerStyle={styles.issueList} showsVerticalScrollIndicator={false}>
               {loading ? <ActivityIndicator size="large" color="#1C98ED" style={{ marginTop: 24 }} /> : null}
+              {!loading && errorText ? <Text style={styles.issueTime}>{errorText}</Text> : null}
+              {!loading && !errorText && filteredIssues.length === 0 ? (
+                <Text style={styles.issueTime}>No issues found.</Text>
+              ) : null}
               {filteredIssues.map((issue) => {
                 const theme = statusTheme(issue.status);
                 return (
