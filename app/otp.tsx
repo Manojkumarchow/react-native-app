@@ -16,6 +16,8 @@ import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { sendOTP, verifyOTP } from "./services/otp.service";
 import { createProfile } from "./services/profile.service";
 import { getErrorMessage } from "./services/error";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 const BRAND_BLUE = "#1c98ed";
 const CARD_BG = "#ffffff";
@@ -118,6 +120,26 @@ export default function OTPVerify() {
         return;
       }
 
+      const hasSignupBasics = !!resolvedName && !!resolvedPhone;
+      const hasFullSignupData =
+        hasSignupBasics &&
+        !!resolvedPassword &&
+        !!resolvedRole &&
+        Number.isFinite(resolvedBuildingId) &&
+        resolvedBuildingId > 0;
+
+      // Auth -> OTP flow provides only name+phone. Continue in signup screen.
+      if (!hasFullSignupData) {
+        router.replace({
+          pathname: "/signup",
+          params: {
+            prefillName: resolvedName ?? "",
+            prefillPhone: resolvedPhone ?? "",
+          },
+        });
+        return;
+      }
+
       await createProfile(
         resolvedName,
         resolvedPhone,
@@ -140,7 +162,7 @@ export default function OTPVerify() {
     <>
       <Stack.Screen options={{ headerShown: false, title: "OTP Verification" }} />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.bg}>
+        <SafeAreaView edges={["top"]} style={styles.bg}>
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={styles.flex}
@@ -229,7 +251,7 @@ export default function OTPVerify() {
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
-        </View>
+        </SafeAreaView>
       </TouchableWithoutFeedback>
     </>
   );
@@ -244,46 +266,46 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 22,
-    paddingBottom: 12,
+    paddingTop: rvs(22),
+    paddingBottom: rvs(12),
   },
   logo: {
-    width: 235,
-    height: 235,
+    width: rs(235),
+    height: rs(235),
   },
   card: {
-    marginTop: 4,
+    marginTop: rvs(4),
     backgroundColor: CARD_BG,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: 19,
-    paddingTop: 20,
-    paddingBottom: 88,
+    borderTopLeftRadius: rs(32),
+    borderTopRightRadius: rs(32),
+    paddingHorizontal: rs(19),
+    paddingTop: rvs(20),
+    paddingBottom: rvs(88),
   },
   segmentedControl: {
     flexDirection: "row",
     backgroundColor: SEGMENT_BG,
-    borderRadius: 9,
-    padding: 2,
-    marginBottom: 20,
-    height: 38,
+    borderRadius: rs(9),
+    padding: rs(2),
+    marginBottom: rvs(20),
+    minHeight: rvs(38),
   },
   segment: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 7,
+    borderRadius: rs(7),
   },
   segmentActive: {
     backgroundColor: "#fff",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowRadius: rs(8),
     elevation: 4,
   },
   segmentText: {
-    fontSize: 13,
+    fontSize: rms(13),
     color: DISABLED_TEXT,
     fontWeight: "400",
   },
@@ -292,38 +314,38 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: rms(20),
     fontWeight: "500",
     color: "#000",
-    marginBottom: 20,
+    marginBottom: rvs(20),
   },
   errorTitle: {
-    fontSize: 20,
+    fontSize: rms(20),
     fontWeight: "500",
     color: "#000",
-    marginBottom: 20,
+    marginBottom: rvs(20),
   },
   errorHighlight: {
     color: ERROR_BORDER,
   },
   subtitle: {
     color: "#666",
-    marginBottom: 20,
-    fontSize: 12,
+    marginBottom: rvs(20),
+    fontSize: rms(12),
   },
   otpRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 12,
-    marginBottom: 14,
+    gap: rs(12),
+    marginBottom: rvs(14),
   },
   otpBox: {
-    width: 52,
-    height: 44,
+    width: rs(52),
+    height: rvs(44),
     borderWidth: 1.5,
-    borderRadius: 8,
+    borderRadius: rs(8),
     textAlign: "center",
-    fontSize: 18,
+    fontSize: rms(18),
     fontWeight: "500",
     borderColor: BORDER_COLOR,
     color: "#000",
@@ -333,13 +355,13 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: ERROR_BORDER,
-    fontSize: 13,
-    marginBottom: 8,
+    fontSize: rms(13),
+    marginBottom: rvs(8),
   },
   resendText: {
     color: MUTED_TEXT,
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: rvs(16),
   },
   resendLink: {
     color: BRAND_BLUE,
@@ -347,8 +369,8 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     backgroundColor: BRAND_BLUE,
-    height: 48,
-    borderRadius: 100,
+    minHeight: rvs(48),
+    borderRadius: rs(100),
     alignItems: "center",
     justifyContent: "center",
   },
@@ -357,7 +379,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: rms(14),
     fontWeight: "600",
   },
   nextButtonTextDisabled: {

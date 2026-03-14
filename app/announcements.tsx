@@ -2,7 +2,6 @@ import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +13,8 @@ import axios from "axios";
 import { BASE_URL } from "./config";
 import useBuildingStore from "./store/buildingStore";
 import { getErrorMessage } from "./services/error";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 type UpdateKind = "Notice" | "Announcements" | "Events";
 type FeedFilter = "All" | UpdateKind;
@@ -259,26 +260,22 @@ const styles = StyleSheet.create({
   },
   headerCard: {
     backgroundColor: "#FFF",
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(16),
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
   },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: rs(8) },
   backBtn: {
-    padding: 2,
+    padding: rs(2),
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: rms(18),
     fontWeight: "500",
     color: "#000",
   },

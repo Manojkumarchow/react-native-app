@@ -4,7 +4,6 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +15,8 @@ import axios from "axios";
 import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
 import { BASE_URL } from "./config";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 type FilterTab = "OPEN" | "IN_PROGRESS" | "RESOLVED";
@@ -282,11 +283,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FAFAFA" },
   headerCard: {
     backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(14),
     flexDirection: "row",
     alignItems: "center",
     shadowColor: "#000",
@@ -294,9 +295,9 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  backBtn: { marginRight: 8, padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: "500", color: "#000000" },
-  tabRow: { paddingTop: 14, paddingHorizontal: 16, gap: 10, paddingBottom: 12 },
+  backBtn: { marginRight: rs(8), padding: rs(4) },
+  headerTitle: { fontSize: rms(18), fontWeight: "500", color: "#000000" },
+  tabRow: { paddingTop: rvs(14), paddingHorizontal: rs(16), gap: rs(10), paddingBottom: rvs(12) },
   filterChip: {
     minWidth: 138,
     height: 44,

@@ -3,6 +3,8 @@ import { View, Text, StyleSheet } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import Svg, { Path } from "react-native-svg";
 import { Feather } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 const BRAND_BLUE = "#1c98ed";
 
@@ -22,7 +24,7 @@ export default function LoginSuccessScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <View style={styles.iconWrapper}>
           <View style={styles.shapeContainer}>
             <Svg
@@ -42,7 +44,7 @@ export default function LoginSuccessScreen() {
         <Text style={styles.subtitle}>
           You're all set. Redirecting you to your home.
         </Text>
-      </View>
+      </SafeAreaView>
     </>
   );
 }
@@ -53,14 +55,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: rs(24),
   },
   iconWrapper: {
-    marginBottom: 24,
+    marginBottom: rvs(24),
   },
   shapeContainer: {
-    width: 165,
-    height: 167,
+    width: rs(165),
+    height: rvs(167),
     alignItems: "center",
     justifyContent: "center",
   },
@@ -69,22 +71,22 @@ const styles = StyleSheet.create({
   },
   tickOverlay: {
     position: "absolute",
-    left: 42,
-    top: 43,
-    width: 82,
-    height: 82,
+    left: rs(42),
+    top: rvs(43),
+    width: rs(82),
+    height: rs(82),
     alignItems: "center",
     justifyContent: "center",
   },
   title: {
-    fontSize: 24,
+    fontSize: rms(24),
     fontWeight: "600",
     color: BRAND_BLUE,
-    marginBottom: 12,
+    marginBottom: rvs(12),
     textAlign: "center",
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: rms(16),
     color: "#9ca3af",
     textAlign: "center",
   },

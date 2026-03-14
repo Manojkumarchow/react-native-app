@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,8 +12,10 @@ import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
 import axios from "axios";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { BASE_URL } from "./config";
 import useBuildingStore from "./store/buildingStore";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 type MonthData = {
   key: string;
@@ -407,51 +408,51 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FAFAFA" },
   header: {
     backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(14),
     flexDirection: "row",
     alignItems: "center",
   },
-  backTap: { marginRight: 8, padding: 4 },
-  headerTitle: { color: "#1A1A1A", fontSize: 18, fontWeight: "500" },
-  content: { padding: 16, paddingBottom: 30, gap: 12 },
+  backTap: { marginRight: rs(8), padding: rs(4) },
+  headerTitle: { color: "#1A1A1A", fontSize: rms(18), fontWeight: "500" },
+  content: { padding: rs(16), paddingBottom: rvs(30), gap: rs(12) },
   titleRow: {
-    marginTop: 4,
+    marginTop: rvs(4),
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  collectionTitle: { color: "#000000", fontSize: 32, fontWeight: "500" },
+  collectionTitle: { color: "#000000", fontSize: rms(32), fontWeight: "500" },
   calendarBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: rs(6),
     borderColor: "#1C98ED",
     borderWidth: 1,
     backgroundColor: "#DEF4FF",
-    borderRadius: 8,
-    height: 28,
-    paddingHorizontal: 7,
+    borderRadius: rs(8),
+    minHeight: rvs(28),
+    paddingHorizontal: rs(7),
   },
-  calendarText: { color: "#334155", fontSize: 10 },
-  metricsGrid: { flexDirection: "row", gap: 8 },
+  calendarText: { color: "#334155", fontSize: rms(10) },
+  metricsGrid: { flexDirection: "row", gap: rs(8) },
   metricCard: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    borderRadius: rs(12),
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    minHeight: 80,
-    paddingHorizontal: 12,
+    minHeight: rvs(80),
+    paddingHorizontal: rs(12),
     justifyContent: "center",
   },
-  metricLabel: { color: "#64748B", fontSize: 14, marginBottom: 4 },
-  metricValue: { fontSize: 31, fontWeight: "500" },
+  metricLabel: { color: "#64748B", fontSize: rms(14), marginBottom: rvs(4) },
+  metricValue: { fontSize: rms(31), fontWeight: "500" },
   statusCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,

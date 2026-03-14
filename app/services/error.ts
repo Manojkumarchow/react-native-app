@@ -1,10 +1,15 @@
 import axios from "axios";
 
-export function getErrorMessage(error: unknown, fallback = "Something went wrong. Please try again."): string {
+export function getErrorMessage(
+  error: unknown,
+  fallback = "Something went wrong. Please try again.",
+): string {
   if (axios.isAxiosError(error)) {
     const responseMessage =
-      (error.response?.data as { message?: string; error?: string } | undefined)?.message ||
-      (error.response?.data as { message?: string; error?: string } | undefined)?.error;
+      (error.response?.data as { message?: string; error?: string } | undefined)
+        ?.message ||
+      (error.response?.data as { message?: string; error?: string } | undefined)
+        ?.error;
     if (responseMessage && typeof responseMessage === "string") {
       return responseMessage;
     }
@@ -19,4 +24,3 @@ export function getErrorMessage(error: unknown, fallback = "Something went wrong
 
   return fallback;
 }
-

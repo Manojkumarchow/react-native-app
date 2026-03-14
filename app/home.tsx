@@ -5,7 +5,6 @@ import {
   Linking,
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 import {
   Feather,
@@ -24,6 +24,7 @@ import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
 import { BASE_URL } from "./config";
 import { getErrorMessage } from "./services/error";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 const smartLocksBanner =
   "https://www.figma.com/api/mcp/asset/e1528a11-a6aa-4077-9988-03231743226e";
@@ -731,11 +732,11 @@ const styles = StyleSheet.create({
   tenantHeaderCard: {
     backgroundColor: "#FFFFFF",
     marginHorizontal: 0,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(12),
+    paddingBottom: rvs(16),
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -747,18 +748,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   tenantUserName: {
-    fontSize: 24,
+    fontSize: rms(24),
     color: "#475569",
     fontWeight: "700",
   },
   headerCard: {
     backgroundColor: "#FFFFFF",
     marginHorizontal: 0,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(8),
+    paddingBottom: rvs(16),
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -772,12 +773,12 @@ const styles = StyleSheet.create({
   userBlock: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: rs(12),
   },
   avatarWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: rs(40),
+    height: rs(40),
+    borderRadius: rs(20),
     backgroundColor: "#2799CE",
     alignItems: "center",
     justifyContent: "center",
@@ -789,63 +790,63 @@ const styles = StyleSheet.create({
   },
   avatarInitials: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: rms(14),
     fontWeight: "700",
   },
   greeting: {
-    fontSize: 12,
+    fontSize: rms(12),
     color: "#64748B",
     fontWeight: "500",
   },
   userName: {
-    fontSize: 18,
+    fontSize: rms(18),
     color: "#0F172A",
     fontWeight: "700",
   },
   headerIcons: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: rs(8),
   },
   iconBtn: {
-    padding: 4,
+    padding: rs(4),
   },
   notificationDot: {
     position: "absolute",
     right: 2,
     top: 4,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: rs(8),
+    height: rs(8),
+    borderRadius: rs(4),
     borderWidth: 2,
     borderColor: "#fff",
     backgroundColor: "#EF4444",
   },
   locationRow: {
-    marginTop: 8,
+    marginTop: rvs(8),
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: rs(6),
   },
   locationText: {
-    fontSize: 14,
+    fontSize: rms(14),
     color: "#64748B",
   },
   container: { flex: 1 },
   contentContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 110,
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(14),
+    paddingBottom: rvs(110),
   },
   tenantContentContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 120,
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(16),
+    paddingBottom: rvs(120),
   },
   tenantStatsRow: {
     flexDirection: "row",
-    gap: 12,
-    marginBottom: 18,
+    gap: rs(12),
+    marginBottom: rvs(18),
   },
   duesCard: {
     flex: 1,

@@ -16,6 +16,8 @@ import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import { Feather } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BASE_URL } from "./config";
 import useAuthStore from "./store/authStore";
@@ -24,6 +26,8 @@ import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
 import { requestNotificationPermission } from "./useNotificationPermission";
 import { getErrorMessage } from "./services/error";
+import { STORAGE_KEYS } from "@/constants/storage";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 const BRAND_BLUE = "#1c98ed";
 const CARD_BG = "#ffffff";
@@ -109,6 +113,11 @@ export default function LoginPinScreen() {
       if (response.status === 200) {
         const { jwtToken } = response.data;
         setAuth(jwtToken, resolvedPhone);
+        try {
+          await AsyncStorage.setItem(STORAGE_KEYS.LAST_LOGIN_PHONE, resolvedPhone);
+        } catch {
+          // Storage is optional for convenience; login should still succeed.
+        }
 
         const profileData = await getProfile(resolvedPhone);
         setProfile(profileData);
@@ -172,7 +181,7 @@ export default function LoginPinScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.bg}>
+        <SafeAreaView edges={["top"]} style={styles.bg}>
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={styles.flex}
@@ -278,7 +287,7 @@ export default function LoginPinScreen() {
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
-        </View>
+        </SafeAreaView>
       </TouchableWithoutFeedback>
     </>
   );
@@ -293,46 +302,46 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 22,
-    paddingBottom: 12,
+    paddingTop: rvs(22),
+    paddingBottom: rvs(12),
   },
   logo: {
-    width: 235,
-    height: 235,
+    width: rs(235),
+    height: rs(235),
   },
   card: {
-    marginTop: 4,
+    marginTop: rvs(4),
     backgroundColor: CARD_BG,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: 19,
-    paddingTop: 20,
-    paddingBottom: 88,
+    borderTopLeftRadius: rs(32),
+    borderTopRightRadius: rs(32),
+    paddingHorizontal: rs(19),
+    paddingTop: rvs(20),
+    paddingBottom: rvs(88),
   },
   segmentedControl: {
     flexDirection: "row",
     backgroundColor: SEGMENT_BG,
-    borderRadius: 9,
-    padding: 2,
-    marginBottom: 24,
-    height: 38,
+    borderRadius: rs(9),
+    padding: rs(2),
+    marginBottom: rvs(24),
+    height: rvs(38),
   },
   segment: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 7,
+    borderRadius: rs(7),
   },
   segmentActive: {
     backgroundColor: "#fff",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowRadius: rs(8),
     elevation: 4,
   },
   segmentText: {
-    fontSize: 13,
+    fontSize: rms(13),
     color: DISABLED_TEXT,
     fontWeight: "400",
   },
@@ -341,33 +350,33 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: rms(20),
     fontWeight: "500",
     color: MUTED_TEXT,
-    marginBottom: 24,
+    marginBottom: rvs(24),
   },
   errorTitle: {
-    fontSize: 20,
+    fontSize: rms(20),
     fontWeight: "500",
     color: MUTED_TEXT,
-    marginBottom: 24,
+    marginBottom: rvs(24),
   },
   errorHighlight: {
     color: ERROR_BORDER,
   },
   pinRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: rs(12),
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: rvs(24),
   },
   pinBox: {
-    width: 52,
-    height: 44,
+    width: rs(52),
+    height: rvs(44),
     borderWidth: 1.5,
     borderColor: BORDER_COLOR,
-    borderRadius: 8,
-    fontSize: 18,
+    borderRadius: rs(8),
+    fontSize: rms(18),
     fontWeight: "500",
     color: "#000",
     textAlign: "center",
@@ -376,22 +385,22 @@ const styles = StyleSheet.create({
     borderColor: ERROR_BORDER,
   },
   eyeButton: {
-    padding: 10,
+    padding: rs(10),
   },
   nextButton: {
     backgroundColor: BRAND_BLUE,
-    height: 48,
-    borderRadius: 100,
+    minHeight: rvs(48),
+    borderRadius: rs(100),
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: rvs(16),
   },
   nextButtonDisabled: {
     backgroundColor: DISABLED_BG,
   },
   nextButtonText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: rms(14),
     fontWeight: "600",
   },
   nextButtonTextDisabled: {
@@ -401,7 +410,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   forgotText: {
-    fontSize: 12,
+    fontSize: rms(12),
     color: MUTED_TEXT,
   },
   forgotLinkText: {

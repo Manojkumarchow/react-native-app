@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from "react";
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { createBooking, getOptionById, getServiceByKey, type ServiceKey } from "./data/homeServicesData";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 const DATE_CHOICES = [
   { key: "today", label: "Today", day: "10", month: "Apr", full: "Sunday, March 15, 2026" },
@@ -147,17 +149,17 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FAFAFA" },
   headerCard: {
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(12),
+    paddingBottom: rvs(14),
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
   },
-  headerRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  iconBtn: { padding: 2 },
-  headerTitle: { fontSize: 18, fontWeight: "500", color: "#000" },
-  content: { padding: 16, gap: 16, paddingBottom: 30 },
-  sectionTitle: { fontSize: 14, fontWeight: "500", color: "#0F172A" },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: rs(8) },
+  iconBtn: { padding: rs(2) },
+  headerTitle: { fontSize: rms(18), fontWeight: "500", color: "#000" },
+  content: { padding: rs(16), gap: rs(16), paddingBottom: rvs(30) },
+  sectionTitle: { fontSize: rms(14), fontWeight: "500", color: "#0F172A" },
   dateRow: { gap: 10, paddingBottom: 2 },
   dateChip: {
     width: 84,

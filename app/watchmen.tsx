@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  SafeAreaView,
   Linking,
   ScrollView,
   Modal,
@@ -19,6 +18,8 @@ import Toast from "react-native-toast-message";
 import useBuildingStore from "./store/buildingStore";
 import useProfileStore from "./store/profileStore";
 import { BASE_URL } from "./config";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 export default function WatchmenScreen() {
   const router = useRouter();
@@ -215,19 +216,19 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#1C98ED" },
 
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 16,
+    paddingHorizontal: rs(20),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(16),
     flexDirection: "row",
     alignItems: "center",
-    height: 90,
+    minHeight: rvs(90),
   },
 
   headerTitle: {
-    fontSize: 20,
+    fontSize: rms(20),
     fontWeight: "700",
     color: "#fff",
-    marginLeft: 12,
+    marginLeft: rs(12),
   },
 
   headerIcons: {
@@ -238,8 +239,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: rs(30),
+    borderTopRightRadius: rs(30),
   },
 
   adBanner: {

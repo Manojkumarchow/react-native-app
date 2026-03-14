@@ -6,7 +6,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -19,10 +18,12 @@ import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { router } from "expo-router";
 import Toast from "react-native-toast-message";
+import { SafeAreaView } from "react-native-safe-area-context";
 import useBuildingStore from "./store/buildingStore";
 import useProfileStore from "./store/profileStore";
 import { BASE_URL } from "./config";
 import { getErrorMessage } from "./services/error";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 type BackendNoticeType = "ALERT" | "INFO" | "HIGH" | "MEDIUM" | "LOW" | "EVENT";
 type NoticeCategory = "NOTICE" | "ANNOUNCEMENT" | "EVENT";
@@ -498,30 +499,30 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#FAFAFA" },
   headerCard: {
     backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(14),
     shadowColor: "#000000",
     shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowRadius: rs(4),
     shadowOffset: { width: 0, height: 1 },
     elevation: 1,
   },
-  headerTop: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  iconTap: { marginRight: 8, paddingVertical: 6, paddingRight: 6 },
-  headerTitle: { color: "#000000", fontSize: 18, fontWeight: "500" },
+  headerTop: { flexDirection: "row", alignItems: "center", marginBottom: rvs(12) },
+  iconTap: { marginRight: rs(8), paddingVertical: rvs(6), paddingRight: rs(6) },
+  headerTitle: { color: "#000000", fontSize: rms(18), fontWeight: "500" },
   rootTabWrap: {
     backgroundColor: "#F1F5F9",
-    borderRadius: 24,
-    padding: 4,
+    borderRadius: rs(24),
+    padding: rs(4),
     flexDirection: "row",
   },
   rootTab: {
     flex: 1,
-    minHeight: 36,
-    borderRadius: 16,
+    minHeight: rvs(36),
+    borderRadius: rs(16),
     alignItems: "center",
     justifyContent: "center",
   },
@@ -529,13 +530,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     shadowColor: "#000000",
     shadowOpacity: 0.08,
-    shadowRadius: 3,
+    shadowRadius: rs(3),
     shadowOffset: { width: 0, height: 1 },
     elevation: 1,
   },
-  rootTabText: { color: "#64748B", fontSize: 14, fontWeight: "500" },
+  rootTabText: { color: "#64748B", fontSize: rms(14), fontWeight: "500" },
   rootTabTextActive: { color: "#2899CF" },
-  content: { flex: 1, paddingHorizontal: 16, paddingTop: 16, minHeight: 0 },
+  content: { flex: 1, paddingHorizontal: rs(16), paddingTop: rvs(16), minHeight: 0 },
   historyFilterRowWrap: { flexShrink: 0 },
   historyListWrap: { flex: 1, minHeight: 0 },
   newTabContent: { paddingBottom: 30 },

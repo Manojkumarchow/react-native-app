@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Image,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +15,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
 import useProfileStore from "./store/profileStore";
 import { getErrorMessage } from "./services/error";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 type BackendNotification = {
   id: number;
@@ -208,19 +209,19 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#FAFAFA" },
   headerCard: {
     backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(14),
   },
   headerRow: { flexDirection: "row", alignItems: "center" },
-  backBtn: { marginRight: 8, padding: 4 },
-  headerTitle: { color: "#000000", fontSize: 18, fontWeight: "500" },
-  content: { paddingTop: 14, paddingHorizontal: 12, paddingBottom: 28 },
-  filterRow: { gap: 10, paddingHorizontal: 4, paddingBottom: 12 },
+  backBtn: { marginRight: rs(8), padding: rs(4) },
+  headerTitle: { color: "#000000", fontSize: rms(18), fontWeight: "500" },
+  content: { paddingTop: rvs(14), paddingHorizontal: rs(12), paddingBottom: rvs(28) },
+  filterRow: { gap: rs(10), paddingHorizontal: rs(4), paddingBottom: rvs(12) },
   filterChip: {
     borderWidth: 1,
     borderColor: "#1C98ED",

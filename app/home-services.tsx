@@ -1,10 +1,12 @@
 import React from "react";
-import { Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { getServiceByKey, serviceCatalog, type ServiceKey } from "./data/homeServicesData";
 import axios from "axios";
 import { BASE_URL } from "./config";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 export default function HomeServicesScreen() {
   const router = useRouter();
@@ -102,18 +104,18 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FAFAFA" },
   headerCard: {
     backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(12),
+    paddingBottom: rvs(14),
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
   },
-  headerRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  iconBtn: { padding: 2 },
-  headerTitle: { fontSize: 18, fontWeight: "500", color: "#000000" },
-  subtitle: { marginTop: 10, fontSize: 14, color: "#777777", fontWeight: "500" },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: rs(8) },
+  iconBtn: { padding: rs(2) },
+  headerTitle: { fontSize: rms(18), fontWeight: "500", color: "#000000" },
+  subtitle: { marginTop: rvs(10), fontSize: rms(14), color: "#777777", fontWeight: "500" },
   content: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 36, gap: 16 },
   tabRow: { gap: 8, paddingBottom: 4 },
   tabChip: {

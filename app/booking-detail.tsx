@@ -1,8 +1,10 @@
 import React, { useMemo } from "react";
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { getBookings } from "./data/homeServicesData";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 export default function BookingDetailScreen() {
   const router = useRouter();
@@ -118,15 +120,15 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FAFAFA" },
   headerCard: {
     backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(12),
+    paddingBottom: rvs(14),
   },
-  headerRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  iconBtn: { padding: 2 },
-  headerTitle: { fontSize: 18, fontWeight: "500", color: "#000" },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: rs(8) },
+  iconBtn: { padding: rs(2) },
+  headerTitle: { fontSize: rms(18), fontWeight: "500", color: "#000" },
   spacer: { flex: 1 },
   statusPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
   completedPill: { backgroundColor: "rgba(5,150,105,0.1)" },

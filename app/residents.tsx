@@ -9,13 +9,14 @@ import {
   TextInput,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
 } from "react-native";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, Stack } from "expo-router";
 import axios from "axios";
 import { BASE_URL } from "./config";
 import useBuildingStore from "./store/buildingStore";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 type Resident = {
   id: string;
   name: string;
@@ -178,46 +179,46 @@ const styles = StyleSheet.create({
   },
   headerCard: {
     backgroundColor: "#fff",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 14,
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
+    paddingHorizontal: rs(14),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(14),
     shadowColor: "#000",
     shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowRadius: rs(2),
     elevation: 1,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: rvs(12),
   },
   backBtn: {
-    width: 28,
-    height: 28,
+    width: rs(28),
+    height: rs(28),
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
     flex: 1,
-    marginLeft: 4,
-    fontSize: 30,
+    marginLeft: rs(4),
+    fontSize: rms(30),
     color: "#000",
     fontWeight: "500",
   },
   addButton: {
     backgroundColor: "#1C98ED",
-    borderRadius: 100,
-    height: 28,
-    paddingHorizontal: 16,
+    borderRadius: rs(100),
+    minHeight: rvs(28),
+    paddingHorizontal: rs(16),
     alignItems: "center",
     justifyContent: "center",
   },
   addButtonText: {
     color: "#FAFAFA",
-    fontSize: 14,
+    fontSize: rms(14),
     fontWeight: "500",
   },
   tabWrap: {

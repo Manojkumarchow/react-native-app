@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from "react";
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { getBookings, raiseIssue } from "./data/homeServicesData";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 export default function BookingReportProblemScreen() {
   const router = useRouter();
@@ -94,15 +96,15 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FAFAFA" },
   headerCard: {
     backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(12),
+    paddingBottom: rvs(14),
   },
-  headerRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  iconBtn: { padding: 2 },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: "500", color: "#000" },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: rs(8) },
+  iconBtn: { padding: rs(2) },
+  headerTitle: { flex: 1, fontSize: rms(18), fontWeight: "500", color: "#000" },
   statusPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
   completedPill: { backgroundColor: "rgba(5,150,105,0.1)" },
   statusText: { fontSize: 14, fontWeight: "500" },

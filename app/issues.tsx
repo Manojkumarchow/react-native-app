@@ -4,7 +4,6 @@ import {
   Alert,
   Image,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import axios from "axios";
@@ -19,6 +19,7 @@ import { BASE_URL } from "./config";
 import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
 import { getErrorMessage } from "./services/error";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 type TopTab = "NEW" | "MY_ISSUES";
 type IssueStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
@@ -342,19 +343,19 @@ export default function IssuesScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FAFAFA" },
-  headerCard: { backgroundColor: "#FFF", borderBottomLeftRadius: 24, borderBottomRightRadius: 24, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 14, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
-  headerRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
-  iconBtn: { padding: 2 },
-  headerTitle: { fontSize: 18, color: "#000", fontWeight: "500" },
-  topTabWrap: { backgroundColor: "#F1F5F9", borderRadius: 24, padding: 4, flexDirection: "row" },
-  topTab: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 16, paddingVertical: 10 },
-  topTabActive: { backgroundColor: "#FFF", shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
-  topTabText: { fontSize: 14, fontWeight: "500", color: "#64748B" },
+  headerCard: { backgroundColor: "#FFF", borderBottomLeftRadius: rs(24), borderBottomRightRadius: rs(24), paddingHorizontal: rs(16), paddingTop: rvs(10), paddingBottom: rvs(14), shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: rs(2), elevation: 1 },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: rs(8), marginBottom: rvs(12) },
+  iconBtn: { padding: rs(2) },
+  headerTitle: { fontSize: rms(18), color: "#000", fontWeight: "500" },
+  topTabWrap: { backgroundColor: "#F1F5F9", borderRadius: rs(24), padding: rs(4), flexDirection: "row" },
+  topTab: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: rs(16), paddingVertical: rvs(10) },
+  topTabActive: { backgroundColor: "#FFF", shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: rs(2), elevation: 1 },
+  topTabText: { fontSize: rms(14), fontWeight: "500", color: "#64748B" },
   topTabTextActive: { color: "#2899CF" },
   scroll: { flex: 1 },
-  newContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 120 },
-  fieldLabel: { fontSize: 14, color: "#0F172A", fontWeight: "500", marginBottom: 8 },
-  input: { height: 42, borderRadius: 12, backgroundColor: "#FFF", paddingHorizontal: 12, fontSize: 16, color: "#0F172A" },
+  newContent: { paddingHorizontal: rs(16), paddingTop: rvs(20), paddingBottom: rvs(120) },
+  fieldLabel: { fontSize: rms(14), color: "#0F172A", fontWeight: "500", marginBottom: rvs(8) },
+  input: { minHeight: rvs(42), borderRadius: rs(12), backgroundColor: "#FFF", paddingHorizontal: rs(12), fontSize: rms(16), color: "#0F172A" },
   textArea: { minHeight: 180, borderRadius: 12, borderWidth: 1, borderColor: "#E2E8F0", backgroundColor: "#FFF", paddingHorizontal: 14, paddingVertical: 14, fontSize: 16, color: "#0F172A" },
   attachBox: { borderWidth: 1, borderStyle: "dashed", borderColor: "#A1A1AA", borderRadius: 4, minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: 14 },
   attachText: { fontSize: 12, color: "#A1A1AA" },

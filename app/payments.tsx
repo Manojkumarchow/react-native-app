@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   View,
   Text,
@@ -12,6 +11,7 @@ import {
   Linking,
 } from "react-native";
 import { Stack, router } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import axios from "axios";
 import Toast from "react-native-toast-message";
@@ -19,6 +19,7 @@ import useBuildingStore from "./store/buildingStore";
 import useProfileStore from "./store/profileStore";
 import { BASE_URL } from "./config";
 import { getErrorMessage } from "./services/error";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 type AdminTopTab = "PERSONAL" | "APARTMENT";
 type TenantTopTab = "RENT" | "MAINTENANCE";
@@ -650,31 +651,31 @@ const styles = StyleSheet.create({
   },
   headerCard: {
     backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
+    borderBottomLeftRadius: rs(8),
+    borderBottomRightRadius: rs(8),
     borderBottomColor: "#F1F5F9",
     borderBottomWidth: 1,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 14,
+    paddingHorizontal: rs(20),
+    paddingTop: rvs(8),
+    paddingBottom: rvs(14),
   },
-  headerRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  backTap: { marginRight: 8, padding: 4 },
+  headerRow: { flexDirection: "row", alignItems: "center", marginBottom: rvs(12) },
+  backTap: { marginRight: rs(8), padding: rs(4) },
   headerTitle: {
     color: "#1A1A1A",
-    fontSize: 18,
+    fontSize: rms(18),
     fontWeight: "500",
   },
   tabsWrap: {
     backgroundColor: "#F1F5F9",
-    borderRadius: 24,
-    padding: 4,
+    borderRadius: rs(24),
+    padding: rs(4),
     flexDirection: "row",
   },
   topTab: {
     flex: 1,
-    minHeight: 36,
-    borderRadius: 16,
+    minHeight: rvs(36),
+    borderRadius: rs(16),
     alignItems: "center",
     justifyContent: "center",
   },
@@ -682,26 +683,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     shadowColor: "#000000",
     shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowRadius: rs(2),
     elevation: 1,
   },
   topTabText: {
     color: "#64748B",
-    fontSize: 14,
+    fontSize: rms(14),
     fontWeight: "500",
   },
   topTabTextActive: { color: "#2899CF" },
   scroll: { flex: 1 },
-  content: { padding: 20, paddingBottom: 28, gap: 20 },
+  content: { padding: rs(20), paddingBottom: rvs(28), gap: rs(20) },
   heroCard: {
     backgroundColor: PRIMARY,
-    borderRadius: 20,
-    paddingHorizontal: 24,
-    paddingTop: 23,
-    paddingBottom: 24,
+    borderRadius: rs(20),
+    paddingHorizontal: rs(24),
+    paddingTop: rvs(23),
+    paddingBottom: rvs(24),
     shadowColor: "#2899CF",
     shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowRadius: rs(8),
     elevation: 3,
   },
   heroCardTall: { minHeight: 260 },

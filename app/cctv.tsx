@@ -1,7 +1,9 @@
 import React from "react";
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 export default function CctvScreen() {
   const router = useRouter();
@@ -36,13 +38,13 @@ const styles = StyleSheet.create({
   },
   headerCard: {
     backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
     borderBottomColor: "#F1F5F9",
     borderBottomWidth: 1,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(14),
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -53,12 +55,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   backTap: {
-    marginRight: 8,
-    padding: 4,
+    marginRight: rs(8),
+    padding: rs(4),
   },
   headerTitle: {
     color: "#000000",
-    fontSize: 18,
+    fontSize: rms(18),
     fontWeight: "500",
   },
   content: {

@@ -4,7 +4,6 @@ import {
   Easing,
   Image,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
@@ -12,12 +11,11 @@ import {
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { STORAGE_KEYS } from "@/constants/storage";
+import { rms, rs, rvs } from "@/constants/responsive";
 
-const splashLogo =
-  "https://www.figma.com/api/mcp/asset/b1c344f9-7baa-4100-886d-8b319b590a1c";
-
-const KEY_ONBOARDING_COMPLETE = "app.onboardingComplete";
-const KEY_SELECTED_ROLE = "app.selectedRole";
+const splashLogo = require("../assets/images/splash-logo.png");
 
 const onboardingSlides = [
   {
@@ -68,7 +66,7 @@ export default function SplashScreen() {
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
     pulse.start();
     return () => pulse.stop();
@@ -82,7 +80,7 @@ export default function SplashScreen() {
       let onboardingDone = false;
       try {
         onboardingDone =
-          (await AsyncStorage.getItem(KEY_ONBOARDING_COMPLETE)) === "true";
+          (await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETE)) === "true";
       } catch {
         onboardingDone = false;
       }
@@ -104,7 +102,7 @@ export default function SplashScreen() {
               useNativeDriver: true,
             }),
           ]).start();
-        }, 850)
+        }, 850),
       );
 
       timers.push(
@@ -115,7 +113,7 @@ export default function SplashScreen() {
             return;
           }
           setStage("ONBOARDING");
-        }, 2450)
+        }, 2450),
       );
     };
 
@@ -141,8 +139,8 @@ export default function SplashScreen() {
   const continueWithRole = async () => {
     if (!selectedRole) return;
     try {
-      await AsyncStorage.setItem(KEY_SELECTED_ROLE, selectedRole);
-      await AsyncStorage.setItem(KEY_ONBOARDING_COMPLETE, "true");
+      await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_ROLE, selectedRole);
+      await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETE, "true");
     } catch {
       // Allow onboarding to continue even if storage is unavailable.
     }
@@ -152,7 +150,9 @@ export default function SplashScreen() {
   if (stage === "BOOT") {
     return (
       <SafeAreaView style={styles.bootRoot}>
-        <Animated.View style={[styles.bootDot, { transform: [{ scale: dotScale }] }]} />
+        <Animated.View
+          style={[styles.bootDot, { transform: [{ scale: dotScale }] }]}
+        />
       </SafeAreaView>
     );
   }
@@ -166,8 +166,7 @@ export default function SplashScreen() {
             { opacity: logoOpacity, transform: [{ scale: logoScale }] },
           ]}
         >
-          <Image source={{ uri: splashLogo }} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.tagline}>YOUR APARTMENT , ORGANIZED</Text>
+          <Image source={splashLogo} style={styles.logo} resizeMode="contain" />
         </Animated.View>
       </SafeAreaView>
     );
@@ -177,14 +176,21 @@ export default function SplashScreen() {
     return (
       <SafeAreaView style={styles.onboardRoot}>
         <View style={styles.onboardImageWrap}>
-          <Image source={activeSlide.image} style={styles.onboardImage} resizeMode="contain" />
+          <Image
+            source={activeSlide.image}
+            style={styles.onboardImage}
+            resizeMode="contain"
+          />
         </View>
 
         <View style={styles.indicatorRow}>
           {onboardingSlides.map((_, idx) => (
             <View
               key={idx}
-              style={[styles.indicatorDot, idx === slideIndex && styles.indicatorDotActive]}
+              style={[
+                styles.indicatorDot,
+                idx === slideIndex && styles.indicatorDotActive,
+              ]}
             />
           ))}
         </View>
@@ -235,7 +241,10 @@ export default function SplashScreen() {
       </View>
 
       <Pressable
-        style={[styles.continueBtn, !selectedRole && styles.continueBtnDisabled]}
+        style={[
+          styles.continueBtn,
+          !selectedRole && styles.continueBtnDisabled,
+        ]}
         onPress={continueWithRole}
         disabled={!selectedRole}
       >
@@ -259,7 +268,10 @@ function RoleCard({
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.roleCard, selected ? styles.roleCardActive : styles.roleCardInactive]}
+      style={[
+        styles.roleCard,
+        selected ? styles.roleCardActive : styles.roleCardInactive,
+      ]}
     >
       <MaterialCommunityIcons
         name={selected ? "radiobox-marked" : "radiobox-blank"}
@@ -267,7 +279,11 @@ function RoleCard({
         color={selected ? "#1C98ED" : "#71717A"}
       />
       <View style={styles.roleTextBlock}>
-        <Text style={[styles.roleCardTitle, selected && styles.roleCardTitleActive]}>{title}</Text>
+        <Text
+          style={[styles.roleCardTitle, selected && styles.roleCardTitleActive]}
+        >
+          {title}
+        </Text>
         <Text style={styles.roleCardSubTitle}>{subtitle}</Text>
       </View>
     </Pressable>
@@ -282,9 +298,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   bootDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: rs(20),
+    height: rs(20),
+    borderRadius: rs(10),
     backgroundColor: "#1C98ED",
   },
   brandRoot: {
@@ -297,67 +313,67 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    paddingHorizontal: 28,
+    paddingHorizontal: rs(28),
   },
   logo: {
     width: "76%",
-    maxWidth: 320,
+    maxWidth: rs(320),
     aspectRatio: 1,
   },
   tagline: {
-    marginTop: 10,
+    marginTop: rvs(10),
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: rms(12),
     letterSpacing: 0.2,
     fontWeight: "500",
   },
   onboardRoot: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 24,
-    paddingTop: 44,
-    paddingBottom: 36,
+    paddingHorizontal: rs(24),
+    paddingTop: rvs(44),
+    paddingBottom: rvs(36),
   },
   onboardImageWrap: {
     alignItems: "center",
     justifyContent: "center",
-    height: 330,
+    height: rvs(330),
   },
   onboardImage: {
     width: "100%",
-    maxWidth: 360,
-    height: 300,
+    maxWidth: rs(360),
+    height: rvs(300),
   },
   indicatorRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    marginTop: 12,
+    gap: rs(8),
+    marginTop: rvs(12),
   },
   indicatorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: rs(12),
+    height: rs(12),
+    borderRadius: rs(6),
     backgroundColor: "#E4E4E7",
   },
   indicatorDotActive: {
-    width: 30,
+    width: rs(30),
     backgroundColor: "#1C98ED",
   },
   onboardTitle: {
-    marginTop: 18,
+    marginTop: rvs(18),
     textAlign: "center",
     color: "#181818",
-    fontSize: 20,
+    fontSize: rms(20),
     fontWeight: "700",
   },
   onboardDescription: {
-    marginTop: 12,
+    marginTop: rvs(12),
     textAlign: "center",
     color: "#181818",
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: rms(16),
+    lineHeight: rvs(24),
   },
   actionRow: {
     marginTop: "auto",

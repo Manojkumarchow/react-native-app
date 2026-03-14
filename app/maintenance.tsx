@@ -9,15 +9,16 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
 } from "react-native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 import { BASE_URL } from "./config";
 import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
 import { getErrorMessage } from "./services/error";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 type Step = 1 | 2 | 3 | 4;
 type WaterMode = "FIXED" | "MASTER" | "INDIVIDUAL" | "MIXED";
@@ -890,24 +891,24 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FAFAFA" },
   headerCard: {
     backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(12),
+    paddingBottom: rvs(14),
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
   },
-  headerRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  headerTitle: { fontSize: 18, fontWeight: "500", color: "#000000" },
-  stepText: { marginTop: 12, color: "#777", fontSize: 12 },
-  progressRow: { marginTop: 12, flexDirection: "row", gap: 5 },
-  progressBar: { flex: 1, height: 6, borderRadius: 8 },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: rs(8) },
+  headerTitle: { fontSize: rms(18), fontWeight: "500", color: "#000000" },
+  stepText: { marginTop: rvs(12), color: "#777", fontSize: rms(12) },
+  progressRow: { marginTop: rvs(12), flexDirection: "row", gap: rs(5) },
+  progressBar: { flex: 1, height: rvs(6), borderRadius: rs(8) },
   progressBarActive: { backgroundColor: "#1C98ED" },
   progressBarMuted: { backgroundColor: "#F4F4F5" },
-  container: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 120, gap: 16 },
+  container: { paddingHorizontal: rs(16), paddingTop: rvs(16), paddingBottom: rvs(120), gap: rs(16) },
   noteCard: {
     flexDirection: "row",
     gap: 12,

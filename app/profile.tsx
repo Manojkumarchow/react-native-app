@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {
   Alert,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,10 +9,14 @@ import {
 } from "react-native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import useProfileStore from "./store/profileStore";
 import useAuthStore from "./store/authStore";
 import useBuildingStore from "./store/buildingStore";
 import CustomAlert from "./components/CustomAlert";
+import { STORAGE_KEYS } from "@/constants/storage";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 type ProfileAction = {
   key: string;
@@ -34,7 +37,7 @@ export default function ProfileScreen() {
   const profile = useProfileStore();
   const building = useBuildingStore();
   const resetProfile = useProfileStore((s) => s.setProfile);
-  const resetAuth = useAuthStore((s) => s.reset);
+  const resetAuth = useAuthStore((s) => s.resetAuth);
   const resetBuilding = useBuildingStore((s) => s.resetBuilding);
 
   const [showAlert, setShowAlert] = useState(false);
@@ -126,7 +129,7 @@ export default function ProfileScreen() {
     },
   ];
 
-  const doLogout = () => {
+  const doLogout = async () => {
     resetProfile({
       userId: null,
       name: null,
@@ -143,6 +146,11 @@ export default function ProfileScreen() {
     });
     resetAuth();
     resetBuilding();
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.LAST_LOGIN_PHONE);
+    } catch {
+      // continue logout flow even if local storage cleanup fails
+    }
     setShowAlert(false);
     router.replace("/login");
   };
@@ -238,13 +246,13 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FAFAFA" },
   headerCard: {
     backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
     borderBottomColor: "#F1F5F9",
     borderBottomWidth: 1,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(14),
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -254,13 +262,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  backTap: {
-    marginRight: 8,
-    padding: 4,
-  },
+  backTap: { marginRight: rs(8), padding: rs(4) },
   headerTitle: {
     color: "#000000",
-    fontSize: 18,
+    fontSize: rms(18),
     fontWeight: "500",
   },
   content: {

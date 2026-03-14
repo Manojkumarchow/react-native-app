@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import {
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 type Role = "owner" | "tenant" | "admin";
 
@@ -118,29 +119,25 @@ const styles = StyleSheet.create({
   },
   headerCard: {
     backgroundColor: "#fff",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    minHeight: 98,
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
+    minHeight: rvs(98),
     justifyContent: "center",
-    paddingHorizontal: 14,
+    paddingHorizontal: rs(14),
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
   },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: rs(8) },
   backBtn: {
-    width: 28,
-    height: 28,
+    width: rs(28),
+    height: rs(28),
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 30,
+    fontSize: rms(30),
     color: "#000",
     fontWeight: "500",
   },

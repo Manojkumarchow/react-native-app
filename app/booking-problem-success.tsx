@@ -1,7 +1,9 @@
 import React from "react";
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 export default function BookingProblemSuccessScreen() {
   const router = useRouter();
@@ -35,21 +37,21 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FAFAFA" },
   centerWrap: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: rs(24),
     alignItems: "center",
     justifyContent: "center",
   },
   iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: rs(72),
+    height: rs(72),
+    borderRadius: rs(36),
     backgroundColor: "#DCFCE7",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: rvs(16),
   },
-  title: { fontSize: 24, fontWeight: "600", color: "#1A1A1A", marginBottom: 10 },
-  subtitle: { fontSize: 12, color: "#6B7280", lineHeight: 18, textAlign: "center" },
+  title: { fontSize: rms(24), fontWeight: "600", color: "#1A1A1A", marginBottom: rvs(10) },
+  subtitle: { fontSize: rms(12), color: "#6B7280", lineHeight: rvs(18), textAlign: "center" },
   primaryBtn: {
     marginTop: 24,
     width: "100%",

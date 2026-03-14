@@ -15,6 +15,8 @@ import {
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import Toast from "react-native-toast-message";
 import { updatePin } from "./services/profile.service";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 const BRAND_BLUE = "#1c98ed";
 const CARD_BG = "#ffffff";
@@ -115,7 +117,7 @@ export default function ResetPinScreen() {
     <>
       <Stack.Screen options={{ headerShown: false, title: "Reset PIN" }} />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.bg}>
+        <SafeAreaView edges={["top"]} style={styles.bg}>
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={styles.flex}
@@ -218,7 +220,7 @@ export default function ResetPinScreen() {
             </View>
           </KeyboardAvoidingView>
           <Toast />
-        </View>
+        </SafeAreaView>
       </TouchableWithoutFeedback>
     </>
   );
@@ -233,21 +235,21 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 22,
-    paddingBottom: 12,
+    paddingTop: rvs(22),
+    paddingBottom: rvs(12),
   },
   logo: {
-    width: 235,
-    height: 235,
+    width: rs(235),
+    height: rs(235),
   },
   card: {
-    marginTop: 4,
+    marginTop: rvs(4),
     backgroundColor: CARD_BG,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: 19,
-    paddingTop: 20,
-    paddingBottom: 88,
+    borderTopLeftRadius: rs(32),
+    borderTopRightRadius: rs(32),
+    paddingHorizontal: rs(19),
+    paddingTop: rvs(20),
+    paddingBottom: rvs(88),
   },
   segmentedControl: {
     flexDirection: "row",

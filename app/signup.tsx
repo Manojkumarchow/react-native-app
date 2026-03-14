@@ -39,10 +39,14 @@ export default function SignupScreen() {
   }>();
 
   const [fullName, setFullName] = useState(prefillName ?? "");
+  const fullNameRef = useRef(prefillName ?? "");
   const [phone, setPhone] = useState(prefillPhone ?? "");
 
   useEffect(() => {
-    if (prefillName) setFullName(prefillName);
+    if (prefillName) {
+      setFullName(prefillName);
+      fullNameRef.current = prefillName;
+    }
     if (prefillPhone) setPhone(prefillPhone);
   }, [prefillName, prefillPhone]);
   const [password, setPassword] = useState("");
@@ -136,9 +140,10 @@ export default function SignupScreen() {
   const handleSignup = async () => {
     if (loading) return;
     setError("");
+    const resolvedFullName = (fullNameRef.current || fullName).trim();
 
     if (
-      !fullName ||
+      !resolvedFullName ||
       !phone ||
       !password ||
       !selectedBuilding ||
@@ -164,7 +169,7 @@ export default function SignupScreen() {
         params: {
           phone,
           otp: otpRes.otp,
-          name: fullName,
+          name: resolvedFullName,
           password,
           role,
           buildingId: String(selectedBuilding.buildingId),
@@ -177,6 +182,11 @@ export default function SignupScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFullNameChange = (text: string) => {
+    fullNameRef.current = text;
+    setFullName(text);
   };
 
   return (
@@ -232,8 +242,13 @@ export default function SignupScreen() {
                       placeholder="Full Name"
                       placeholderTextColor="#5A6C8A"
                       value={fullName}
-                      onChangeText={setFullName}
+                      onChangeText={handleFullNameChange}
+                      onEndEditing={({ nativeEvent }) =>
+                        handleFullNameChange(nativeEvent.text ?? "")
+                      }
                       onFocus={scrollToFocusedInput}
+                      autoCapitalize="words"
+                      autoCorrect={false}
                     />
                   )}
 

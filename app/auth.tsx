@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,13 +7,15 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
+  ScrollView,
   Image,
-  ActivityIndicator,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import Toast from "react-native-toast-message";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
+import { STORAGE_KEYS } from "@/constants/storage";
 
 const BRAND_BLUE = "#1c98ed";
 const CARD_BG = "#ffffff";
@@ -25,16 +27,31 @@ const LABEL_BG = "#e4f8ff";
 
 export default function AuthScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"LOGIN" | "SIGNUP">("SIGNUP");
+  const [activeTab, setActiveTab] = useState<"LOGIN" | "SIGNUP">("LOGIN");
 
   // Signup fields
   const [fullName, setFullName] = useState("");
+  const fullNameRef = useRef("");
   const [phone, setPhone] = useState("");
 
   // Login fields (phone only - PIN on next screen)
   const [loginPhone, setLoginPhone] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const hydrateLastPhone = async () => {
+      try {
+        const savedPhone = await AsyncStorage.getItem(STORAGE_KEYS.LAST_LOGIN_PHONE);
+        if (savedPhone && /^\d{10}$/.test(savedPhone)) {
+          setLoginPhone(savedPhone);
+          setActiveTab("LOGIN");
+        }
+      } catch {
+        // non-blocking hydration
+      }
+    };
+    hydrateLastPhone();
+  }, []);
 
   const handleLoginNext = () => {
     setError("");
@@ -54,7 +71,14 @@ export default function AuthScreen() {
 
   const handleSignupNext = () => {
     setError("");
-    if (!fullName.trim() || !phone.trim()) {
+    const resolvedFullName = (fullNameRef.current || fullName).trim();
+    if (__DEV__) {
+      console.log("[auth] signup name check", {
+        stateName: fullName,
+        refName: fullNameRef.current,
+      });
+    }
+    if (!resolvedFullName || !phone.trim()) {
       setError("Full name and mobile number are required");
       return;
     }
@@ -63,22 +87,31 @@ export default function AuthScreen() {
       return;
     }
     router.push({
-      pathname: "/signup",
-      params: { prefillName: fullName.trim(), prefillPhone: phone.replace(/\D/g, "") },
+      pathname: "/otp",
+      params: { name: resolvedFullName, phone: phone.replace(/\D/g, "") },
     });
+  };
+
+  const handleFullNameChange = (text: string) => {
+    fullNameRef.current = text;
+    setFullName(text);
   };
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.bg}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
+      <SafeAreaView edges={["top"]} style={styles.bg}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.flex}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        >
+          <ScrollView
             style={styles.flex}
-            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            {/* Header: Logo only (text is in the image) */}
             <View style={styles.header}>
               <Image
                 source={require("./../assets/images/nestiti-logo.png")}
@@ -87,7 +120,6 @@ export default function AuthScreen() {
               />
             </View>
 
-            {/* White card just below logo with extra whitespace */}
             <View style={styles.card}>
               {/* Segmented Control */}
               <View style={styles.segmentedControl}>
@@ -121,22 +153,30 @@ export default function AuthScreen() {
 
               {activeTab === "SIGNUP" ? (
                 <>
-                  <Text style={styles.cardTitle}>Let's get your account setup!</Text>
+                  <Text style={styles.cardTitle}>Let&apos;s get your account setup!</Text>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.floatingLabel}>Full Name</Text>
+                    <Text style={styles.floatingLabel} pointerEvents="none">
+                      Full Name
+                    </Text>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, styles.fullNameInput]}
                       placeholder="Enter Full Name"
                       placeholderTextColor={PLACEHOLDER_COLOR}
                       value={fullName}
-                      onChangeText={setFullName}
+                      onChangeText={handleFullNameChange}
+                      onEndEditing={({ nativeEvent }) =>
+                        handleFullNameChange(nativeEvent.text ?? "")
+                      }
                       autoCapitalize="words"
+                      autoCorrect={false}
                     />
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.floatingLabel}>Mobile Number</Text>
+                    <Text style={styles.floatingLabel} pointerEvents="none">
+                      Mobile Number
+                    </Text>
                     <TextInput
                       style={styles.input}
                       placeholder="Enter Mobile Number"
@@ -147,7 +187,7 @@ export default function AuthScreen() {
                       onChangeText={(t) => setPhone(t.replace(/[^0-9]/g, ""))}
                     />
                     <Text style={styles.otpHint}>
-                      ( We'll send a one-time password to confirm your identity )
+                      ( We&apos;ll send a one-time password to confirm your identity )
                     </Text>
                   </View>
 
@@ -163,10 +203,12 @@ export default function AuthScreen() {
                 </>
               ) : (
                 <>
-                  <Text style={styles.cardTitle}>Let's get you logged in!</Text>
+                  <Text style={styles.cardTitle}>Let&apos;s get you logged in!</Text>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.floatingLabel}>Mobile Number</Text>
+                    <Text style={styles.floatingLabel} pointerEvents="none">
+                      Mobile Number
+                    </Text>
                     <TextInput
                       style={styles.input}
                       placeholder="Enter Mobile Number"
@@ -185,22 +227,17 @@ export default function AuthScreen() {
                   <TouchableOpacity
                     style={styles.nextButton}
                     onPress={handleLoginNext}
-                    disabled={loading}
                     activeOpacity={0.8}
                   >
-                    {loading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.nextButtonText}>Next</Text>
-                    )}
+                    <Text style={styles.nextButtonText}>Next</Text>
                   </TouchableOpacity>
                 </>
               )}
-            </View>
-          </KeyboardAvoidingView>
-          <Toast />
-        </View>
-      </TouchableWithoutFeedback>
+          </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+        <Toast />
+      </SafeAreaView>
     </>
   );
 }
@@ -211,49 +248,52 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BRAND_BLUE,
   },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingBottom: rvs(24),
+  },
   header: {
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 22,
-    paddingBottom: 12,
+    marginBottom: rvs(8),
   },
   logo: {
-    width: 235,
-    height: 235,
+    width: rs(210),
+    height: rs(210),
   },
   card: {
-    marginTop: 4,
+    marginHorizontal: rs(12),
     backgroundColor: CARD_BG,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: 19,
-    paddingTop: 20,
-    paddingBottom: 88,
+    borderRadius: rs(26),
+    paddingHorizontal: rs(19),
+    paddingTop: rvs(20),
+    paddingBottom: rvs(28),
   },
   segmentedControl: {
     flexDirection: "row",
     backgroundColor: SEGMENT_BG,
-    borderRadius: 9,
-    padding: 2,
-    marginBottom: 24,
-    height: 38,
+    borderRadius: rs(9),
+    padding: rs(2),
+    marginBottom: rvs(24),
+    height: rvs(38),
   },
   segment: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 7,
+    borderRadius: rs(7),
   },
   segmentActive: {
     backgroundColor: "#fff",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowRadius: rs(8),
     elevation: 4,
   },
   segmentText: {
-    fontSize: 13,
+    fontSize: rms(13),
     color: PLACEHOLDER_COLOR,
     fontWeight: "400",
   },
@@ -262,87 +302,91 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: rms(20),
     fontWeight: "500",
     color: "#000",
-    marginBottom: 20,
+    marginBottom: rvs(20),
   },
   cardSubtitle: {
-    fontSize: 14,
+    fontSize: rms(14),
     color: "#666",
-    marginBottom: 20,
+    marginBottom: rvs(20),
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: rvs(20),
   },
   floatingLabel: {
     position: "absolute",
-    left: 12,
-    top: -8,
+    left: rs(12),
+    top: rvs(-8),
     backgroundColor: LABEL_BG,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    fontSize: 12,
+    paddingHorizontal: rs(6),
+    paddingVertical: rvs(2),
+    borderRadius: rs(8),
+    fontSize: rms(12),
     color: MUTED_TEXT,
     zIndex: 1,
   },
   input: {
     borderWidth: 1,
     borderColor: BORDER_COLOR,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    borderRadius: rs(8),
+    paddingHorizontal: rs(16),
+    paddingVertical: rvs(14),
+    fontSize: rms(16),
     color: "#000",
+    backgroundColor: "#fff",
+  },
+  fullNameInput: {
+    minHeight: rvs(48),
   },
   passwordRow: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderColor: BORDER_COLOR,
-    borderRadius: 8,
+    borderRadius: rs(8),
   },
   passwordInput: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    paddingHorizontal: rs(16),
+    paddingVertical: rvs(14),
+    fontSize: rms(16),
     color: "#000",
   },
   eyeButton: {
-    padding: 12,
+    padding: rs(12),
   },
   otpHint: {
-    fontSize: 12,
+    fontSize: rms(12),
     color: PLACEHOLDER_COLOR,
-    marginTop: 8,
+    marginTop: rvs(8),
   },
   forgotLink: {
     alignSelf: "flex-end",
-    marginBottom: 20,
+    marginBottom: rvs(20),
   },
   forgotText: {
-    fontSize: 14,
+    fontSize: rms(14),
     color: BRAND_BLUE,
     fontWeight: "600",
   },
   nextButton: {
     backgroundColor: BRAND_BLUE,
-    height: 48,
-    borderRadius: 100,
+    minHeight: rvs(48),
+    borderRadius: rs(100),
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 8,
+    marginTop: rvs(8),
   },
   nextButtonText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: rms(14),
     fontWeight: "600",
   },
   error: {
     color: "#dc2626",
-    fontSize: 14,
-    marginBottom: 12,
+    fontSize: rms(14),
+    marginBottom: rvs(12),
   },
 });
