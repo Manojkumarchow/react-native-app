@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import axios from "axios";
 import {
   Feather,
@@ -26,8 +27,7 @@ import { BASE_URL } from "./config";
 import { getErrorMessage } from "./services/error";
 import { rms, rs, rvs } from "@/constants/responsive";
 
-const smartLocksBanner =
-  "https://www.figma.com/api/mcp/asset/e1528a11-a6aa-4077-9988-03231743226e";
+const smartLocksBanner = require("../assets/images/heliq.jpeg");
 
 const quickActions = [
   {
@@ -83,6 +83,7 @@ type CommunityItem = {
 
 export default function Home() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { name, avatarUri, buildingName, role, flatNo, phone, userId, buildingId } = useProfileStore();
   const { watchmen, buildingName: storeBuildingName, setBuildingData } = useBuildingStore();
   const watchmanPhone = watchmen?.phone;
@@ -281,12 +282,13 @@ export default function Home() {
           <ScrollView
             style={styles.container}
             contentContainerStyle={styles.tenantContentContainer}
+            contentInsetAdjustmentBehavior="automatic"
             showsVerticalScrollIndicator={false}
           >
             {loading ? <ActivityIndicator color="#1C98ED" style={{ marginBottom: 12 }} /> : null}
             {errorText ? <Text style={styles.noticeDescription}>{errorText}</Text> : null}
             <Pressable style={styles.bannerCard}>
-              <Image source={{ uri: smartLocksBanner }} style={styles.bannerImage} resizeMode="cover" />
+              <Image source={smartLocksBanner} style={styles.bannerImage} resizeMode="cover" />
             </Pressable>
             <View style={styles.tenantStatsRow}>
               <Pressable style={styles.duesCard} onPress={() => router.push("/payments")}>
@@ -414,7 +416,15 @@ export default function Home() {
             })}
           </ScrollView>
 
-          <View style={styles.bottomNav}>
+          <View
+            style={[
+              styles.bottomNav,
+              {
+                height: rvs(76) + insets.bottom,
+                paddingBottom: Math.max(insets.bottom, rvs(10)),
+              },
+            ]}
+          >
             <Pressable style={styles.navItem} onPress={() => router.replace("/home")}>
               <Ionicons name="home-outline" size={20} color="#1C98ED" />
               <Text style={styles.navLabelActive}>Home</Text>
@@ -518,12 +528,13 @@ export default function Home() {
         <ScrollView
           style={styles.container}
           contentContainerStyle={styles.contentContainer}
+          contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
         >
           {loading ? <ActivityIndicator color="#1C98ED" style={{ marginBottom: 12 }} /> : null}
           {errorText ? <Text style={styles.noticeDescription}>{errorText}</Text> : null}
           <Pressable style={styles.bannerCard}>
-            <Image source={{ uri: smartLocksBanner }} style={styles.bannerImage} resizeMode="cover" />
+            <Image source={smartLocksBanner} style={styles.bannerImage} resizeMode="cover" />
           </Pressable>
           <View style={styles.statsGrid}>
             <StatCard
@@ -646,7 +657,15 @@ export default function Home() {
           })}
         </ScrollView>
 
-        <View style={styles.bottomNav}>
+        <View
+          style={[
+            styles.bottomNav,
+            {
+              height: rvs(76) + insets.bottom,
+              paddingBottom: Math.max(insets.bottom, rvs(10)),
+            },
+          ]}
+        >
           <Pressable style={styles.navItem} onPress={() => router.replace("/home")}>
             <Ionicons name="home-outline" size={20} color="#1C98ED" />
             <Text style={styles.navLabelActive}>Home</Text>
@@ -1021,7 +1040,7 @@ const styles = StyleSheet.create({
   },
   bannerImage: {
     width: "100%",
-    height: 118,
+    height: 178,
   },
   sectionRow: {
     flexDirection: "row",

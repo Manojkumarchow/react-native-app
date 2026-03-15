@@ -30,7 +30,17 @@ const DISABLED_TEXT = "#a1a1aa";
 
 export default function OTPVerify() {
   const router = useRouter();
-  const { phone, name, password, role, buildingId, floor, flatNo, resetFlow } =
+  const {
+    phone,
+    name,
+    password,
+    role,
+    buildingId,
+    buildingName,
+    floor,
+    flatNo,
+    resetFlow,
+  } =
     useLocalSearchParams();
 
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -131,7 +141,7 @@ export default function OTPVerify() {
       // Auth -> OTP flow provides only name+phone. Continue in signup screen.
       if (!hasFullSignupData) {
         router.replace({
-          pathname: "/signup",
+          pathname: "/setup-flat",
           params: {
             prefillName: resolvedName ?? "",
             prefillPhone: resolvedPhone ?? "",
@@ -149,7 +159,14 @@ export default function OTPVerify() {
         resolvedFloor,
         resolvedFlatNo
       );
-      router.push("/otp-success");
+      router.replace({
+        pathname: "/approval-pending",
+        params: {
+          name: resolvedName,
+          role: resolvedRole,
+          buildingName: Array.isArray(buildingName) ? buildingName[0] : buildingName,
+        },
+      });
     } catch (error) {
       setHasError(true);
       setErrorText(getErrorMessage(error, "Verification failed"));

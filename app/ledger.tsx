@@ -36,7 +36,7 @@ const CURRENT_MONTH = CURRENT_DATE.toLocaleString("en-US", { month: "short" });
 const CURRENT_YEAR = String(CURRENT_DATE.getFullYear());
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const YEARS = Array.from({ length: 9 }, (_, i) => String(2022 + i)).reverse();
+const YEARS = Array.from({ length: 1 }, (_, i) => String(2026 + i)).reverse();
 
 const formatCurrency = (value: number) => `₹${value.toLocaleString("en-IN")}`;
 const PIE_COLORS = ["#8B5CF6", "#F59E0B", "#3B82F6", "#F97316", "#10B981", "#94A3B8", "#06B6D4", "#F43F5E"];
@@ -335,7 +335,7 @@ export default function LedgerScreen() {
                 <PieDonut data={uiData.pie} />
                 <View style={styles.pieCenterLabel}>
                   <Text style={styles.pieCenterTop}>Total</Text>
-                  <Text style={styles.pieCenterBottom}>₹{pieTotal}K</Text>
+                  <Text style={styles.pieCenterBottom}>100%</Text>
                 </View>
               </View>
               <View style={styles.legend}>
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   metricLabel: { color: "#64748B", fontSize: rms(14), marginBottom: rvs(4) },
-  metricValue: { fontSize: rms(31), fontWeight: "500" },
+  metricValue: { fontSize: rms(16), fontWeight: "500", lineHeight: rms(28) },
   statusCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   expenseTotalLabel: { color: "#2799CE", fontSize: 15, fontWeight: "500" },
-  expenseTotalAmount: { color: "#2799CE", fontSize: 31, fontWeight: "600" },
+  expenseTotalAmount: { color: "#2799CE", fontSize: 16, fontWeight: "600", lineHeight: rms(28) },
   pieCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,

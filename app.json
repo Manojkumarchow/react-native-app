@@ -5,6 +5,11 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.jpeg",
+    "splash": {
+      "image": "./assets/images/splash-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1c98ed"
+    },
     "scheme": "helloworldappappapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,6 +21,11 @@
       "adaptiveIcon": {
         "backgroundColor": "#2b96de",
         "foregroundImage": "./assets/images/app-icon.jpeg"
+      },
+      "splash": {
+        "image": "./assets/images/splash-logo.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#1c98ed"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,

@@ -6,12 +6,31 @@ import { createBooking, getOptionById, getServiceByKey, type ServiceKey } from "
 import { SafeAreaView } from "react-native-safe-area-context";
 import { rms, rs, rvs } from "@/constants/responsive";
 
-const DATE_CHOICES = [
-  { key: "today", label: "Today", day: "10", month: "Apr", full: "Sunday, March 15, 2026" },
-  { key: "tmrw", label: "Tmrw", day: "11", month: "Apr", full: "Monday, March 16, 2026" },
-  { key: "fri", label: "Fri", day: "12", month: "Apr", full: "Tuesday, March 17, 2026" },
-  { key: "sat", label: "Sat", day: "13", month: "Apr", full: "Wednesday, March 18, 2026" },
-];
+const DATE_CHOICES = (() => {
+  const labels = ["Today", "Tmrw", "", ""];
+  const now = new Date();
+  return [0, 1, 2, 3].map((offset) => {
+    const d = new Date(now);
+    d.setDate(now.getDate() + offset);
+    const dayLabel =
+      labels[offset] ||
+      d.toLocaleDateString("en-US", {
+        weekday: "short",
+      });
+    return {
+      key: `d-${offset}`,
+      label: dayLabel,
+      day: d.toLocaleDateString("en-US", { day: "2-digit" }),
+      month: d.toLocaleDateString("en-US", { month: "short" }),
+      full: d.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+    };
+  });
+})();
 
 const SLOT_CHOICES = [
   { key: "09", label: "9:00 AM", disabled: false },

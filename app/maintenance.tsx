@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Switch,
   View,
   Text,
@@ -12,7 +13,7 @@ import {
 } from "react-native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import axios from "axios";
 import { BASE_URL } from "./config";
 import useProfileStore from "./store/profileStore";
@@ -27,6 +28,7 @@ type MeterRow = { flatNumber: string; reading: string; units: string };
 
 export default function MaintenanceScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const profileId = useProfileStore((s) => s.phone);
   const buildingId = useBuildingStore((s) => s.buildingId);
   const currentDate = new Date();
@@ -53,8 +55,9 @@ export default function MaintenanceScreen() {
   const years = Array.from({ length: 5 }, (_, i) => `${currentYear - i}`);
   const [selectedYear, setSelectedYear] = useState(`${currentYear}`);
   const [selectedMonth, setSelectedMonth] = useState(monthNames[currentMonthIndex]);
-  const [showYearDropdown, setShowYearDropdown] = useState(false);
-  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [tempMonth, setTempMonth] = useState(selectedMonth);
+  const [tempYear, setTempYear] = useState(selectedYear);
 
   const [watchmanSalary, setWatchmanSalary] = useState("");
   const [garbageCollection, setGarbageCollection] = useState("");
@@ -71,9 +74,7 @@ export default function MaintenanceScreen() {
   const [mixedRatePerUnit, setMixedRatePerUnit] = useState("29");
   const [mixedFixedPool, setMixedFixedPool] = useState("8000");
 
-  const [individualRows, setIndividualRows] = useState<MeterRow[]>([
-    { flatNumber: "", reading: "", units: "" },
-  ]);
+  const [individualRows, setIndividualRows] = useState<MeterRow[]>([]);
 
   const [selectedMixedFlats, setSelectedMixedFlats] = useState<string[]>([]);
   const [mixedRowsMap, setMixedRowsMap] = useState<Record<string, { reading: string; units: string }>>({});
@@ -107,23 +108,29 @@ export default function MaintenanceScreen() {
     const run = async () => {
       if (!buildingId) {
         setAllFlats([]);
+        setIndividualRows([]);
         setFlatError("Building is not configured for this account.");
         return;
       }
       try {
         setFlatError(null);
-        const res = await axios.get(`${BASE_URL}/residents/building/${buildingId}`);
+        const res = await axios.get(`${BASE_URL}/flat/building/${buildingId}`);
         const rows = Array.isArray(res.data) ? res.data : [];
-        const flats = Array.from(
-          new Set(
-            rows
-              .map((item: any) => String(item.flatNo ?? item.flatNumber ?? "").trim())
-              .filter(Boolean),
-          ),
-        );
+        const flats = Array.from(new Set(rows.map((item: any) => String(item ?? "").trim()).filter(Boolean)));
         setAllFlats(flats);
+        setIndividualRows((prev) =>
+          flats.map((flat) => {
+            const existing = prev.find((row) => row.flatNumber === flat);
+            return {
+              flatNumber: flat,
+              reading: existing?.reading ?? "",
+              units: existing?.units ?? "",
+            };
+          }),
+        );
       } catch {
         setAllFlats([]);
+        setIndividualRows([]);
         setFlatError("Unable to fetch flats for this building.");
       }
     };
@@ -262,17 +269,10 @@ export default function MaintenanceScreen() {
       return;
     }
     if (step === 3) {
-      if (waterSubStep === "MODE") {
-        setStep(2);
-      } else if (waterSubStep === "INDIVIDUAL") {
-        setWaterSubStep("MODE");
-      } else {
-        setWaterSubStep("INDIVIDUAL");
-      }
+      setStep(2);
       return;
     }
     setStep(3);
-    setWaterSubStep("MIXED");
   };
 
   const onNext = () => {
@@ -286,16 +286,6 @@ export default function MaintenanceScreen() {
       return;
     }
     if (step === 3) {
-      if (waterSubStep === "MODE") {
-        setWaterSubStep("INDIVIDUAL");
-        setWaterMode("INDIVIDUAL");
-        return;
-      }
-      if (waterSubStep === "INDIVIDUAL") {
-        setWaterSubStep("MIXED");
-        setWaterMode("MIXED");
-        return;
-      }
       setStep(4);
       return;
     }
@@ -312,15 +302,14 @@ export default function MaintenanceScreen() {
     try {
       setSubmitting(true);
       const month = Math.max(1, monthNames.findIndex((m) => m === selectedMonth) + 1);
-      const dueDate = paymentDueDate
-        ? new Date(paymentDueDate).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0];
+      console.log("Month: ", month);
+      console.log("Payment Due Date: ", paymentDueDate);
       const payload = {
         profileId,
         buildingId: String(buildingId),
         year: Number(selectedYear),
         month,
-        dueDate,
+        dueDate: null as any,
         totalFlats: flatsCount,
         watchmanSalary: parseAmount(watchmanSalary),
         garbageCollection: parseAmount(garbageCollection),
@@ -352,6 +341,7 @@ export default function MaintenanceScreen() {
         })),
         allFlats,
       };
+      console.log("Payload: ", payload);
       await axios.post(`${BASE_URL}/maintenance/create`, payload);
       Alert.alert("Maintenance created", "Bills generated successfully.", [
         { text: "OK", onPress: () => router.push("/ledger") },
@@ -364,6 +354,11 @@ export default function MaintenanceScreen() {
   };
 
   const nextText = step === 4 ? "Generate and Send Bills" : "Next";
+  const applyPeriodPicker = () => {
+    setSelectedMonth(tempMonth);
+    setSelectedYear(tempYear);
+    setPickerVisible(false);
+  };
 
   return (
     <>
@@ -384,7 +379,11 @@ export default function MaintenanceScreen() {
           </View>
         </View>
 
-        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={[styles.container, { paddingBottom: rvs(120) + insets.bottom }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {flatError ? <Text style={styles.warningText}>{flatError}</Text> : null}
           {step === 1 ? (
             <>
@@ -404,29 +403,14 @@ export default function MaintenanceScreen() {
                   <Pressable
                     style={styles.selectInput}
                     onPress={() => {
-                      setShowYearDropdown((v) => !v);
-                      setShowMonthDropdown(false);
+                      setTempYear(selectedYear);
+                      setTempMonth(selectedMonth);
+                      setPickerVisible(true);
                     }}
                   >
                     <Text style={styles.selectText}>{selectedYear}</Text>
                     <Feather name="chevron-down" size={18} color="#64748B" />
                   </Pressable>
-                  {showYearDropdown ? (
-                    <View style={styles.dropdownList}>
-                      {years.map((year) => (
-                        <Pressable
-                          key={year}
-                          style={styles.dropdownItemWrap}
-                          onPress={() => {
-                            setSelectedYear(year);
-                            setShowYearDropdown(false);
-                          }}
-                        >
-                          <Text style={styles.dropdownItem}>{year}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  ) : null}
                 </View>
 
                 <View style={styles.periodColLarge}>
@@ -434,29 +418,14 @@ export default function MaintenanceScreen() {
                   <Pressable
                     style={styles.selectInput}
                     onPress={() => {
-                      setShowMonthDropdown((v) => !v);
-                      setShowYearDropdown(false);
+                      setTempYear(selectedYear);
+                      setTempMonth(selectedMonth);
+                      setPickerVisible(true);
                     }}
                   >
                     <Text style={styles.selectText}>{selectedMonth}</Text>
                     <Feather name="chevron-down" size={18} color="#64748B" />
                   </Pressable>
-                  {showMonthDropdown ? (
-                    <View style={styles.dropdownList}>
-                      {monthNames.map((month) => (
-                        <Pressable
-                          key={month}
-                          style={styles.dropdownItemWrap}
-                          onPress={() => {
-                            setSelectedMonth(month);
-                            setShowMonthDropdown(false);
-                          }}
-                        >
-                          <Text style={styles.dropdownItem}>{month}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  ) : null}
                 </View>
               </View>
 
@@ -515,7 +484,7 @@ export default function MaintenanceScreen() {
               </View>
 
               <WaterModeCard title="Fixed Split" subTitle="One bill, divided equally" selected={waterMode === "FIXED"} onPress={() => setWaterMode("FIXED")}>
-                {waterMode === "FIXED" && waterSubStep === "MODE" ? (
+                {waterMode === "FIXED" ? (
                   <>
                     <Text style={styles.inlineInfo}>Enter one utility bill. Each flat pays equal share.</Text>
                     <Text style={styles.fixedInputLabel}>Utility Bill Amount (₹)</Text>
@@ -533,7 +502,7 @@ export default function MaintenanceScreen() {
               </WaterModeCard>
 
               <WaterModeCard title="Master Meter" subTitle="One meter for entire building" selected={waterMode === "MASTER"} onPress={() => setWaterMode("MASTER")}>
-                {waterMode === "MASTER" && waterSubStep === "MODE" ? (
+                {waterMode === "MASTER" ? (
                   <>
                     <Text style={styles.inlineInfo}>Enter the single utility bill. Each flat pays an equal share.</Text>
                     <Text style={styles.fixedInputLabel}>Utility Bill Amount (₹)</Text>
@@ -551,9 +520,12 @@ export default function MaintenanceScreen() {
               </WaterModeCard>
 
               <WaterModeCard title="Individual Meters" subTitle="Each flat has its own meter" selected={waterMode === "INDIVIDUAL"} onPress={() => setWaterMode("INDIVIDUAL")}>
-                {waterSubStep === "INDIVIDUAL" ? (
+                {waterMode === "INDIVIDUAL" ? (
                   <>
                     <Text style={styles.inlineInfo}>Enter current reading per flat. Charged per unit consumed.</Text>
+                    {allFlats.length === 0 ? (
+                      <Text style={styles.inlineError}>No flats returned by backend for this building.</Text>
+                    ) : null}
                     <Text style={styles.fixedInputLabel}>Rate per Unit (₹)</Text>
                     <TextInput
                       style={styles.fixedInput}
@@ -565,6 +537,7 @@ export default function MaintenanceScreen() {
                     />
                     <MeterReadingsTable
                       rows={individualRows}
+                      allowFlatEdit={false}
                       onChangeFlat={(index, value) => {
                         setIndividualRows((prev) => prev.map((row, i) => (i === index ? { ...row, flatNumber: value } : row)));
                       }}
@@ -580,9 +553,12 @@ export default function MaintenanceScreen() {
               </WaterModeCard>
 
               <WaterModeCard title="Mixed Setup" subTitle="Some metered, some not" selected={waterMode === "MIXED"} onPress={() => setWaterMode("MIXED")}>
-                {waterSubStep === "MIXED" ? (
+                {waterMode === "MIXED" ? (
                   <>
                     <Text style={styles.fixedInputLabel}>Tap flats that have individual meters:</Text>
+                    {allFlats.length === 0 ? (
+                      <Text style={styles.inlineError}>No flats returned by backend for this building.</Text>
+                    ) : null}
                     <View style={styles.flatChipsWrap}>
                       {allFlats.map((flat) => {
                         const selected = selectedMixedFlats.includes(flat);
@@ -605,6 +581,7 @@ export default function MaintenanceScreen() {
                     />
                     <MeterReadingsTable
                       rows={mixedRows}
+                      allowFlatEdit={false}
                       onChangeFlat={() => {}}
                       onChangeReading={(index, value) => {
                         const flat = mixedRows[index]?.flatNumber;
@@ -639,7 +616,7 @@ export default function MaintenanceScreen() {
                 ) : null}
               </WaterModeCard>
 
-              <View style={styles.toggleCard}>
+              {/* <View style={styles.toggleCard}>
                 <View style={styles.toggleIcon}>
                   <MaterialCommunityIcons name="account-group-outline" size={20} color="#1C98ED" />
                 </View>
@@ -648,7 +625,7 @@ export default function MaintenanceScreen() {
                   <Text style={styles.toggleSub}>Auto-load next month. Change anytime</Text>
                 </View>
                 <Switch value={rememberWaterSetup} onValueChange={setRememberWaterSetup} trackColor={{ false: "#E2E8F0", true: "#1C98ED" }} thumbColor="#FFFFFF" />
-              </View>
+              </View> */}
             </>
           ) : null}
 
@@ -667,9 +644,9 @@ export default function MaintenanceScreen() {
               <View style={styles.heroCard}>
                 <Text style={styles.heroMeta}>{`${selectedMonth} ${selectedYear} - Total Collection Target`}</Text>
                 <Text style={styles.heroAmount}>{formatInr(collectionTarget)}</Text>
-                <Pressable style={styles.heroPill}>
+                {/* <Pressable style={styles.heroPill}>
                   <Text style={styles.heroPillText}>Pay Now</Text>
-                </Pressable>
+                </Pressable> */}
               </View>
 
               <Text style={styles.sectionTitle}>Expense Breakdown</Text>
@@ -697,7 +674,7 @@ export default function MaintenanceScreen() {
                   <Text style={[styles.perFlatHeaderText, styles.perFlatNumCell]}>Water</Text>
                   <Text style={[styles.perFlatHeaderText, styles.perFlatNumCell]}>Total</Text>
                 </View>
-                {perFlatRows.slice(0, 5).map((row) => (
+                {perFlatRows.map((row) => (
                   <View key={row.flat} style={styles.perFlatBodyRow}>
                     <Text style={[styles.perFlatBodyText, styles.perFlatFlatCell]}>{row.flat}</Text>
                     <Text style={[styles.perFlatBodyText, styles.perFlatNumCell]}>{formatInr(row.base)}</Text>
@@ -706,12 +683,12 @@ export default function MaintenanceScreen() {
                   </View>
                 ))}
                 <View style={styles.perFlatFoot}>
-                  <Text style={styles.perFlatFootText}>{`+ ${Math.max(0, perFlatRows.length - 5)} more flats · Grand total `}</Text>
+                  <Text style={styles.perFlatFootText}>Grand total: </Text>
                   <Text style={styles.perFlatFootAmount}>{formatInr(collectionTarget)}</Text>
                 </View>
               </View>
 
-              <Text style={styles.inputLabel}>Payment Due Date</Text>
+              {/* <Text style={styles.inputLabel}>Payment Due Date</Text>
               <Pressable
                 style={styles.dueDateInput}
                 onPress={() => setDueDateOpen((v) => !v)}
@@ -721,7 +698,7 @@ export default function MaintenanceScreen() {
                 <Feather name="chevron-down" size={18} color="#64748B" />
               </Pressable>
               {dueDateOpen ? (
-                <View style={styles.dropdownList}>
+                <View style={styles.dropdownListInline}>
                   {dueDateOptions.map((date) => (
                     <Pressable
                       key={date}
@@ -735,7 +712,7 @@ export default function MaintenanceScreen() {
                     </Pressable>
                   ))}
                 </View>
-              ) : null}
+              ) : null} */}
 
               <View style={styles.warningCard}>
                 <MaterialCommunityIcons name="alert-outline" size={18} color="#DC2626" />
@@ -747,7 +724,7 @@ export default function MaintenanceScreen() {
           ) : null}
         </ScrollView>
 
-        <View style={styles.footerRow}>
+        <View style={[styles.footerRow, { bottom: rvs(16) + insets.bottom }]}>
           <Pressable style={styles.cancelBtn} onPress={() => router.back()}>
             <Text style={styles.cancelBtnText}>Cancel</Text>
           </Pressable>
@@ -759,6 +736,53 @@ export default function MaintenanceScreen() {
             )}
           </Pressable>
         </View>
+
+        <Modal visible={pickerVisible} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.pickerSheet}>
+              <View style={styles.sheetHandle} />
+              <Text style={styles.sheetTitle}>Pick Billing Period</Text>
+              <View style={styles.sheetLists}>
+                <ScrollView style={styles.sheetList} showsVerticalScrollIndicator={false}>
+                  {monthNames.map((month) => (
+                    <Pressable
+                      key={month}
+                      onPress={() => setTempMonth(month)}
+                      style={[styles.sheetItem, tempMonth === month && styles.sheetItemActive]}
+                    >
+                      <Text
+                        style={[styles.sheetItemText, tempMonth === month && styles.sheetItemTextActive]}
+                      >
+                        {month}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+                <ScrollView style={styles.sheetList} showsVerticalScrollIndicator={false}>
+                  {years.map((year) => (
+                    <Pressable
+                      key={year}
+                      onPress={() => setTempYear(year)}
+                      style={[styles.sheetItem, tempYear === year && styles.sheetItemActive]}
+                    >
+                      <Text
+                        style={[styles.sheetItemText, tempYear === year && styles.sheetItemTextActive]}
+                      >
+                        {year}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+              <Pressable style={styles.viewLedgerBtn} onPress={applyPeriodPicker}>
+                <Text style={styles.viewLedgerText}>Apply</Text>
+              </Pressable>
+              <Pressable style={styles.sheetCancelBtn} onPress={() => setPickerVisible(false)}>
+                <Text style={styles.sheetCancelText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </>
   );
@@ -810,11 +834,13 @@ function SummaryRow({
 
 function MeterReadingsTable({
   rows,
+  allowFlatEdit = true,
   onChangeFlat,
   onChangeReading,
   onChangeUnits,
 }: {
   rows: MeterRow[];
+  allowFlatEdit?: boolean;
   onChangeFlat: (index: number, value: string) => void;
   onChangeReading: (index: number, value: string) => void;
   onChangeUnits: (index: number, value: string) => void;
@@ -829,11 +855,12 @@ function MeterReadingsTable({
       {rows.map((row, index) => (
         <View key={`${row.flatNumber}-${index}`} style={styles.tableBodyRow}>
           <TextInput
-            style={[styles.tableInput, styles.tableFlat]}
+            style={[styles.tableInput, styles.tableFlat, !allowFlatEdit && styles.tableInputReadonly]}
             value={row.flatNumber}
             onChangeText={(value) => onChangeFlat(index, value)}
             placeholder="Flat"
             placeholderTextColor="#94A3B8"
+            editable={allowFlatEdit}
           />
           <TextInput
             style={[styles.tableInput, styles.tableNum]}
@@ -929,8 +956,8 @@ const styles = StyleSheet.create({
   noteTitle: { color: "#09090B", fontSize: 14, fontWeight: "500" },
   noteSub: { marginTop: 2, color: "#777", fontSize: 14, fontWeight: "500", lineHeight: 20 },
   periodRow: { flexDirection: "row", gap: 12, zIndex: 10 },
-  periodColSmall: { width: "37%" },
-  periodColLarge: { flex: 1 },
+  periodColSmall: { width: "37%", position: "relative" },
+  periodColLarge: { flex: 1, position: "relative" },
   inputLabel: { color: "#0F172A", fontSize: 14, fontWeight: "500", marginBottom: 6 },
   selectInput: {
     height: 48,
@@ -944,7 +971,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   selectText: { color: "#0F172A", fontSize: 16, fontWeight: "400" },
-  dropdownList: {
+  dropdownListInline: {
     marginTop: 6,
     borderWidth: 1,
     borderColor: "#E2E8F0",
@@ -1038,6 +1065,7 @@ const styles = StyleSheet.create({
   radioOuterSelected: { borderColor: "#2799CE" },
   radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#2799CE" },
   inlineInfo: { color: "#777", fontSize: 12, lineHeight: 17 },
+  inlineError: { marginTop: 4, color: "#C81616", fontSize: 12, lineHeight: 17 },
   fixedInputLabel: { marginTop: 2, color: "#000", fontSize: 12 },
   fixedInput: {
     marginTop: 6,
@@ -1069,6 +1097,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#09090B",
     textAlign: "center",
+  },
+  tableInputReadonly: {
+    backgroundColor: "#F8FAFC",
+    color: "#334155",
   },
   tableFlat: { flex: 1, paddingVertical: 10 },
   tableNum: { flex: 1, paddingVertical: 10 },
@@ -1226,11 +1258,65 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   warningText: { flex: 1, color: "#92400E", fontSize: 13, lineHeight: 21, fontWeight: "500" },
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.28)" },
+  pickerSheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: rs(16),
+    borderTopRightRadius: rs(16),
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(20),
+    minHeight: rvs(380),
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: rs(40),
+    height: rvs(5),
+    borderRadius: rs(100),
+    backgroundColor: "#C5CBD3",
+    marginBottom: rvs(14),
+  },
+  sheetTitle: {
+    textAlign: "center",
+    color: "#111827",
+    fontSize: rms(22),
+    fontWeight: "700",
+    marginBottom: rvs(8),
+  },
+  sheetLists: { flexDirection: "row", gap: rs(12), maxHeight: rvs(240), marginBottom: rvs(14) },
+  sheetList: { flex: 1 },
+  sheetItem: {
+    minHeight: rvs(42),
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: rs(8),
+    marginBottom: rvs(2),
+  },
+  sheetItemActive: { backgroundColor: "#DEF4FF" },
+  sheetItemText: { color: "#7A7A7A", fontSize: rms(18) },
+  sheetItemTextActive: { color: "#1C98ED", fontWeight: "600" },
+  viewLedgerBtn: {
+    minHeight: rvs(48),
+    borderRadius: rs(16),
+    backgroundColor: "#1C98ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewLedgerText: { color: "#FAFAFA", fontSize: rms(14), fontWeight: "600" },
+  sheetCancelBtn: {
+    minHeight: rvs(42),
+    borderRadius: rs(12),
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: rvs(10),
+  },
+  sheetCancelText: { color: "#64748B", fontSize: rms(14), fontWeight: "500" },
   footerRow: {
     position: "absolute",
     left: 16,
     right: 16,
-    bottom: 16,
     flexDirection: "row",
     gap: 12,
   },

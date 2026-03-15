@@ -11,6 +11,13 @@ export default function ServiceOptionDetailScreen() {
   const params = useLocalSearchParams<{ serviceKey?: string; optionId?: string }>();
   const service = getServiceByKey(params.serviceKey);
   const option = getOptionById(service.key as ServiceKey, params.optionId);
+  const scheduleDate = new Date();
+  const scheduleDateLabel = scheduleDate.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
   return (
     <>
@@ -53,7 +60,7 @@ export default function ServiceOptionDetailScreen() {
                 <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
               </View>
               <View>
-                <Text style={styles.infoPrimary}>Sunday, March 15, 2026</Text>
+                  <Text style={styles.infoPrimary}>{scheduleDateLabel}</Text>
                 <Text style={styles.infoSecondary}>10:00 AM - 2:00 PM</Text>
               </View>
             </View>

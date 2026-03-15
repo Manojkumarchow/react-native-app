@@ -20,7 +20,35 @@ export default function HomeServicesScreen() {
       try {
         const res = await axios.get(`${BASE_URL}/service/catalog/all`);
         if (Array.isArray(res.data) && res.data.length) {
-          setCatalog(res.data);
+          const fallbackMap = new Map(serviceCatalog.map((s) => [s.key, s]));
+          const normalized = res.data.map((item: any) => {
+            const fallback = fallbackMap.get(String(item.key ?? "") as any);
+            const incomingOptions = Array.isArray(item.options) ? item.options : [];
+            const options =
+              incomingOptions.length > 0
+                ? incomingOptions.map((opt: any, idx: number) => {
+                    const fallbackOption = fallback?.options[idx];
+                    return {
+                      id: String(opt.id ?? fallbackOption?.id ?? `${item.key}-opt-${idx}`),
+                      title: String(opt.title ?? fallbackOption?.title ?? "Service"),
+                      description: String(
+                        opt.description ?? fallbackOption?.description ?? "Professional service",
+                      ),
+                      price: Number(opt.price ?? fallbackOption?.price ?? 0),
+                      image: String(opt.image ?? fallbackOption?.image ?? ""),
+                      popular: Boolean(opt.popular ?? fallbackOption?.popular ?? false),
+                    };
+                  })
+                : fallback?.options ?? [];
+            return {
+              key: String(item.key ?? fallback?.key ?? "service"),
+              label: String(item.label ?? fallback?.label ?? "Service"),
+              subtitle: String(item.subtitle ?? fallback?.subtitle ?? ""),
+              icon: String(item.icon ?? fallback?.icon ?? "tools"),
+              options,
+            };
+          });
+          setCatalog(normalized);
         }
       } catch {
         setCatalog(serviceCatalog);
@@ -66,7 +94,13 @@ export default function HomeServicesScreen() {
 
           {selectedService.options.map((option) => (
             <View key={option.id} style={styles.card}>
-              <Image source={{ uri: option.image }} style={styles.cardImage} resizeMode="cover" />
+              {option.image ? (
+                <Image source={{ uri: option.image }} style={styles.cardImage} resizeMode="cover" />
+              ) : (
+                <View style={[styles.cardImage, styles.cardImageFallback]}>
+                  <MaterialCommunityIcons name="image-off-outline" size={rs(28)} color="#94A3B8" />
+                </View>
+              )}
               <View style={styles.cardContent}>
                 <View style={styles.badgeRow}>
                   {option.popular ? <Text style={styles.popularBadge}>POPULAR</Text> : null}
@@ -146,6 +180,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardImage: { width: "100%", height: 240 },
+  cardImageFallback: { alignItems: "center", justifyContent: "center", backgroundColor: "#F8FAFC" },
   cardContent: { padding: 14 },
   badgeRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
   popularBadge: {

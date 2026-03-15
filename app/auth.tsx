@@ -30,7 +30,6 @@ export default function AuthScreen() {
   const [activeTab, setActiveTab] = useState<"LOGIN" | "SIGNUP">("LOGIN");
 
   // Signup fields
-  const [fullName, setFullName] = useState("");
   const fullNameRef = useRef("");
   const [phone, setPhone] = useState("");
 
@@ -71,13 +70,7 @@ export default function AuthScreen() {
 
   const handleSignupNext = () => {
     setError("");
-    const resolvedFullName = (fullNameRef.current || fullName).trim();
-    if (__DEV__) {
-      console.log("[auth] signup name check", {
-        stateName: fullName,
-        refName: fullNameRef.current,
-      });
-    }
+    const resolvedFullName = fullNameRef.current.trim();
     if (!resolvedFullName || !phone.trim()) {
       setError("Full name and mobile number are required");
       return;
@@ -86,15 +79,19 @@ export default function AuthScreen() {
       setError("Please enter a valid 10-digit mobile number");
       return;
     }
-    router.push({
-      pathname: "/otp",
-      params: { name: resolvedFullName, phone: phone.replace(/\D/g, "") },
-    });
+    router.push(
+      {
+        pathname: "/setup-flat",
+        params: {
+          prefillName: resolvedFullName,
+          prefillPhone: phone.replace(/\D/g, ""),
+        },
+      } as never,
+    );
   };
 
   const handleFullNameChange = (text: string) => {
     fullNameRef.current = text;
-    setFullName(text);
   };
 
   return (
@@ -163,13 +160,15 @@ export default function AuthScreen() {
                       style={[styles.input, styles.fullNameInput]}
                       placeholder="Enter Full Name"
                       placeholderTextColor={PLACEHOLDER_COLOR}
-                      value={fullName}
+                      defaultValue=""
                       onChangeText={handleFullNameChange}
                       onEndEditing={({ nativeEvent }) =>
                         handleFullNameChange(nativeEvent.text ?? "")
                       }
                       autoCapitalize="words"
                       autoCorrect={false}
+                      textContentType="name"
+                      autoComplete="name"
                     />
                   </View>
 
