@@ -2,15 +2,30 @@ import React from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { getOptionById, getServiceByKey, type ServiceKey } from "./data/homeServicesData";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { rms, rs, rvs } from "@/constants/responsive";
+import useBuildingStore from "./store/buildingStore";
 
 export default function ServiceOptionDetailScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ serviceKey?: string; optionId?: string }>();
-  const service = getServiceByKey(params.serviceKey);
-  const option = getOptionById(service.key as ServiceKey, params.optionId);
+  const params = useLocalSearchParams<{
+    serviceKey?: string;
+    serviceLabel?: string;
+    optionId?: string;
+    optionTitle?: string;
+    optionDescription?: string;
+    optionPrice?: string;
+    optionImage?: string;
+  }>();
+  const buildingAddress = useBuildingStore((state: any) => state.address);
+  const serviceKey = Array.isArray(params.serviceKey) ? params.serviceKey[0] : params.serviceKey ?? "";
+  const optionId = Array.isArray(params.optionId) ? params.optionId[0] : params.optionId ?? "";
+  const optionTitle = Array.isArray(params.optionTitle) ? params.optionTitle[0] : params.optionTitle ?? "Service";
+  const optionDescription = Array.isArray(params.optionDescription)
+    ? params.optionDescription[0]
+    : params.optionDescription ?? "Professional service";
+  const optionPrice = Number(Array.isArray(params.optionPrice) ? params.optionPrice[0] : params.optionPrice ?? 0);
+  const optionImage = Array.isArray(params.optionImage) ? params.optionImage[0] : params.optionImage ?? "";
   const scheduleDate = new Date();
   const scheduleDateLabel = scheduleDate.toLocaleDateString("en-US", {
     weekday: "long",
@@ -34,13 +49,13 @@ export default function ServiceOptionDetailScreen() {
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.detailCard}>
-            <Image source={{ uri: option.image }} style={styles.heroImage} resizeMode="cover" />
+            <Image source={{ uri: optionImage }} style={styles.heroImage} resizeMode="cover" />
             <View style={styles.detailBody}>
               <View style={styles.titleRow}>
-                <Text style={styles.serviceName}>{option.title}</Text>
-                <Text style={styles.price}>₹{option.price}</Text>
+                <Text style={styles.serviceName}>{optionTitle}</Text>
+                <Text style={styles.price}>₹{optionPrice}</Text>
               </View>
-              <Text style={styles.includesLine}>{option.description}</Text>
+              <Text style={styles.includesLine}>{optionDescription}</Text>
               <View style={styles.providerRow}>
                 <View style={styles.providerIcon}>
                   <MaterialCommunityIcons name="shield-check-outline" size={18} color="#1C98ED" />
@@ -53,7 +68,7 @@ export default function ServiceOptionDetailScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoHeader}>
               <Text style={styles.infoHeading}>Schedule</Text>
-              <Text style={styles.link}>Change</Text>
+              {/* <Text style={styles.link}>Change</Text> */}
             </View>
             <View style={styles.infoRow}>
               <View style={styles.iconBubble}>
@@ -61,7 +76,7 @@ export default function ServiceOptionDetailScreen() {
               </View>
               <View>
                   <Text style={styles.infoPrimary}>{scheduleDateLabel}</Text>
-                <Text style={styles.infoSecondary}>10:00 AM - 2:00 PM</Text>
+                {/* <Text style={styles.infoSecondary}>10:00 AM - 2:00 PM</Text> */}
               </View>
             </View>
           </View>
@@ -69,15 +84,15 @@ export default function ServiceOptionDetailScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoHeader}>
               <Text style={styles.infoHeading}>Service Address</Text>
-              <Text style={styles.link}>Edit</Text>
+              {/* <Text style={styles.link}>Edit</Text> */}
             </View>
             <View style={styles.infoRow}>
               <View style={styles.iconBubble}>
                 <MaterialCommunityIcons name="map-marker-outline" size={20} color="#475569" />
               </View>
               <View>
-                <Text style={styles.infoPrimary}>Flat A-101, Sunrise Residency</Text>
-                <Text style={styles.infoSecondary}>Kondapur, Hyderabad</Text>
+                <Text style={styles.infoPrimary}>{buildingAddress.streetName ? `${buildingAddress.streetName}, ` : ""}{buildingAddress.landmark ? `${buildingAddress.landmark}` : ""}</Text>
+                <Text style={styles.infoSecondary}>{buildingAddress.city ? `${buildingAddress.city}, ` : ""}{buildingAddress.state ? `${buildingAddress.state}, ` : ""}{buildingAddress.pincode ? `${buildingAddress.pincode}` : ""}</Text>
               </View>
             </View>
           </View>
@@ -87,7 +102,14 @@ export default function ServiceOptionDetailScreen() {
             onPress={() =>
               router.push({
                 pathname: "/service-schedule",
-                params: { serviceKey: service.key, optionId: option.id },
+                params: {
+                  serviceKey,
+                  optionId,
+                  optionTitle,
+                  optionDescription,
+                  optionPrice: String(optionPrice),
+                  optionImage,
+                },
               } as never)
             }
           >

@@ -1,8 +1,12 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { getBookings, type BookingRecord } from "./data/homeServicesData";
+import axios from "axios";
+import { BASE_URL } from "./config";
+import { type BookingRecord } from "./data/homeServicesData";
+import useProfileStore from "./store/profileStore";
+import { getErrorMessage } from "./services/error";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { rms, rs, rvs } from "@/constants/responsive";
 
@@ -12,10 +16,57 @@ export default function MyBookingsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<TabKey>(params.tab === "issues" ? "issues" : "history");
-  const [historyFilter, setHistoryFilter] = useState<"ALL" | "COMPLETED" | "CANCELLED" | "CONFIRMED">("ALL");
+  const [historyFilter, setHistoryFilter] = useState<
+    "ALL" | "COMPLETED" | "CANCELLED" | "CONFIRMED" | "ASSIGNING_SERVICE_PERSON" | "IN_PROGRESS"
+  >("ALL");
   const [issueFilter, setIssueFilter] = useState<"ALL" | "OPEN" | "CLOSED" | "RESOLVED">("ALL");
+  const [bookings, setBookings] = useState<BookingRecord[]>([]);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const profileId = useProfileStore((s) => s.phone);
 
-  const bookings = getBookings();
+  useEffect(() => {
+    const run = async () => {
+      if (!profileId) return;
+      try {
+        setErrorText(null);
+        const res = await axios.get(`${BASE_URL}/service/order/${profileId}/all`);
+        const rows = Array.isArray(res.data) ? res.data : [];
+        const mapped: BookingRecord[] = rows.map((item: any) => {
+          const rawOrderStatus = String(item?.orderStatus ?? "CREATED").toUpperCase();
+          const rawVhsStatus = String(item?.vhsStatus ?? "").toUpperCase();
+          const derivedStatus =
+            rawOrderStatus === "CREATED" &&
+            (rawVhsStatus === "BOOKED" || rawVhsStatus === "ASSIGNING" || rawVhsStatus === "ASSIGNING_SERVICE_PERSON")
+              ? "ASSIGNING_SERVICE_PERSON"
+              : rawOrderStatus;
+          const serviceDate = item?.date ? new Date(item.date) : null;
+          const dateLabel = serviceDate && !Number.isNaN(serviceDate.getTime())
+            ? serviceDate.toLocaleDateString("en-US", { month: "short", day: "2-digit" })
+            : "--";
+          return {
+            id: String(item?.orderId ?? ""),
+            serviceKey: String(item?.orderType ?? "CLEANER"),
+            optionId: String(item?.optionId ?? ""),
+            optionTitle: String(item?.optionTitle ?? "Service"),
+            providerName: String(item?.vhsServicePersonName ?? item?.servicePersonName ?? "Assigning service person"),
+            providerRating: String(item?.servicePersonRating ?? ""),
+            dateLabel,
+            timeLabel: String(item?.timeSlot ?? "--"),
+            amount: Number(item?.amount ?? 0),
+            status: derivedStatus as any,
+            issueStatus: item?.issueStatus ? String(item.issueStatus) as any : undefined,
+            issueText: item?.issueText ? String(item.issueText) : undefined,
+            issueRaisedAt: item?.issueRaisedAt ? String(item.issueRaisedAt) : undefined,
+          };
+        });
+        setBookings(mapped);
+      } catch (error) {
+        setErrorText(getErrorMessage(error, "Unable to fetch bookings."));
+        setBookings([]);
+      }
+    };
+    run();
+  }, [profileId]);
   const historyItems = useMemo(
     () =>
       bookings.filter((item) =>
@@ -59,9 +110,12 @@ export default function MyBookingsScreen() {
             {(tab === "history"
               ? [
                   { key: "ALL", label: "All" },
+                  { key: "ASSIGNING_SERVICE_PERSON", label: "Assigning" },
+                  
                   { key: "COMPLETED", label: "Completed" },
                   { key: "CANCELLED", label: "Canceled" },
                   { key: "CONFIRMED", label: "Scheduled" },
+                  { key: "IN_PROGRESS", label: "In Progress" },
                 ]
               : [
                   { key: "ALL", label: "All" },
@@ -86,6 +140,7 @@ export default function MyBookingsScreen() {
               );
             })}
           </ScrollView>
+          {errorText ? <Text style={styles.emptyText}>{errorText}</Text> : null}
 
           {items.length ? (
             items.map((booking) => (
@@ -135,10 +190,19 @@ export default function MyBookingsScreen() {
 }
 
 function StatusPill({ booking }: { booking: BookingRecord }) {
-  if (booking.status === "CONFIRMED") {
+  if (booking.status === "ASSIGNING_SERVICE_PERSON" || booking.status === "CREATED") {
+    return (
+      <View style={[styles.statusPill, { backgroundColor: "rgba(245,158,11,0.12)" }]}>
+        <Text style={[styles.statusText, { color: "#B45309" }]}>Assigning</Text>
+      </View>
+    );
+  }
+  if (booking.status === "CONFIRMED" || booking.status === "ASSIGNED") {
     return (
       <View style={[styles.statusPill, { backgroundColor: "rgba(39,153,206,0.1)" }]}>
-        <Text style={[styles.statusText, { color: "#1C98ED" }]}>Confirmed</Text>
+        <Text style={[styles.statusText, { color: "#1C98ED" }]}>
+          {booking.status === "ASSIGNED" ? "Assigned" : "Confirmed"}
+        </Text>
       </View>
     );
   }
@@ -146,6 +210,13 @@ function StatusPill({ booking }: { booking: BookingRecord }) {
     return (
       <View style={[styles.statusPill, { backgroundColor: "rgba(5,150,105,0.1)" }]}>
         <Text style={[styles.statusText, { color: "#059669" }]}>Completed</Text>
+      </View>
+    );
+  }
+  if (booking.status === "IN_PROGRESS") {
+    return (
+      <View style={[styles.statusPill, { backgroundColor: "rgba(16,185,129,0.12)" }]}>
+        <Text style={[styles.statusText, { color: "#047857" }]}>In Progress</Text>
       </View>
     );
   }

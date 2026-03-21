@@ -4,7 +4,7 @@
     "slug": "nestiti",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app-icon.jpeg",
+    "icon": "./assets/images/app-icon.png",
     "splash": {
       "image": "./assets/images/splash-logo.png",
       "resizeMode": "contain",
@@ -20,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#2b96de",
-        "foregroundImage": "./assets/images/app-icon.jpeg"
+        "foregroundImage": "./assets/images/app-icon.png"
       },
       "splash": {
         "image": "./assets/images/splash-logo.png",

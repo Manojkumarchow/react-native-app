@@ -1,64 +1,198 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { createBooking, getOptionById, getServiceByKey, type ServiceKey } from "./data/homeServicesData";
+import axios from "axios";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { rms, rs, rvs } from "@/constants/responsive";
-
-const DATE_CHOICES = (() => {
-  const labels = ["Today", "Tmrw", "", ""];
-  const now = new Date();
-  return [0, 1, 2, 3].map((offset) => {
-    const d = new Date(now);
-    d.setDate(now.getDate() + offset);
-    const dayLabel =
-      labels[offset] ||
-      d.toLocaleDateString("en-US", {
-        weekday: "short",
-      });
-    return {
-      key: `d-${offset}`,
-      label: dayLabel,
-      day: d.toLocaleDateString("en-US", { day: "2-digit" }),
-      month: d.toLocaleDateString("en-US", { month: "short" }),
-      full: d.toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
-    };
-  });
-})();
+import { BASE_URL } from "./config";
+import useProfileStore from "./store/profileStore";
+import { getErrorMessage } from "./services/error";
 
 const SLOT_CHOICES = [
-  { key: "09", label: "9:00 AM", disabled: false },
-  { key: "10", label: "10:00 AM", disabled: false },
-  { key: "11", label: "11:00 AM", disabled: true },
-  { key: "13", label: "01:00 PM", disabled: false },
-  { key: "15", label: "03:00 PM", disabled: false },
-  { key: "19", label: "07:00 PM", disabled: true },
+  { key: "09", label: "9:00 AM", vhsSlot: "9am-10am", startHour: 9, endHour: 10 },
+  { key: "10", label: "10:00 AM", vhsSlot: "10am-11am", startHour: 10, endHour: 11 },
+  { key: "11", label: "11:00 AM", vhsSlot: "11am-12pm", startHour: 11, endHour: 12 },
+  { key: "13", label: "01:00 PM", vhsSlot: "1pm-2pm", startHour: 13, endHour: 14 },
+  { key: "15", label: "03:00 PM", vhsSlot: "3pm-4pm", startHour: 15, endHour: 16 },
+  { key: "19", label: "07:00 PM", vhsSlot: "7pm-8pm", startHour: 19, endHour: 20 },
 ];
 
 export default function ServiceScheduleScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ serviceKey?: string; optionId?: string }>();
-  const service = getServiceByKey(params.serviceKey);
-  const option = getOptionById(service.key as ServiceKey, params.optionId);
+  const params = useLocalSearchParams<{
+    bookingId?: string;
+    serviceKey?: string;
+    optionId?: string;
+    optionTitle?: string;
+    optionPrice?: string;
+  }>();
+  const profileId = useProfileStore((s) => s.phone);
+  const buildingId = useProfileStore((s) => s.buildingId);
+  const optionTitle = Array.isArray(params.optionTitle) ? params.optionTitle[0] : params.optionTitle ?? "Service";
+  const optionId = Array.isArray(params.optionId) ? params.optionId[0] : params.optionId ?? "";
+  const serviceKey = Array.isArray(params.serviceKey) ? params.serviceKey[0] : params.serviceKey ?? "";
+  const bookingId = Array.isArray(params.bookingId) ? params.bookingId[0] : params.bookingId ?? "";
+  const isEdit = Boolean(bookingId);
+  const optionPrice = Number(Array.isArray(params.optionPrice) ? params.optionPrice[0] : params.optionPrice ?? 0);
+
+  const resolveOrderType = (key: string) => {
+    const normalized = key.trim().toLowerCase();
+    if (normalized.includes("clean")) return "CLEANER";
+    if (normalized.includes("paint")) return "PAINTER";
+    if (normalized.includes("carpenter")) return "CARPENTER";
+    if (normalized.includes("electric")) return "ELECTRICIAN";
+    if (normalized.includes("plumb")) return "PLUMBER";
+    if (normalized.includes("beaut")) return "BEAUTICIAN";
+    if (normalized.includes("water-tanker")) return "WATER_TANKER";
+    if (normalized.includes("water-can")) return "WATER_CAN";
+    return "CLEANER";
+  };
+
+  const DATE_CHOICES = useMemo(() => {
+    const base = new Date();
+    const labels = ["Today", "Tomorrow", "", "", "", "", ""];
+    return Array.from({ length: 7 }, (_, offset) => {
+      const d = new Date(base);
+      d.setDate(base.getDate() + offset);
+      const dayLabel =
+        labels[offset] ||
+        d.toLocaleDateString("en-US", {
+          weekday: "short",
+        });
+      return {
+        key: `d-${offset}`,
+        label: dayLabel,
+        day: d.toLocaleDateString("en-US", { day: "2-digit" }),
+        month: d.toLocaleDateString("en-US", { month: "short" }),
+        full: d.toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }),
+        iso: d.toISOString().slice(0, 10),
+      };
+    });
+  }, []);
+
+  const now = new Date();
 
   const [selectedDate, setSelectedDate] = useState(DATE_CHOICES[0].key);
   const [selectedSlot, setSelectedSlot] = useState("09");
   const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   const selectedDateData = useMemo(
     () => DATE_CHOICES.find((item) => item.key === selectedDate) ?? DATE_CHOICES[0],
     [selectedDate]
   );
+  const todayIso = now.toISOString().slice(0, 10);
+  const slotChoicesForSelectedDate = useMemo(() => {
+    const isToday = selectedDateData.iso === todayIso;
+    return SLOT_CHOICES.map((slot) => ({
+      ...slot,
+      disabled: isToday
+        ? new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            slot.startHour,
+            0,
+            0,
+            0,
+          ).getTime() < now.getTime()
+        : false,
+    }));
+  }, [selectedDateData.iso, todayIso, now]);
+
   const selectedSlotData = useMemo(
-    () => SLOT_CHOICES.find((item) => item.key === selectedSlot) ?? SLOT_CHOICES[0],
-    [selectedSlot]
+    () => slotChoicesForSelectedDate.find((item) => item.key === selectedSlot) ?? slotChoicesForSelectedDate[0],
+    [selectedSlot, slotChoicesForSelectedDate]
   );
+
+  useEffect(() => {
+    const hasAvailableInSelectedDate = slotChoicesForSelectedDate.some((slot) => !slot.disabled);
+    if (!hasAvailableInSelectedDate) {
+      const nextDate = DATE_CHOICES.find((date) => {
+        if (date.iso === todayIso) {
+          return SLOT_CHOICES.some((slot) => {
+            const startTime = new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              now.getDate(),
+              slot.startHour,
+              0,
+              0,
+              0,
+            ).getTime();
+            return startTime >= now.getTime();
+          });
+        }
+        return true;
+      });
+      if (nextDate && nextDate.key !== selectedDate) {
+        setSelectedDate(nextDate.key);
+      }
+      return;
+    }
+    const selected = slotChoicesForSelectedDate.find((slot) => slot.key === selectedSlot);
+    if (!selected || selected.disabled) {
+      const firstAvailable = slotChoicesForSelectedDate.find((slot) => !slot.disabled);
+      if (firstAvailable) {
+        setSelectedSlot(firstAvailable.key);
+      }
+    }
+  }, [DATE_CHOICES, now, selectedDate, selectedSlot, slotChoicesForSelectedDate, todayIso]);
+
+  const onSubmit = async () => {
+    if (!profileId || !buildingId) {
+      setErrorText("Profile/building info missing. Please login again.");
+      return;
+    }
+    setSubmitting(true);
+    setErrorText(null);
+    try {
+      if (!selectedSlotData || selectedSlotData.disabled) {
+        setErrorText("Please choose a valid future time slot.");
+        return;
+      }
+      if (isEdit) {
+        await axios.patch(`${BASE_URL}/service/order/${profileId}/${bookingId}/reschedule`, {
+          date: selectedDateData.iso,
+          timeSlot: selectedSlotData.vhsSlot,
+        });
+        router.replace({ pathname: "/booking-detail", params: { bookingId } } as never);
+      } else {
+        const res = await axios.post(`${BASE_URL}/service/order/create`, {
+          orderType: resolveOrderType(serviceKey),
+          profileId,
+          buildingId: String(buildingId),
+          date: selectedDateData.iso,
+          timeSlot: selectedSlotData.vhsSlot,
+          optionId,
+          optionTitle,
+          notes,
+          amount: optionPrice,
+        });
+        const createdId = String(res?.data?.orderId ?? "");
+        router.push({
+          pathname: "/service-booking-success",
+          params: {
+            bookingId: createdId,
+            optionTitle,
+            dateLabel: selectedDateData.full,
+            timeLabel: selectedSlotData.label,
+          },
+        } as never);
+      }
+    } catch (error) {
+      setErrorText(getErrorMessage(error, "Unable to save booking changes."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -97,7 +231,7 @@ export default function ServiceScheduleScreen() {
             <Text style={styles.zoneText}>GMT +05:30</Text>
           </View>
           <View style={styles.slotGrid}>
-            {SLOT_CHOICES.map((slot) => {
+            {slotChoicesForSelectedDate.map((slot) => {
               const selected = selectedSlot === slot.key;
               return (
                 <Pressable
@@ -133,30 +267,14 @@ export default function ServiceScheduleScreen() {
             value={notes}
             onChangeText={setNotes}
           />
+          {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
 
           <Pressable
-            style={styles.confirmBtn}
-            onPress={() => {
-              const created = createBooking({
-                serviceKey: service.key as ServiceKey,
-                optionId: option.id,
-                optionTitle: option.title,
-                dateLabel: selectedDateData.day + " " + selectedDateData.month,
-                timeLabel: selectedSlotData.label,
-                amount: option.price,
-              });
-              router.push({
-                pathname: "/service-booking-success",
-                params: {
-                  bookingId: created.id,
-                  optionTitle: created.optionTitle,
-                  dateLabel: selectedDateData.full,
-                  timeLabel: selectedSlotData.label,
-                },
-              } as never);
-            }}
+            style={[styles.confirmBtn, submitting && { opacity: 0.7 }]}
+            disabled={submitting}
+            onPress={onSubmit}
           >
-            <Text style={styles.confirmText}>Confirm Booking</Text>
+            <Text style={styles.confirmText}>{isEdit ? "Save Changes" : "Confirm Booking"}</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -234,4 +352,5 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   confirmText: { color: "#FAFAFA", fontSize: 14, fontWeight: "500" },
+  errorText: { color: "#DC2626", fontSize: 12, marginTop: 6 },
 });

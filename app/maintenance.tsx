@@ -23,8 +23,8 @@ import { rms, rs, rvs } from "@/constants/responsive";
 
 type Step = 1 | 2 | 3 | 4;
 type WaterMode = "FIXED" | "MASTER" | "INDIVIDUAL" | "MIXED";
-type WaterSubStep = "MODE" | "INDIVIDUAL" | "MIXED";
 type MeterRow = { flatNumber: string; reading: string; units: string };
+type CustomExpenseRow = { id: string; name: string; amount: string };
 
 export default function MaintenanceScreen() {
   const router = useRouter();
@@ -50,7 +50,6 @@ export default function MaintenanceScreen() {
   ];
 
   const [step, setStep] = useState<Step>(1);
-  const [waterSubStep, setWaterSubStep] = useState<WaterSubStep>("MODE");
 
   const years = Array.from({ length: 5 }, (_, i) => `${currentYear - i}`);
   const [selectedYear, setSelectedYear] = useState(`${currentYear}`);
@@ -65,14 +64,18 @@ export default function MaintenanceScreen() {
   const [electricityCommon, setElectricityCommon] = useState("");
   const [motorPump, setMotorPump] = useState("");
   const [miscellaneous, setMiscellaneous] = useState("");
+  const [customExpenses, setCustomExpenses] = useState<CustomExpenseRow[]>([]);
+  const [customExpenseModalVisible, setCustomExpenseModalVisible] = useState(false);
+  const [customExpenseName, setCustomExpenseName] = useState("");
+  const [customExpenseAmount, setCustomExpenseAmount] = useState("");
 
-  const [waterMode, setWaterMode] = useState<WaterMode>("MASTER");
+  const [waterMode, setWaterMode] = useState<WaterMode>("FIXED");
   const [rememberWaterSetup, setRememberWaterSetup] = useState(false);
-  const [fixedWaterBill, setFixedWaterBill] = useState("8000");
-  const [masterWaterBill, setMasterWaterBill] = useState("8000");
-  const [individualRatePerUnit, setIndividualRatePerUnit] = useState("29");
-  const [mixedRatePerUnit, setMixedRatePerUnit] = useState("29");
-  const [mixedFixedPool, setMixedFixedPool] = useState("8000");
+  const [fixedWaterBill, setFixedWaterBill] = useState("");
+  const [masterWaterBill, setMasterWaterBill] = useState("");
+  const [individualRatePerUnit, setIndividualRatePerUnit] = useState("");
+  const [mixedRatePerUnit, setMixedRatePerUnit] = useState("");
+  const [mixedFixedPool, setMixedFixedPool] = useState("");
 
   const [individualRows, setIndividualRows] = useState<MeterRow[]>([]);
 
@@ -103,6 +106,10 @@ export default function MaintenanceScreen() {
   const formatInr = (value: number) => `₹${Math.max(0, value).toLocaleString("en-IN")}`;
 
   const flatsCount = allFlats.length;
+  const customExpensesTotal = useMemo(
+    () => customExpenses.reduce((sum, item) => sum + parseAmount(item.amount), 0),
+    [customExpenses],
+  );
 
   useEffect(() => {
     const run = async () => {
@@ -150,8 +157,9 @@ export default function MaintenanceScreen() {
       parseAmount(liftMaintenance) +
       parseAmount(electricityCommon) +
       parseAmount(motorPump) +
-      parseAmount(miscellaneous),
-    [watchmanSalary, garbageCollection, liftMaintenance, electricityCommon, motorPump, miscellaneous],
+      parseAmount(miscellaneous) +
+      customExpensesTotal,
+    [watchmanSalary, garbageCollection, liftMaintenance, electricityCommon, motorPump, miscellaneous, customExpensesTotal],
   );
 
   const expenseBreakdown = useMemo(
@@ -162,8 +170,11 @@ export default function MaintenanceScreen() {
       { label: "Common Area Electricity", icon: "flash-outline", value: parseAmount(electricityCommon) },
       { label: "Motor Maintenance", icon: "cog-outline", value: parseAmount(motorPump) },
       { label: "Miscellaneous", icon: "text-box-outline", value: parseAmount(miscellaneous) },
+      ...customExpenses
+        .filter((item) => item.name.trim().length > 0 && parseAmount(item.amount) > 0)
+        .map((item) => ({ label: item.name.trim(), icon: "plus-circle-outline", value: parseAmount(item.amount) })),
     ],
-    [watchmanSalary, garbageCollection, liftMaintenance, electricityCommon, motorPump, miscellaneous],
+    [watchmanSalary, garbageCollection, liftMaintenance, electricityCommon, motorPump, miscellaneous, customExpenses],
   );
 
   const monthSummary = useMemo(() => {
@@ -259,6 +270,41 @@ export default function MaintenanceScreen() {
     });
   };
 
+  const addCustomExpense = () => {
+    const name = customExpenseName.trim();
+    const amount = inputFormatter(customExpenseAmount);
+    if (!name) {
+      Alert.alert("Missing name", "Please enter an expense name.");
+      return;
+    }
+    if (!amount || parseAmount(amount) <= 0) {
+      Alert.alert("Invalid amount", "Please enter a valid expense amount.");
+      return;
+    }
+    setCustomExpenses((prev) => [
+      ...prev,
+      { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, amount },
+    ]);
+    setCustomExpenseName("");
+    setCustomExpenseAmount("");
+    setCustomExpenseModalVisible(false);
+  };
+
+  const removeCustomExpense = (id: string) => {
+    setCustomExpenses((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const customExpensesPayload = useMemo(() => {
+    const map: Record<string, number> = {};
+    customExpenses.forEach((item) => {
+      const name = item.name.trim();
+      const amount = parseAmount(item.amount);
+      if (!name || amount <= 0) return;
+      map[name] = (map[name] ?? 0) + amount;
+    });
+    return map;
+  }, [customExpenses]);
+
   const onBack = () => {
     if (step === 1) {
       router.back();
@@ -282,7 +328,6 @@ export default function MaintenanceScreen() {
     }
     if (step === 2) {
       setStep(3);
-      setWaterSubStep("MODE");
       return;
     }
     if (step === 3) {
@@ -302,8 +347,6 @@ export default function MaintenanceScreen() {
     try {
       setSubmitting(true);
       const month = Math.max(1, monthNames.findIndex((m) => m === selectedMonth) + 1);
-      console.log("Month: ", month);
-      console.log("Payment Due Date: ", paymentDueDate);
       const payload = {
         profileId,
         buildingId: String(buildingId),
@@ -317,6 +360,7 @@ export default function MaintenanceScreen() {
         electricityCommon: parseAmount(electricityCommon),
         motorPump: parseAmount(motorPump),
         miscellaneous: parseAmount(miscellaneous),
+        customExpenses: customExpensesPayload,
         waterMode,
         fixedWaterBill: parseAmount(fixedWaterBill),
         masterWaterBill: parseAmount(masterWaterBill),
@@ -341,7 +385,6 @@ export default function MaintenanceScreen() {
         })),
         allFlats,
       };
-      console.log("Payload: ", payload);
       await axios.post(`${BASE_URL}/maintenance/create`, payload);
       Alert.alert("Maintenance created", "Bills generated successfully.", [
         { text: "OK", onPress: () => router.push("/ledger") },
@@ -457,6 +500,34 @@ export default function MaintenanceScreen() {
               <ExpenseInput label="Electricity Common" subLabel="Corridors, pump, lights" value={electricityCommon} onChangeText={(val) => setElectricityCommon(inputFormatter(val))} />
               <ExpenseInput label="Motor / Pump Maintenance" subLabel="Sump pump & overhead tank" value={motorPump} onChangeText={(val) => setMotorPump(inputFormatter(val))} />
               <ExpenseInput label="Miscellaneous" subLabel="Any other shared expense" value={miscellaneous} onChangeText={(val) => setMiscellaneous(inputFormatter(val))} />
+
+              <View style={styles.customExpenseBlock}>
+                <View style={styles.customExpenseHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.customExpenseTitle}>Custom Expenses</Text>
+                    <Text style={styles.customExpenseSubTitle}>Add one-off items like Water Tanker, Security Camera service, etc.</Text>
+                  </View>
+                  <Pressable style={styles.addCustomExpenseBtn} onPress={() => setCustomExpenseModalVisible(true)}>
+                    <Feather name="plus" size={16} color="#FAFAFA" />
+                    <Text style={styles.addCustomExpenseText}>Add Custom Expense</Text>
+                  </Pressable>
+                </View>
+                {customExpenses.length === 0 ? (
+                  <Text style={styles.customExpenseEmpty}>No custom expenses added yet.</Text>
+                ) : (
+                  customExpenses.map((item) => (
+                    <View key={item.id} style={styles.customExpenseRow}>
+                      <View style={{ flex: 1, paddingRight: rs(8) }}>
+                        <Text style={styles.customExpenseName}>{item.name}</Text>
+                        <Text style={styles.customExpenseAmount}>{formatInr(parseAmount(item.amount))}</Text>
+                      </View>
+                      <Pressable onPress={() => removeCustomExpense(item.id)} hitSlop={8}>
+                        <Feather name="trash-2" size={16} color="#DC2626" />
+                      </Pressable>
+                    </View>
+                  ))
+                )}
+              </View>
 
               <View style={styles.totalCard}>
                 <View>
@@ -736,6 +807,40 @@ export default function MaintenanceScreen() {
             )}
           </Pressable>
         </View>
+
+        <Modal visible={customExpenseModalVisible} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.customExpenseModalCard}>
+              <Text style={styles.customExpenseModalTitle}>Add Custom Expense</Text>
+              <Text style={styles.customExpenseModalSub}>This will be included in maintenance summary and ledger.</Text>
+              <Text style={styles.inputLabel}>Expense Name</Text>
+              <TextInput
+                value={customExpenseName}
+                onChangeText={setCustomExpenseName}
+                placeholder="eg Water Tanker"
+                placeholderTextColor="#94A3B8"
+                style={styles.customExpenseModalInput}
+              />
+              <Text style={styles.inputLabel}>Amount (₹)</Text>
+              <TextInput
+                value={customExpenseAmount}
+                onChangeText={(val) => setCustomExpenseAmount(inputFormatter(val))}
+                placeholder="eg 5000"
+                placeholderTextColor="#94A3B8"
+                keyboardType="number-pad"
+                style={styles.customExpenseModalInput}
+              />
+              <View style={styles.customExpenseModalActions}>
+                <Pressable style={styles.customExpenseCancelBtn} onPress={() => setCustomExpenseModalVisible(false)}>
+                  <Text style={styles.customExpenseCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable style={styles.customExpenseSaveBtn} onPress={addCustomExpense}>
+                  <Text style={styles.customExpenseSaveText}>Add</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         <Modal visible={pickerVisible} transparent animationType="slide">
           <View style={styles.modalOverlay}>
@@ -1019,6 +1124,45 @@ const styles = StyleSheet.create({
     color: "#0F172A",
     backgroundColor: "#FFFFFF",
   },
+  customExpenseBlock: {
+    borderRadius: rs(16),
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    padding: rs(12),
+    gap: rvs(10),
+  },
+  customExpenseHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: rs(10),
+  },
+  customExpenseTitle: { color: "#0F172A", fontSize: rms(14), fontWeight: "600" },
+  customExpenseSubTitle: { marginTop: rvs(2), color: "#64748B", fontSize: rms(11), lineHeight: rms(16) },
+  addCustomExpenseBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: rs(4),
+    backgroundColor: "#1C98ED",
+    borderRadius: rs(10),
+    paddingHorizontal: rs(10),
+    minHeight: rvs(34),
+  },
+  addCustomExpenseText: { color: "#FAFAFA", fontSize: rms(11), fontWeight: "600" },
+  customExpenseEmpty: { color: "#777", fontSize: rms(12) },
+  customExpenseRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: rs(12),
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: rs(12),
+    paddingVertical: rvs(9),
+    backgroundColor: "#F8FAFC",
+  },
+  customExpenseName: { color: "#0F172A", fontSize: rms(13), fontWeight: "500" },
+  customExpenseAmount: { marginTop: rvs(2), color: "#1C98ED", fontSize: rms(12), fontWeight: "600" },
   totalCard: {
     marginTop: 2,
     borderRadius: 24,
@@ -1259,6 +1403,53 @@ const styles = StyleSheet.create({
   },
   warningText: { flex: 1, color: "#92400E", fontSize: 13, lineHeight: 21, fontWeight: "500" },
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.28)" },
+  customExpenseModalCard: {
+    marginHorizontal: rs(16),
+    marginBottom: rvs(250),
+    borderRadius: rs(16),
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    padding: rs(16),
+    gap: rvs(8),
+  },
+  customExpenseModalTitle: { color: "#0F172A", fontSize: rms(17), fontWeight: "700" },
+  customExpenseModalSub: { color: "#64748B", fontSize: rms(12), marginBottom: rvs(4) },
+  customExpenseModalInput: {
+    minHeight: rvs(44),
+    borderRadius: rs(10),
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: rs(12),
+    color: "#0F172A",
+    fontSize: rms(13),
+  },
+  customExpenseModalActions: {
+    marginTop: rvs(8),
+    flexDirection: "row",
+    gap: rs(10),
+  },
+  customExpenseCancelBtn: {
+    flex: 1,
+    minHeight: rvs(42),
+    borderRadius: rs(10),
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  customExpenseCancelText: { color: "#64748B", fontSize: rms(13), fontWeight: "500" },
+  customExpenseSaveBtn: {
+    flex: 1,
+    minHeight: rvs(42),
+    borderRadius: rs(10),
+    backgroundColor: "#1C98ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  customExpenseSaveText: { color: "#FAFAFA", fontSize: rms(13), fontWeight: "600" },
   pickerSheet: {
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: rs(16),

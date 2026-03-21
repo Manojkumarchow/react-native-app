@@ -368,6 +368,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: rs(12),
     alignItems: "center",
+    justifyContent: "center",
     marginBottom: rvs(24),
   },
   pinBox: {

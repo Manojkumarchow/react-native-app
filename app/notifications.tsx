@@ -44,8 +44,7 @@ const FILTERS: { key: FilterType; label: string }[] = [
   { key: "INFO", label: "Info" },
 ];
 
-const FIGMA_AD_IMAGE =
-  "https://www.figma.com/api/mcp/asset/d254e125-014c-43ea-b7a1-01f8f35dc9ba";
+const DISPLAY_AD = require("../assets/images/heliq.jpeg");
 
 export default function NotificationsScreen() {
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -123,11 +122,11 @@ export default function NotificationsScreen() {
           </ScrollView>
 
           <View style={styles.adCard}>
-            <Image source={{ uri: FIGMA_AD_IMAGE }} style={styles.adImage} resizeMode="cover" />
-            <View style={styles.adOverlay}>
+            <Image source={DISPLAY_AD} style={styles.adImage} resizeMode="cover" />
+            {/* <View style={styles.adOverlay}>
               <Text style={styles.adTitle}>Sponsored</Text>
-              <Text style={styles.adSub}>Ad placeholder</Text>
-            </View>
+              <Text style={styles.adSub}>Heliq</Text>
+            </View> */}
           </View>
 
           {errorText ? <Text style={styles.hintText}>{errorText}</Text> : null}
@@ -236,7 +235,7 @@ const styles = StyleSheet.create({
   filterText: { fontSize: 14, color: "#1C98ED", fontWeight: "500" },
   filterTextActive: { color: "#FAFAFA" },
   adCard: {
-    height: 118,
+    height: 160,
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,

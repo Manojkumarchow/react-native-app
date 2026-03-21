@@ -27,7 +27,7 @@ import { BASE_URL } from "./config";
 import { getErrorMessage } from "./services/error";
 import { rms, rs, rvs } from "@/constants/responsive";
 
-const smartLocksBanner = require("../assets/images/heliq.jpeg");
+const displayAd = require("../assets/images/heliq.jpeg");
 
 const quickActions = [
   {
@@ -121,7 +121,7 @@ export default function Home() {
     ? `${storeBuildingName || buildingName} Security`
     : "Security";
 
-  const isTenant = (role ?? "").toUpperCase() === "USER";
+  const isTenant = (role ?? "").toUpperCase() === "USER" || (role ?? "").toUpperCase() === "TENANT" || (role ?? "").toUpperCase() === "OWNER";
   const profileId = phone ?? userId ?? "";
   const resolvedBuildingId = buildingId ? String(buildingId) : "";
 
@@ -245,6 +245,17 @@ export default function Home() {
     run();
   }, [isTenant, profileId, resolvedBuildingId]);
 
+  // greetingUtils.js
+
+ const getGreeting =  () => {
+  const hour = new Date().getHours();
+
+  if (hour >= 5 && hour < 12) return "Good Morning";
+  if (hour >= 12 && hour < 17) return "Good Afternoon";
+  if (hour >= 17 && hour < 22) return "Good Evening";
+  return "Good Night & Time to sleep";
+}
+
   if (isTenant) {
     return (
       <>
@@ -253,7 +264,7 @@ export default function Home() {
           <View style={styles.tenantHeaderCard}>
             <View style={styles.tenantHeaderTopRow}>
               <View>
-                <Text style={styles.greeting}>Good morning,</Text>
+                <Text style={styles.greeting}>{getGreeting()},</Text>
                 <Text style={styles.tenantUserName}>{name || "Resident"}</Text>
               </View>
 
@@ -287,9 +298,6 @@ export default function Home() {
           >
             {loading ? <ActivityIndicator color="#1C98ED" style={{ marginBottom: 12 }} /> : null}
             {errorText ? <Text style={styles.noticeDescription}>{errorText}</Text> : null}
-            <Pressable style={styles.bannerCard}>
-              <Image source={smartLocksBanner} style={styles.bannerImage} resizeMode="cover" />
-            </Pressable>
             <View style={styles.tenantStatsRow}>
               <Pressable style={styles.duesCard} onPress={() => router.push("/payments")}>
                 <Text style={styles.duesLabel}>Dues</Text>
@@ -356,7 +364,9 @@ export default function Home() {
                 <Text style={styles.linkText}>My Bookings</Text>
               </Pressable>
             </View>
-
+            <Pressable style={styles.bannerCard}>
+              <Image source={displayAd} style={styles.bannerImage} resizeMode="cover" />
+            </Pressable>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -371,7 +381,7 @@ export default function Home() {
                   }
                 >
                   <MaterialCommunityIcons name={item.icon as any} size={16} color="#1C98ED" />
-                  <Text style={styles.serviceLabel}>{item.label}</Text>
+                  <Text style={styles.serviceLabel} numberOfLines={2}>{item.label}</Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -533,9 +543,6 @@ export default function Home() {
         >
           {loading ? <ActivityIndicator color="#1C98ED" style={{ marginBottom: 12 }} /> : null}
           {errorText ? <Text style={styles.noticeDescription}>{errorText}</Text> : null}
-          <Pressable style={styles.bannerCard}>
-            <Image source={smartLocksBanner} style={styles.bannerImage} resizeMode="cover" />
-          </Pressable>
           <View style={styles.statsGrid}>
             <StatCard
               icon={<Ionicons name="business-outline" size={14} color="#2899CF" />}
@@ -591,6 +598,9 @@ export default function Home() {
               </Pressable>
             ))}
           </View>
+          <Pressable style={styles.bannerCard}>
+            <Image source={displayAd} style={styles.bannerImage} resizeMode="cover" />
+          </Pressable>
 
           <View style={styles.sectionRow}>
             <Text style={styles.sectionTitle}>Home Services</Text>
@@ -616,7 +626,7 @@ export default function Home() {
                   size={16}
                   color="#1C98ED"
                 />
-                <Text style={styles.serviceLabel}>{item.label}</Text>
+                <Text style={styles.serviceLabel} numberOfLines={2}>{item.label}</Text>
               </Pressable>
             ))}
           </ScrollView>
@@ -1059,7 +1069,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   serviceChip: {
-    width: 96,
+    width: 108,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: "#E5E7EB",
@@ -1073,6 +1083,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#0F172A",
     fontWeight: "500",
+    textAlign: "center",
+    lineHeight: 18,
   },
   noticeCard: {
     borderRadius: 24,

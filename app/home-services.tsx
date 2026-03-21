@@ -1,19 +1,55 @@
 import React from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Dimensions } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { getServiceByKey, serviceCatalog, type ServiceKey } from "./data/homeServicesData";
+import { serviceCatalog } from "./data/homeServicesData";
 import axios from "axios";
 import { BASE_URL } from "./config";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { rms, rs, rvs } from "@/constants/responsive";
 
+const DEFAULT_CATEGORY_IMAGES: Record<string, string[]> = {
+  "appliance-service": [
+    "https://images.unsplash.com/photo-1581578731548-52f8d69d89f1?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1621905251918-48416bd8575a?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1631646103285-3d1f95f8f6f0?auto=format&fit=crop&w=1200&q=80",
+  ],
+  cleaning: ["https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=1200&q=80"],
+  painting: ["https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&w=1200&q=80"],
+  "pest-control": ["https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1200&q=80"],
+  "floor-polishing": ["https://images.unsplash.com/photo-1616486029423-aaa4789e8c9a?auto=format&fit=crop&w=1200&q=80"],
+  "home-repair-services": ["https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1200&q=80"],
+  "packers-movers": ["https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?auto=format&fit=crop&w=1200&q=80"],
+  "facility-management": ["https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80"],
+};
+
+const getCategoryFallbackImage = (categoryKey: string, index: number) => {
+  const list = DEFAULT_CATEGORY_IMAGES[categoryKey];
+  if (!list || list.length === 0) return "";
+  return list[index % list.length];
+};
+
+const pickNonEmptyImage = (...values: Array<string | undefined | null>) => {
+  for (const value of values) {
+    const normalized = String(value ?? "").trim();
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+  return "";
+};
+
 export default function HomeServicesScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ service?: string }>();
   const [catalog, setCatalog] = React.useState(serviceCatalog);
+  const [failedImageIds, setFailedImageIds] = React.useState<Record<string, boolean>>({});
+  const tabScrollRef = React.useRef<ScrollView>(null);
+  const [chipLayouts, setChipLayouts] = React.useState<Record<string, { x: number; width: number }>>({});
+  const screenWidth = Dimensions.get("window").width;
   const selectedService =
-    catalog.find((service) => service.key === (params.service as ServiceKey)) ?? catalog[0];
+    catalog.find((service) => service.key === String(params.service ?? "")) ?? catalog[0];
 
   React.useEffect(() => {
     const fetchCatalog = async () => {
@@ -35,7 +71,11 @@ export default function HomeServicesScreen() {
                         opt.description ?? fallbackOption?.description ?? "Professional service",
                       ),
                       price: Number(opt.price ?? fallbackOption?.price ?? 0),
-                      image: String(opt.image ?? fallbackOption?.image ?? ""),
+                      image: pickNonEmptyImage(
+                        opt.image,
+                        fallbackOption?.image,
+                        getCategoryFallbackImage(String(item.key ?? ""), idx),
+                      ),
                       popular: Boolean(opt.popular ?? fallbackOption?.popular ?? false),
                     };
                   })
@@ -57,6 +97,15 @@ export default function HomeServicesScreen() {
     fetchCatalog();
   }, []);
 
+  React.useEffect(() => {
+    const selectedKey = selectedService?.key;
+    if (!selectedKey) return;
+    const layout = chipLayouts[selectedKey];
+    if (!layout) return;
+    const targetX = Math.max(0, layout.x + layout.width / 2 - screenWidth / 2);
+    tabScrollRef.current?.scrollTo({ x: targetX, animated: true });
+  }, [selectedService?.key, chipLayouts, screenWidth]);
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -72,13 +121,28 @@ export default function HomeServicesScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
+          <ScrollView
+            ref={tabScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabRow}
+          >
             {catalog.map((item) => {
               const active = item.key === selectedService.key;
               return (
                 <Pressable
                   key={item.key}
                   style={[styles.tabChip, active && styles.tabChipActive]}
+                  onLayout={(e) => {
+                    const { x, width } = e.nativeEvent.layout;
+                    setChipLayouts((prev) => {
+                      const prevItem = prev[item.key];
+                      if (prevItem && prevItem.x === x && prevItem.width === width) {
+                        return prev;
+                      }
+                      return { ...prev, [item.key]: { x, width } };
+                    });
+                  }}
                   onPress={() => router.replace({ pathname: "/home-services", params: { service: item.key } } as never)}
                 >
                   <MaterialCommunityIcons
@@ -92,10 +156,21 @@ export default function HomeServicesScreen() {
             })}
           </ScrollView>
 
-          {selectedService.options.map((option) => (
+          {selectedService.options.map((option, idx) => {
+            const fallbackImage = getCategoryFallbackImage(selectedService.key, idx);
+            const shouldUseFallback = failedImageIds[option.id] || !String(option.image ?? "").trim();
+            const resolvedImage = shouldUseFallback ? fallbackImage : option.image;
+            return (
             <View key={option.id} style={styles.card}>
-              {option.image ? (
-                <Image source={{ uri: option.image }} style={styles.cardImage} resizeMode="cover" />
+              {resolvedImage ? (
+                <Image
+                  source={{ uri: resolvedImage }}
+                  style={styles.cardImage}
+                  resizeMode="cover"
+                  onError={() => {
+                    setFailedImageIds((prev) => ({ ...prev, [option.id]: true }));
+                  }}
+                />
               ) : (
                 <View style={[styles.cardImage, styles.cardImageFallback]}>
                   <MaterialCommunityIcons name="image-off-outline" size={rs(28)} color="#94A3B8" />
@@ -117,7 +192,12 @@ export default function HomeServicesScreen() {
                         pathname: "/service-option-detail",
                         params: {
                           serviceKey: selectedService.key,
+                          serviceLabel: selectedService.label,
                           optionId: option.id,
+                          optionTitle: option.title,
+                          optionDescription: option.description,
+                          optionPrice: String(option.price),
+                          optionImage: option.image,
                         },
                       } as never)
                     }
@@ -127,7 +207,7 @@ export default function HomeServicesScreen() {
                 </View>
               </View>
             </View>
-          ))}
+          )})}
         </ScrollView>
       </SafeAreaView>
     </>

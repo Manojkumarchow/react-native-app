@@ -1,18 +1,78 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { getBookings } from "./data/homeServicesData";
+import axios from "axios";
+import { BASE_URL } from "./config";
+import useProfileStore from "./store/profileStore";
+import { getErrorMessage } from "./services/error";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { rms, rs, rvs } from "@/constants/responsive";
 
 export default function BookingDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ bookingId?: string }>();
-  const booking = useMemo(
-    () => getBookings().find((item) => item.id === params.bookingId) ?? getBookings()[0],
-    [params.bookingId]
-  );
+  const profileId = useProfileStore((s) => s.phone);
+  const bookingId = Array.isArray(params.bookingId) ? params.bookingId[0] : params.bookingId ?? "";
+  const [booking, setBooking] = useState<any | null>(null);
+  const [errorText, setErrorText] = useState<string | null>(null);
+
+  useEffect(() => {
+    const run = async () => {
+      if (!profileId || !bookingId) return;
+      try {
+        setErrorText(null);
+        const res = await axios.get(`${BASE_URL}/service/order/${profileId}/${bookingId}`);
+        setBooking(res.data ?? null);
+      } catch (error) {
+        setErrorText(getErrorMessage(error, "Unable to fetch booking details."));
+        setBooking(null);
+      }
+    };
+    run();
+  }, [profileId, bookingId]);
+
+  const dateTimeLabel = useMemo(() => {
+    if (!booking?.date) return "--";
+    const dateObj = new Date(booking.date);
+    const dateLabel = Number.isNaN(dateObj.getTime())
+      ? String(booking.date)
+      : dateObj.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+    return `${dateLabel} · ${booking?.timeSlot ?? "--"}`;
+  }, [booking]);
+
+  const displayStatus = useMemo(() => {
+    const rawOrderStatus = String(booking?.orderStatus ?? "CREATED").toUpperCase();
+    const rawVhsStatus = String(booking?.vhsStatus ?? "").toUpperCase();
+    if (
+      rawOrderStatus === "CREATED" &&
+      (rawVhsStatus === "BOOKED" || rawVhsStatus === "ASSIGNING" || rawVhsStatus === "ASSIGNING_SERVICE_PERSON")
+    ) {
+      return "ASSIGNING_SERVICE_PERSON";
+    }
+    return rawOrderStatus;
+  }, [booking]);
+
+  if (!booking) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.headerCard}>
+            <View style={styles.headerRow}>
+              <Pressable style={styles.iconBtn} onPress={() => router.back()}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color="#181818" />
+              </Pressable>
+              <Text style={styles.headerTitle}>Booking Details</Text>
+            </View>
+          </View>
+          <View style={{ padding: rs(16) }}>
+            <Text style={styles.infoLabel}>{errorText ?? "Loading..."}</Text>
+          </View>
+        </SafeAreaView>
+      </>
+    );
+  }
 
   return (
     <>
@@ -25,14 +85,16 @@ export default function BookingDetailScreen() {
             </Pressable>
             <Text style={styles.headerTitle}>Booking Details</Text>
             <View style={styles.spacer} />
-            <View style={[styles.statusPill, booking.status === "COMPLETED" ? styles.completedPill : styles.confirmedPill]}>
+            <View style={[styles.statusPill, displayStatus === "COMPLETED" ? styles.completedPill : styles.confirmedPill]}>
               <Text
                 style={[
                   styles.statusText,
-                  booking.status === "COMPLETED" ? styles.completedText : styles.confirmedText,
+                  displayStatus === "COMPLETED" ? styles.completedText : styles.confirmedText,
                 ]}
               >
-                {booking.status === "COMPLETED" ? "Completed" : booking.status}
+                {displayStatus === "ASSIGNING_SERVICE_PERSON" || displayStatus === "CREATED"
+                  ? "Assigning service person"
+                  : displayStatus}
               </Text>
             </View>
           </View>
@@ -46,14 +108,48 @@ export default function BookingDetailScreen() {
               </View>
               <View>
                 <Text style={styles.mainTitle}>{booking.optionTitle}</Text>
-                <Text style={styles.mainSub}>{booking.serviceKey}</Text>
+                <Text style={styles.mainSub}>{booking.orderType}</Text>
               </View>
             </View>
             <View style={styles.line} />
-            <InfoRow label="Booking ID" value={booking.id} />
-            <InfoRow label="Date & Time" value={`${booking.dateLabel} · ${booking.timeLabel}`} />
-            <InfoRow label="Professional" value={booking.providerName} valueColor="#2899CF" />
+            <InfoRow label="Booking ID" value={booking.orderId} />
+            <InfoRow label="Date & Time" value={dateTimeLabel} />
+            <InfoRow label="Professional" value={booking.vhsServicePersonName ?? booking.servicePersonName ?? "Assigning service person"} valueColor="#2899CF" />
             <InfoRow label="Amount Paid" value={`₹${booking.amount}`} />
+            <View style={styles.actionRow}>
+              <Pressable
+                style={styles.secondaryBtn}
+                onPress={() =>
+                  router.push({
+                    pathname: "/service-schedule",
+                    params: {
+                      bookingId: booking.orderId,
+                      optionId: booking.optionId,
+                      optionTitle: booking.optionTitle,
+                      optionPrice: String(booking.amount ?? 0),
+                    },
+                  } as never)
+                }
+              >
+                <Text style={styles.secondaryBtnText}>Change Date/Slot</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.secondaryBtn, { borderColor: "#FCA5A5" }]}
+                onPress={async () => {
+                  try {
+                    await axios.patch(`${BASE_URL}/service/order/${profileId}/${booking.orderId}/cancel`, {
+                      cancelReason: "Customer requested cancellation",
+                    });
+                    router.replace("/my-bookings");
+                  } catch (error) {
+                    setErrorText(getErrorMessage(error, "Unable to cancel booking."));
+                  }
+                }}
+              >
+                <Text style={[styles.secondaryBtnText, { color: "#DC2626" }]}>Cancel</Text>
+              </Pressable>
+            </View>
+            {errorText ? <Text style={styles.issueSub}>{errorText}</Text> : null}
           </View>
 
           <View style={styles.profCard}>
@@ -62,10 +158,10 @@ export default function BookingDetailScreen() {
             </View>
             <View style={styles.profBody}>
               <View style={styles.profNameRow}>
-                <Text style={styles.profName}>{booking.providerName}</Text>
+              <Text style={styles.profName}>{booking.vhsServicePersonName ?? booking.servicePersonName ?? "Assigning service person"}</Text>
                 <Text style={styles.verifyBadge}>Nestiti Verified</Text>
               </View>
-              <Text style={styles.profRating}>★ {booking.providerRating}</Text>
+              <Text style={styles.profRating}>{booking.vhsServicePersonPhone ?? booking.servicePersonPhone ?? "Awaiting assignment"}</Text>
             </View>
             <Pressable style={styles.callBtn}>
               <MaterialCommunityIcons name="phone-outline" size={18} color="#2899CF" />
@@ -74,7 +170,7 @@ export default function BookingDetailScreen() {
 
           <View style={styles.issueCard}>
             <Text style={styles.issueHeading}>Report a Problem</Text>
-            <Text style={styles.issueSub}>Not satisfied with the service? We'll fix it.</Text>
+            <Text style={styles.issueSub}>Not satisfied with the service? We&apos;ll fix it.</Text>
 
             {booking.issueStatus ? (
               <View style={styles.issueRaisedWrap}>
@@ -161,6 +257,18 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: 8 },
   infoLabel: { fontSize: 12, color: "#64748B" },
   infoValue: { fontSize: 14, color: "#0F172A", fontWeight: "500" },
+  actionRow: { flexDirection: "row", gap: rs(8), marginTop: rvs(10) },
+  secondaryBtn: {
+    flex: 1,
+    minHeight: rvs(40),
+    borderRadius: rs(10),
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  secondaryBtnText: { color: "#1D4ED8", fontSize: rms(12), fontWeight: "600" },
   profCard: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
