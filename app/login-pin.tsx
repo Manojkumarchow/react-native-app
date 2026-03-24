@@ -122,12 +122,13 @@ export default function LoginPinScreen() {
         const profileData = await getProfile(resolvedPhone);
         setProfile(profileData);
 
-        const token = await requestNotificationPermission();
-        if (token) {
+        const registration = await requestNotificationPermission();
+        if (registration?.expoPushToken || registration?.fcmToken) {
           await axios.post(
             `${BASE_URL}/devices/register`,
             {
-              expoPushToken: token,
+              expoPushToken: registration.expoPushToken ?? "",
+              fcmToken: registration.fcmToken ?? "",
               platform: Platform.OS.toUpperCase(),
               phone: resolvedPhone,
             },

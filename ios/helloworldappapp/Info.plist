@@ -27,8 +27,8 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>helloworldappapp</string>
-          <string>com.anonymous.helloworldapp</string>
+          <string>nestitiappappapp</string>
+          <string>com.anonymous.nestitiappappapp</string>
         </array>
       </dict>
     </array>
@@ -63,6 +63,10 @@
     </array>
     <key>RCTNewArchEnabled</key>
     <true/>
+    <key>UIBackgroundModes</key>
+    <array>
+      <string>remote-notification</string>
+    </array>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>

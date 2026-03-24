@@ -1,4 +1,4 @@
-package com.anonymous.helloworldappapp
+package com.nestiti
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

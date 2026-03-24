@@ -3,7 +3,12 @@ import * as Device from "expo-device";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 
-export async function requestNotificationPermission() {
+export type PushRegistrationResult = {
+  expoPushToken: string | null;
+  fcmToken: string | null;
+};
+
+export async function requestNotificationPermission(): Promise<PushRegistrationResult | null> {
   const isExpoGo = Constants.appOwnership === "expo";
   if (Platform.OS === "android" && isExpoGo) {
     console.warn(
@@ -39,13 +44,38 @@ export async function requestNotificationPermission() {
     });
   }
 
+  let expoPushToken: string | null = null;
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
-  if (!projectId) {
-    console.warn("EAS projectId not found. Cannot fetch Expo push token.");
+  if (projectId) {
+    try {
+      expoPushToken = (
+        await Notifications.getExpoPushTokenAsync({ projectId })
+      ).data;
+    } catch (e) {
+      console.warn("Expo push token error:", e);
+    }
+  } else {
+    console.warn("EAS projectId not found. Expo push token will be skipped.");
+  }
+
+  let fcmToken: string | null = null;
+  if (!isExpoGo) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const messaging = require("@react-native-firebase/messaging").default;
+      if (Platform.OS === "ios") {
+        await messaging().registerDeviceForRemoteMessages();
+      }
+      fcmToken = await messaging().getToken();
+    } catch (e) {
+      console.warn("FCM token error:", e);
+    }
+  }
+
+  if (!expoPushToken && !fcmToken) {
     return null;
   }
 
-  const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-  return token;
+  return { expoPushToken, fcmToken };
 }

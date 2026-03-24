@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Linking,
+  TextInput,
 } from "react-native";
 import { Stack, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -65,6 +66,21 @@ type PaymentApartmentSummary = {
   items: { id?: number; name: string; amount: number }[];
 };
 
+type MaintenanceRow = {
+  id: number;
+  profileId: string;
+  amount: number;
+  status: "PENDING" | "PAID" | string;
+};
+
+type ResidentRow = {
+  name?: string;
+  phone?: string;
+  flatNo?: string;
+};
+
+type PaymentMethod = "UPI" | "BANK_TRANSFER" | "CASH" | "CHEQUE";
+
 const PRIMARY = "#1C98ED";
 const BG = "#FAFAFA";
 const MONTHS_FULL = [
@@ -104,6 +120,21 @@ function iconForExpense(label: string): keyof typeof MaterialCommunityIcons.glyp
   return "clipboard-text-outline";
 }
 
+function monthToNumber(monthName: string): number {
+  const idx = MONTHS_FULL.findIndex((m) => m.toLowerCase() === monthName.toLowerCase());
+  return idx >= 0 ? idx + 1 : new Date().getMonth() + 1;
+}
+
+function initialsFromName(name: string): string {
+  const words = name
+    .split(" ")
+    .map((w) => w.trim())
+    .filter(Boolean);
+  if (words.length === 0) return "NA";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0]}${words[1][0]}`.toUpperCase();
+}
+
 export default function Payments() {
   const upiId = useBuildingStore((s) => s.upiId);
   const storeBuildingId = useBuildingStore((s) => s.buildingId);
@@ -115,6 +146,7 @@ export default function Payments() {
   const isOwner = normalizedRole === "OWNER";
   const isTenant = normalizedRole === "USER" || normalizedRole === "TENANT";
   const isAdminView = !isOwner && !isTenant;
+  const canMarkAsPaid = normalizedRole === "ADMIN";
   const profileId = profilePhone ?? profileUserId ?? "";
   const buildingId = String(storeBuildingId ?? profileBuildingId ?? "");
   const now = new Date();
@@ -134,6 +166,16 @@ export default function Payments() {
   const [apartmentLoading, setApartmentLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [apartmentError, setApartmentError] = useState<string | null>(null);
+  const [collectionExpanded, setCollectionExpanded] = useState(false);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+  const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
+  const [maintenanceRows, setMaintenanceRows] = useState<MaintenanceRow[]>([]);
+  const [residentMap, setResidentMap] = useState<Record<string, ResidentRow>>({});
+  const [markModalVisible, setMarkModalVisible] = useState(false);
+  const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceRow | null>(null);
+  const [markPaymentMethod, setMarkPaymentMethod] = useState<PaymentMethod>("UPI");
+  const [transactionId, setTransactionId] = useState("");
+  const [markingPaid, setMarkingPaid] = useState(false);
 
   const selectedMonthYear = `${selectedMonth} ${selectedYear}`;
   const activeCurrent = useMemo(() => {
@@ -190,6 +232,87 @@ export default function Payments() {
     [],
   );
 
+  const maintenanceWithResident = useMemo(() => {
+    return maintenanceRows.map((row) => {
+      const resident = residentMap[row.profileId] ?? {};
+      const residentName = resident.name?.trim() || "Unknown Resident";
+      const flatNo = resident.flatNo?.trim() || "--";
+      return {
+        ...row,
+        residentName,
+        flatNo,
+        initials: initialsFromName(residentName),
+      };
+    });
+  }, [maintenanceRows, residentMap]);
+
+  const unpaidRows = useMemo(
+    () => maintenanceWithResident.filter((row) => row.status !== "PAID"),
+    [maintenanceWithResident],
+  );
+  const paidRows = useMemo(
+    () => maintenanceWithResident.filter((row) => row.status === "PAID"),
+    [maintenanceWithResident],
+  );
+
+  const loadApartmentSummary = useCallback(async () => {
+    if (!isAdminView || adminTab !== "APARTMENT" || !buildingId) return;
+    setApartmentLoading(true);
+    setApartmentError(null);
+    try {
+      const response = await axios.get<PaymentApartmentSummary>(`${BASE_URL}/payments/apartment`, {
+        params: {
+          buildingId,
+          year: Number(selectedYear),
+          month: selectedMonth,
+        },
+      });
+      setApartmentSummary(response.data);
+    } catch (error) {
+      setApartmentSummary(null);
+      setApartmentError(getErrorMessage(error, "Unable to fetch apartment details."));
+    } finally {
+      setApartmentLoading(false);
+    }
+  }, [isAdminView, adminTab, buildingId, selectedYear, selectedMonth]);
+
+  const loadMaintenanceAndResidents = useCallback(async () => {
+    if (!isAdminView || adminTab !== "APARTMENT" || !buildingId) return;
+    setMaintenanceLoading(true);
+    setMaintenanceError(null);
+    try {
+      const monthNumber = monthToNumber(selectedMonth);
+      const [maintenanceRes, residentsRes] = await Promise.all([
+        axios.get<MaintenanceRow[]>(`${BASE_URL}/maintenance/building/${buildingId}/period`, {
+          params: { year: Number(selectedYear), month: monthNumber },
+        }),
+        axios.get<ResidentRow[]>(`${BASE_URL}/residents/building/${buildingId}`),
+      ]);
+      const maintenanceList = Array.isArray(maintenanceRes.data) ? maintenanceRes.data : [];
+      const residentsList = Array.isArray(residentsRes.data) ? residentsRes.data : [];
+      const nextMap: Record<string, ResidentRow> = {};
+      residentsList.forEach((resident) => {
+        const key = String(resident.phone ?? "").trim();
+        if (key) nextMap[key] = resident;
+      });
+      setResidentMap(nextMap);
+      setMaintenanceRows(
+        maintenanceList.map((row) => ({
+          id: Number(row.id),
+          profileId: String(row.profileId ?? ""),
+          amount: Number(row.amount ?? 0),
+          status: String(row.status ?? "PENDING"),
+        })),
+      );
+    } catch (error) {
+      setMaintenanceRows([]);
+      setResidentMap({});
+      setMaintenanceError(getErrorMessage(error, "Unable to fetch maintenance list."));
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  }, [isAdminView, adminTab, buildingId, selectedYear, selectedMonth]);
+
   useEffect(() => {
     const run = async () => {
       if (!profileId) return;
@@ -217,28 +340,12 @@ export default function Payments() {
   }, [profileId, selectedYear, selectedMonth]);
 
   useEffect(() => {
-    const run = async () => {
-      if (!isAdminView || adminTab !== "APARTMENT" || !buildingId) return;
-      setApartmentLoading(true);
-      setApartmentError(null);
-      try {
-        const response = await axios.get<PaymentApartmentSummary>(`${BASE_URL}/payments/apartment`, {
-          params: {
-            buildingId,
-            year: Number(selectedYear),
-            month: selectedMonth,
-          },
-        });
-        setApartmentSummary(response.data);
-      } catch (error) {
-        setApartmentSummary(null);
-        setApartmentError(getErrorMessage(error, "Unable to fetch apartment details."));
-      } finally {
-        setApartmentLoading(false);
-      }
-    };
-    run();
-  }, [isAdminView, adminTab, buildingId, selectedYear, selectedMonth]);
+    loadApartmentSummary();
+  }, [loadApartmentSummary]);
+
+  useEffect(() => {
+    loadMaintenanceAndResidents();
+  }, [loadMaintenanceAndResidents]);
 
   const handleUpiPress = async () => {
     if (upiId == undefined || !upiId || upiId == null || upiId == "") {
@@ -283,6 +390,51 @@ export default function Payments() {
     setSelectedYear(tempYear);
     setMonthPickerVisible(false);
   };
+
+  const openMarkPaidModal = (row: MaintenanceRow) => {
+    if (!canMarkAsPaid) return;
+    setSelectedMaintenance(row);
+    setMarkPaymentMethod("UPI");
+    setTransactionId("");
+    setMarkModalVisible(true);
+  };
+
+  const confirmMarkPaid = async () => {
+    if (!selectedMaintenance || !canMarkAsPaid) return;
+    try {
+      setMarkingPaid(true);
+      await axios.patch(`${BASE_URL}/maintenance/${selectedMaintenance.id}/pay`);
+      setMarkModalVisible(false);
+      setSelectedMaintenance(null);
+      await Promise.all([loadApartmentSummary(), loadMaintenanceAndResidents()]);
+      Toast.show({
+        type: "success",
+        text1: "Marked as paid",
+        text2: "Tenant payment status has been updated.",
+      });
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "Unable to mark as paid",
+        text2: getErrorMessage(error, "Please try again."),
+      });
+    } finally {
+      setMarkingPaid(false);
+    }
+  };
+
+  const selectedResidentDetails = useMemo(() => {
+    if (!selectedMaintenance) return null;
+    const resident = residentMap[selectedMaintenance.profileId];
+    const residentName = resident?.name?.trim() || "Unknown Resident";
+    const flatNo = resident?.flatNo?.trim() || "--";
+    return {
+      name: residentName,
+      flatNo,
+      initials: initialsFromName(residentName),
+      amount: selectedMaintenance.amount,
+    };
+  }, [selectedMaintenance, residentMap]);
 
   return (
     <>
@@ -476,14 +628,24 @@ export default function Payments() {
                 </View>
 
                 <View style={styles.collectionCard}>
-                  <View style={styles.collectionTop}>
+                  <Pressable
+                    style={styles.collectionTop}
+                    onPress={() => setCollectionExpanded((prev) => !prev)}
+                  >
                     <Text style={styles.collectionTitle}>Collection Status</Text>
-                    <View style={[styles.collectionBadge, { backgroundColor: apartmentStatus.badgeBg }]}>
-                      <Text style={[styles.collectionBadgeText, { color: apartmentStatus.badgeText }]}>
-                        {apartmentStatus.label}
-                      </Text>
+                    <View style={styles.collectionTopRight}>
+                      <View style={[styles.collectionBadge, { backgroundColor: apartmentStatus.badgeBg }]}>
+                        <Text style={[styles.collectionBadgeText, { color: apartmentStatus.badgeText }]}>
+                          {apartmentStatus.label}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name={collectionExpanded ? "chevron-up" : "chevron-down"}
+                        size={16}
+                        color="#71717A"
+                      />
                     </View>
-                  </View>
+                  </Pressable>
                   <View style={styles.progressTrack}>
                     <View
                       style={[
@@ -500,39 +662,66 @@ export default function Payments() {
                   </View>
                 </View>
 
-                <View style={styles.expenseWrap}>
-                  <Text style={styles.expenseHeading}>Expense Breakdown</Text>
-                  <View style={styles.expenseCard}>
-                    {apartmentData.expenses.length === 0 ? (
-                      <View style={styles.expenseRow}>
-                        <Text style={styles.emptyText}>No expense items available for this month.</Text>
-                      </View>
+                {collectionExpanded ? (
+                  <View style={styles.collectionDetailsWrap}>
+                    {maintenanceLoading ? (
+                      <ActivityIndicator color={PRIMARY} style={{ marginTop: 8 }} />
+                    ) : maintenanceError ? (
+                      <Text style={styles.emptyText}>{maintenanceError}</Text>
                     ) : (
-                      apartmentData.expenses.map((row, idx) => (
-                        <View
-                          key={`${row.label}-${idx}`}
-                          style={[styles.expenseRow, idx > 0 && styles.expenseRowBorder]}
-                        >
-                          <View style={styles.expenseLeft}>
-                            <MaterialCommunityIcons
-                              name={row.icon}
-                              size={18}
-                              color="#94A3B8"
-                            />
-                            <Text style={styles.expenseLabel}>{row.label}</Text>
-                          </View>
-                          <Text style={styles.expenseAmount}>₹{row.amount.toLocaleString("en-IN")}</Text>
-                        </View>
-                      ))
+                      <>
+                        <Text style={styles.flatSectionTitle}>Unpaid Flats</Text>
+                        {unpaidRows.length === 0 ? (
+                          <Text style={styles.emptyText}>No unpaid flats for this period.</Text>
+                        ) : (
+                          unpaidRows.map((row) => (
+                            <View style={styles.flatRowCard} key={`unpaid-${row.id}`}>
+                              <View style={styles.flatAvatar}>
+                                <Text style={styles.flatAvatarText}>{row.initials}</Text>
+                              </View>
+                              <View style={styles.flatInfo}>
+                                <Text style={styles.flatName}>{row.residentName}</Text>
+                                <Text style={styles.flatSub}>
+                                  Flat {row.flatNo} · ₹{row.amount.toLocaleString("en-IN")} due
+                                </Text>
+                              </View>
+                              {canMarkAsPaid ? (
+                                <Pressable
+                                  style={styles.markPaidBtn}
+                                  onPress={() => openMarkPaidModal(row)}
+                                >
+                                  <Text style={styles.markPaidBtnText}>Mark as Paid</Text>
+                                </Pressable>
+                              ) : null}
+                            </View>
+                          ))
+                        )}
+
+                        <Text style={styles.flatSectionTitle}>Paid Flats</Text>
+                        {paidRows.length === 0 ? (
+                          <Text style={styles.emptyText}>No paid flats for this period.</Text>
+                        ) : (
+                          paidRows.map((row) => (
+                            <View style={styles.flatRowCard} key={`paid-${row.id}`}>
+                              <View style={styles.flatAvatar}>
+                                <Text style={styles.flatAvatarText}>{row.initials}</Text>
+                              </View>
+                              <View style={styles.flatInfo}>
+                                <Text style={styles.flatName}>{row.residentName}</Text>
+                                <Text style={styles.flatSub}>
+                                  Flat {row.flatNo} · ₹{row.amount.toLocaleString("en-IN")} due
+                                </Text>
+                              </View>
+                              <View style={styles.paidTag}>
+                                <Text style={styles.paidTagText}>Paid</Text>
+                              </View>
+                            </View>
+                          ))
+                        )}
+                      </>
                     )}
-                    <View style={styles.expenseTotalRow}>
-                      <Text style={styles.expenseTotalLabel}>Total Shared Expenses</Text>
-                      <Text style={styles.expenseTotalAmount}>
-                        ₹{apartmentData.totalCollection.toLocaleString("en-IN")}
-                      </Text>
-                    </View>
                   </View>
-                </View>
+                ) : null}
               </>
             )
           ) : (
@@ -637,6 +826,106 @@ export default function Payments() {
                 <Text style={styles.modalApplyText}>Apply</Text>
               </Pressable>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={markModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMarkModalVisible(false)}
+      >
+        <View style={styles.bottomSheetOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMarkModalVisible(false)} />
+          <View style={styles.bottomSheet}>
+            <View style={styles.bottomSheetHandle} />
+            {selectedResidentDetails ? (
+              <View style={styles.sheetResidentRow}>
+                <View style={styles.flatAvatar}>
+                  <Text style={styles.flatAvatarText}>{selectedResidentDetails.initials}</Text>
+                </View>
+                <View style={styles.flatInfo}>
+                  <Text style={styles.flatName}>{selectedResidentDetails.name}</Text>
+                  <Text style={styles.flatSub}>
+                    Flat {selectedResidentDetails.flatNo} · ₹
+                    {selectedResidentDetails.amount.toLocaleString("en-IN")} due
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
+            <Text style={styles.sheetLabel}>How did they pay?</Text>
+            <View style={styles.methodList}>
+              {[
+                {
+                  key: "UPI" as const,
+                  title: "Gpay/ UPI",
+                  subtitle: "Received in UPI linked account",
+                  icon: "wallet-outline" as const,
+                },
+                {
+                  key: "BANK_TRANSFER" as const,
+                  title: "Bank Transfer",
+                  subtitle: "NEFT / IMPS to bank account",
+                  icon: "bank-outline" as const,
+                },
+                {
+                  key: "CASH" as const,
+                  title: "Cash",
+                  subtitle: "Collected in person",
+                  icon: "cash" as const,
+                },
+                {
+                  key: "CHEQUE" as const,
+                  title: "Cheque",
+                  subtitle: "Deposited to society account",
+                  icon: "receipt-outline" as const,
+                },
+              ].map((method) => {
+                const selected = markPaymentMethod === method.key;
+                return (
+                  <Pressable
+                    key={method.key}
+                    style={[styles.methodCard, selected && styles.methodCardActive]}
+                    onPress={() => setMarkPaymentMethod(method.key)}
+                  >
+                    <View style={styles.methodIconWrap}>
+                      <MaterialCommunityIcons name={method.icon} size={22} color={PRIMARY} />
+                    </View>
+                    <View style={styles.methodTextWrap}>
+                      <Text style={styles.methodTitle}>{method.title}</Text>
+                      <Text style={styles.methodSubtitle}>{method.subtitle}</Text>
+                    </View>
+                    <View style={[styles.radioOuter, selected && styles.radioOuterActive]}>
+                      {selected ? <View style={styles.radioInner} /> : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.sheetLabel}>Transaction ID (optional)</Text>
+            <TextInput
+              value={transactionId}
+              onChangeText={setTransactionId}
+              placeholder="xxxxxxxxxxxx"
+              placeholderTextColor="#94A3B8"
+              style={styles.transactionInput}
+              autoCapitalize="none"
+            />
+
+            <Pressable
+              style={[styles.confirmBtn, markingPaid && styles.confirmBtnDisabled]}
+              onPress={confirmMarkPaid}
+              disabled={markingPaid}
+            >
+              {markingPaid ? (
+                <ActivityIndicator color="#FAFAFA" />
+              ) : (
+                <Text style={styles.confirmBtnText}>Confirm & Mark as Paid</Text>
+              )}
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -799,6 +1088,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   collectionTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  collectionTopRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   collectionTitle: { color: "#09090B", fontSize: 14, fontWeight: "600" },
   collectionBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   collectionBadgeText: { fontSize: 14, fontWeight: "500" },
@@ -806,38 +1096,54 @@ const styles = StyleSheet.create({
   progressFill: { height: 10, borderRadius: 999 },
   collectionBottom: { marginTop: 12, flexDirection: "row", justifyContent: "space-between" },
   collectionSub: { color: "#777777", fontSize: 14, fontWeight: "500" },
-  expenseWrap: { gap: 12, paddingTop: 8 },
-  expenseHeading: { color: "#0F172A", fontSize: 14, fontWeight: "500", marginLeft: 4 },
-  expenseCard: {
+  collectionDetailsWrap: { gap: 12 },
+  flatSectionTitle: { color: "#0F172A", fontSize: 14, fontWeight: "500", marginTop: 2 },
+  flatRowCard: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#F1F5F9",
-    borderRadius: 24,
-    overflow: "hidden",
-  },
-  expenseRow: {
+    borderColor: "rgba(39,153,206,0.08)",
+    borderRadius: 8,
+    minHeight: 80,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    gap: 12,
   },
-  expenseRowBorder: { borderTopColor: "#F8FAFC", borderTopWidth: 1 },
-  expenseLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  expenseLabel: { color: "#0F172A", fontSize: 14, fontWeight: "500" },
-  expenseAmount: { color: "#0F172A", fontSize: 14, fontWeight: "500" },
-  expenseTotalRow: {
-    borderTopColor: "rgba(39,153,206,0.1)",
-    borderTopWidth: 1,
-    backgroundColor: "rgba(39,153,206,0.05)",
-    flexDirection: "row",
-    justifyContent: "space-between",
+  flatAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 7,
+    backgroundColor: PRIMARY,
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 17,
+    justifyContent: "center",
   },
-  expenseTotalLabel: { color: "#2799CE", fontSize: 14, fontWeight: "500" },
-  expenseTotalAmount: { color: "#2799CE", fontSize: 28, fontWeight: "500" },
+  flatAvatarText: { color: "#FFFFFF", fontSize: 18, fontWeight: "600" },
+  flatInfo: { flex: 1 },
+  flatName: {
+    color: "#0F172A",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  flatSub: { color: "#64748B", fontSize: 12, marginTop: 2 },
+  markPaidBtn: {
+    borderWidth: 1,
+    borderColor: "#36A033",
+    backgroundColor: "rgba(5,150,105,0.07)",
+    borderRadius: 16,
+    minWidth: 104,
+    minHeight: 32,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  markPaidBtnText: { color: "#36A033", fontSize: 14, fontWeight: "500" },
+  paidTag: {
+    backgroundColor: "rgba(5,150,105,0.12)",
+    borderRadius: 9999,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+  },
+  paidTagText: { color: "#36A033", fontSize: 14, fontWeight: "500" },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
@@ -887,4 +1193,108 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   modalApplyText: { color: "#FFFFFF", fontWeight: "600" },
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  bottomSheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 22,
+    maxHeight: "90%",
+  },
+  bottomSheetHandle: {
+    alignSelf: "center",
+    width: 44,
+    height: 6,
+    borderRadius: 9999,
+    backgroundColor: "#CBD5E1",
+    marginBottom: 12,
+  },
+  sheetResidentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    paddingTop: 14,
+    marginBottom: 12,
+  },
+  sheetLabel: {
+    color: "#334155",
+    fontSize: 14,
+    fontWeight: "500",
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  methodList: { gap: 12 },
+  methodCard: {
+    borderWidth: 1,
+    borderColor: "#E6E6E6",
+    borderRadius: 24,
+    minHeight: 100,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    gap: 10,
+  },
+  methodCardActive: {
+    borderColor: PRIMARY,
+    backgroundColor: "rgba(222,244,255,0.34)",
+  },
+  methodIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "rgba(39,153,206,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  methodTextWrap: { flex: 1 },
+  methodTitle: { color: "#0F172A", fontSize: 16, fontWeight: "400" },
+  methodSubtitle: { color: "#3E4850", fontSize: 14, fontWeight: "500", marginTop: 2 },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 9999,
+    borderWidth: 2,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioOuterActive: { borderColor: "#2799CE" },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 9999,
+    backgroundColor: "#2799CE",
+  },
+  transactionInput: {
+    minHeight: 56,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    color: "#0F172A",
+    fontSize: 16,
+  },
+  confirmBtn: {
+    marginTop: 16,
+    height: 48,
+    borderRadius: 100,
+    backgroundColor: PRIMARY,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmBtnDisabled: { opacity: 0.6 },
+  confirmBtnText: {
+    color: "#FAFAFA",
+    fontSize: 18,
+    fontWeight: "500",
+  },
 });

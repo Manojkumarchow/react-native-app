@@ -87,7 +87,7 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.anonymous.helloworldappapp'
+    namespace 'com.nestiti'
     defaultConfig {
         applicationId 'com.nestiti'
         minSdkVersion rootProject.ext.minSdkVersion
@@ -117,7 +117,7 @@ android {
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
-            // Disable PNG crunching to avoid AAPT "file failed to compile" errors with some PNG formats
+            // Disable PNG crunching to avoid AAPT compile failures on generated assets.
             crunchPngs false
         }
     }
@@ -152,11 +152,6 @@ android {
     }
 }
 
-// plugins {
-//     id 'com.android.application'
-//     id 'com.google.gms.google-services'
-// }
-
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
@@ -184,10 +179,6 @@ dependencies {
     } else {
         implementation jscFlavor
     }
-
-    implementation platform('com.google.firebase:firebase-bom:34.9.0')
-    implementation 'com.google.firebase:firebase-analytics'
-
 }
 
 apply plugin: 'com.google.gms.google-services'

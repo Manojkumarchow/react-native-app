@@ -35,6 +35,16 @@ npm run reset-project
 
 This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
+## Android release build on your machine (no Android Studio app)
+
+`./gradlew assembleRelease` needs the **Android SDK** on disk. You **cannot** skip that for a native build, but you **do not** need the Android Studio IDE—only command-line tools + SDK packages.
+
+- **Full guide:** [docs/ANDROID_SDK_WITHOUT_STUDIO.md](./docs/ANDROID_SDK_WITHOUT_STUDIO.md)
+- **If Gradle says `sdk.dir` “Directory does not exist”:** the path is only configured—the SDK was never downloaded. Run once: `npm run android:bootstrap-sdk` (needs `brew install --cask android-commandlinetools` and JDK 17).
+- **Otherwise:** set `ANDROID_HOME` and `sdk.dir` in `android/local.properties` to the **same folder that exists on disk**.
+
+Then: `npm run android:assemble-release` or `cd android && ./gradlew assembleRelease`.
+
 ## Learn more
 
 To learn more about developing your project with Expo, look at the following resources:

@@ -6,30 +6,18 @@ buildscript {
     mavenCentral()
   }
   dependencies {
+        classpath 'com.google.gms:google-services:4.4.1'
     classpath('com.android.tools.build:gradle')
     classpath('com.facebook.react:react-native-gradle-plugin')
     classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
-    classpath 'com.google.gms:google-services:4.3.15'
   }
 }
-
-// plugins {
-//   // ...
-
-//   // Add the dependency for the Google services Gradle plugin
-//   id 'com.google.gms.google-services' version '4.4.4' apply false
-
-// }
 
 allprojects {
   repositories {
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
-    // AsyncStorage 3.x bundles storage-android in a local Maven repo
-    maven {
-      url = rootProject.file("../node_modules/@react-native-async-storage/async-storage/android/local_repo").toURI()
-    }
   }
 }
 
