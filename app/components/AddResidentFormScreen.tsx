@@ -26,7 +26,6 @@ type Props = {
 
 const blocks = ["Block A", "Block B", "Block C"];
 const floors = ["1st Floor", "2nd Floor", "3rd Floor"];
-const flats = ["101", "102", "103"];
 const designations = ["President", "Vice President", "Secretary"];
 const permissions = ["All", "Billing", "Notices", "Maintenance"];
 const successIllustration =
@@ -39,7 +38,7 @@ export default function AddResidentFormScreen({ variant }: Props) {
   const [phone, setPhone] = useState("");
   const [blockIdx, setBlockIdx] = useState(0);
   const [floorIdx, setFloorIdx] = useState(0);
-  const [flatIdx, setFlatIdx] = useState(0);
+  const [flatNo, setFlatNo] = useState("");
   const [email, setEmail] = useState("");
   const [leaseEnd, setLeaseEnd] = useState("");
   const [designationIdx, setDesignationIdx] = useState(0);
@@ -98,6 +97,14 @@ export default function AddResidentFormScreen({ variant }: Props) {
       });
       return;
     }
+    if (!flatNo.trim()) {
+      Toast.show({
+        type: "error",
+        text1: "Flat number required",
+        text2: "Please enter the flat number.",
+      });
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -110,7 +117,7 @@ export default function AddResidentFormScreen({ variant }: Props) {
         backendRole,
         String(buildingId),
         floorValue,
-        flats[flatIdx],
+        flatNo.trim(),
       );
       setShowSuccess(true);
     } catch (error) {
@@ -173,24 +180,12 @@ export default function AddResidentFormScreen({ variant }: Props) {
 
         <View style={[styles.row, { marginTop: 12 }]}>
           <View style={styles.rowItem}>
-            <Label text="Block" />
-            <Selector
-              value={blocks[blockIdx]}
-              onPress={() => setBlockIdx((i) => (i + 1) % blocks.length)}
-            />
-          </View>
-          <View style={styles.rowItem}>
-            <Label text="Floor" />
-            <Selector
-              value={floors[floorIdx]}
-              onPress={() => setFloorIdx((i) => (i + 1) % floors.length)}
-            />
-          </View>
-          <View style={styles.rowItem}>
             <Label text="Flat No." />
-            <Selector
-              value={flats[flatIdx]}
-              onPress={() => setFlatIdx((i) => (i + 1) % flats.length)}
+            <Input
+              placeholder="e.g. 101, A-302"
+              value={flatNo}
+              onChangeText={setFlatNo}
+              autoCapitalize="characters"
             />
           </View>
         </View>
@@ -226,7 +221,7 @@ export default function AddResidentFormScreen({ variant }: Props) {
             </View>
           </>
         ) : null}
-
+{/* 
         {variant === "tenant" ? (
           <>
             <Label text="Lease End Date" top={12} optional />
@@ -248,9 +243,9 @@ export default function AddResidentFormScreen({ variant }: Props) {
               </Text>
             </View>
           </>
-        ) : null}
+        ) : null} */}
 
-        {variant === "admin" ? (
+        {/* {variant === "admin" ? (
           <>
             <Text style={styles.sectionTitle}>Permissions</Text>
             <View style={styles.permissionWrap}>
@@ -290,7 +285,7 @@ export default function AddResidentFormScreen({ variant }: Props) {
               </Text>
             </View>
           </>
-        ) : null}
+        ) : null} */}
       </View>
 
       <Pressable

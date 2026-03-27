@@ -308,7 +308,7 @@ export default function Home() {
               <Pressable
                 style={styles.issuesCard}
                 onPress={() =>
-                  router.push({ pathname: "/all-tickets", params: { status: "OPEN" } } as never)
+                  router.push({ pathname: "/announcements", params: { status: "OPEN" } } as never)
                 }
               >
                 <Text style={styles.issuesLabel}>Notices</Text>

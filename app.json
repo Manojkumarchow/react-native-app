@@ -34,7 +34,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.nestiti",
-      "versionCode": 15,
+      "versionCode": 16,
       "googleServicesFile": "./app/google-services.json"
     },
     "web": {
