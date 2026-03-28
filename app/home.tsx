@@ -358,15 +358,15 @@ export default function Home() {
               </Pressable>
             </View>
 
+            <Pressable style={styles.bannerCard}>
+              <Image source={displayAd} style={styles.bannerImage} resizeMode="cover" />
+            </Pressable>
             <View style={styles.sectionRow}>
               <Text style={styles.tenantSectionTitle}>Home Services</Text>
               <Pressable onPress={() => router.push("/my-bookings" as never)}>
                 <Text style={styles.linkText}>My Bookings</Text>
               </Pressable>
             </View>
-            <Pressable style={styles.bannerCard}>
-              <Image source={displayAd} style={styles.bannerImage} resizeMode="cover" />
-            </Pressable>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}

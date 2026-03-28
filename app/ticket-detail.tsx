@@ -124,7 +124,7 @@ export default function TicketDetailScreen() {
               </View>
             </View>
             <Text style={styles.ticketTitle}>{title}</Text>
-            <Text style={styles.meta}>Reported by : {raisedBy} , Floor {flatNumber}</Text>
+            <Text style={styles.meta}>Reported by : {raisedBy} , Flat {flatNumber}</Text>
             <Text style={styles.time}>{postedAt}</Text>
           </View>
 

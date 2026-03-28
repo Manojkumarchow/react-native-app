@@ -1,44 +1,19 @@
 import React from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Dimensions } from "react-native";
+import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { serviceCatalog } from "./data/homeServicesData";
+import {
+  buildBookingTitle,
+  countPricedOptions,
+  findSinglePricedOption,
+  normalizeServiceOptionFromApi,
+  serviceCatalog,
+} from "./data/homeServicesData";
+import { getGlobalServiceImageFallback, getSubcategoryImageUri } from "./data/homeServiceSubcategoryImages";
 import axios from "axios";
 import { BASE_URL } from "./config";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { rms, rs, rvs } from "@/constants/responsive";
-
-const DEFAULT_CATEGORY_IMAGES: Record<string, string[]> = {
-  "appliance-service": [
-    "https://images.unsplash.com/photo-1581578731548-52f8d69d89f1?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1621905251918-48416bd8575a?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1631646103285-3d1f95f8f6f0?auto=format&fit=crop&w=1200&q=80",
-  ],
-  cleaning: ["https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=1200&q=80"],
-  painting: ["https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&w=1200&q=80"],
-  "pest-control": ["https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1200&q=80"],
-  "floor-polishing": ["https://images.unsplash.com/photo-1616486029423-aaa4789e8c9a?auto=format&fit=crop&w=1200&q=80"],
-  "home-repair-services": ["https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1200&q=80"],
-  "packers-movers": ["https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?auto=format&fit=crop&w=1200&q=80"],
-  "facility-management": ["https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80"],
-};
-
-const getCategoryFallbackImage = (categoryKey: string, index: number) => {
-  const list = DEFAULT_CATEGORY_IMAGES[categoryKey];
-  if (!list || list.length === 0) return "";
-  return list[index % list.length];
-};
-
-const pickNonEmptyImage = (...values: Array<string | undefined | null>) => {
-  for (const value of values) {
-    const normalized = String(value ?? "").trim();
-    if (normalized.length > 0) {
-      return normalized;
-    }
-  }
-  return "";
-};
 
 export default function HomeServicesScreen() {
   const router = useRouter();
@@ -64,19 +39,15 @@ export default function HomeServicesScreen() {
               incomingOptions.length > 0
                 ? incomingOptions.map((opt: any, idx: number) => {
                     const fallbackOption = fallback?.options[idx];
+                    const catKey = String(item.key ?? "");
+                    const merged = normalizeServiceOptionFromApi(opt, {
+                      categoryKey: catKey,
+                      optionIndex: idx,
+                      fallbackOption,
+                    });
                     return {
-                      id: String(opt.id ?? fallbackOption?.id ?? `${item.key}-opt-${idx}`),
-                      title: String(opt.title ?? fallbackOption?.title ?? "Service"),
-                      description: String(
-                        opt.description ?? fallbackOption?.description ?? "Professional service",
-                      ),
-                      price: Number(opt.price ?? fallbackOption?.price ?? 0),
-                      image: pickNonEmptyImage(
-                        opt.image,
-                        fallbackOption?.image,
-                        getCategoryFallbackImage(String(item.key ?? ""), idx),
-                      ),
-                      popular: Boolean(opt.popular ?? fallbackOption?.popular ?? false),
+                      ...merged,
+                      image: getSubcategoryImageUri(merged.id, catKey),
                     };
                   })
                 : fallback?.options ?? [];
@@ -156,26 +127,19 @@ export default function HomeServicesScreen() {
             })}
           </ScrollView>
 
-          {selectedService.options.map((option, idx) => {
-            const fallbackImage = getCategoryFallbackImage(selectedService.key, idx);
-            const shouldUseFallback = failedImageIds[option.id] || !String(option.image ?? "").trim();
-            const resolvedImage = shouldUseFallback ? fallbackImage : option.image;
+          {selectedService.options.map((option) => {
+            const staticUri = getSubcategoryImageUri(option.id, selectedService.key);
+            const resolvedImage = failedImageIds[option.id] ? getGlobalServiceImageFallback() : staticUri;
             return (
             <View key={option.id} style={styles.card}>
-              {resolvedImage ? (
-                <Image
-                  source={{ uri: resolvedImage }}
-                  style={styles.cardImage}
-                  resizeMode="cover"
-                  onError={() => {
-                    setFailedImageIds((prev) => ({ ...prev, [option.id]: true }));
-                  }}
-                />
-              ) : (
-                <View style={[styles.cardImage, styles.cardImageFallback]}>
-                  <MaterialCommunityIcons name="image-off-outline" size={rs(28)} color="#94A3B8" />
-                </View>
-              )}
+              <Image
+                source={{ uri: resolvedImage }}
+                style={styles.cardImage}
+                resizeMode="cover"
+                onError={() => {
+                  setFailedImageIds((prev) => ({ ...prev, [option.id]: true }));
+                }}
+              />
               <View style={styles.cardContent}>
                 <View style={styles.badgeRow}>
                   {option.popular ? <Text style={styles.popularBadge}>POPULAR</Text> : null}
@@ -184,10 +148,29 @@ export default function HomeServicesScreen() {
                 <Text style={styles.optionTitle}>{option.title}</Text>
                 <Text style={styles.optionDescription}>{option.description}</Text>
                 <View style={styles.priceRow}>
-                  <Text style={styles.priceText}>₹{option.price}</Text>
+                  <Text style={styles.priceText}>
+                    {countPricedOptions(option) > 1 ? `From ₹${option.price}` : `₹${option.price}`}
+                  </Text>
                   <Pressable
                     style={styles.bookBtn}
-                    onPress={() =>
+                    onPress={() => {
+                      const single = findSinglePricedOption(option);
+                      if (single) {
+                        const bookingTitle = buildBookingTitle(option.title, single.line, single.priced);
+                        router.push({
+                          pathname: "/service-option-detail",
+                          params: {
+                            serviceKey: selectedService.key,
+                            serviceLabel: selectedService.label,
+                            optionId: option.id,
+                            pricedOptionId: single.priced.id,
+                            optionTitle: bookingTitle,
+                            optionDescription: option.description,
+                            optionPrice: String(single.priced.price),
+                          },
+                        } as never);
+                        return;
+                      }
                       router.push({
                         pathname: "/service-option-detail",
                         params: {
@@ -197,10 +180,10 @@ export default function HomeServicesScreen() {
                           optionTitle: option.title,
                           optionDescription: option.description,
                           optionPrice: String(option.price),
-                          optionImage: option.image,
+                          needsVariantPick: countPricedOptions(option) > 1 ? "1" : "",
                         },
-                      } as never)
-                    }
+                      } as never);
+                    }}
                   >
                     <Text style={styles.bookText}>Book</Text>
                   </Pressable>

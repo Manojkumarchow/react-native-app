@@ -62,6 +62,7 @@ export default function IssuesScreen() {
   const router = useRouter();
   const profilePhone = useProfileStore((s) => s.phone);
   const buildingId = useBuildingStore((s) => s.buildingId);
+  const adminPhone = useBuildingStore((s) => s.adminPhone);
   const [activeTab, setActiveTab] = useState<TopTab>("NEW");
   const [activeStatus, setActiveStatus] = useState<IssueStatus>("OPEN");
   const [title, setTitle] = useState("");
@@ -161,7 +162,7 @@ export default function IssuesScreen() {
           timestamp: new Date().toISOString(),
           type: "ALERT",
           isResolved: false,
-          assigneeProfile: null,
+          assigneeProfile: adminPhone ? adminPhone : null,
           buildingId: buildingId ? String(buildingId) : null,
           status: "OPEN",
         })

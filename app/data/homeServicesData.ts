@@ -8,6 +8,20 @@ export type BookingStatus =
   | "CANCELLED";
 export type IssueStatus = "OPEN" | "CLOSED" | "RESOLVED" | "";
 
+export type PricedOption = {
+  id: string;
+  label: string;
+  price: number;
+};
+
+export type ServiceCatalogLine = {
+  id: string;
+  serviceName: string;
+  variantLabel?: string;
+  description?: string;
+  pricedOptions: PricedOption[];
+};
+
 export type ServiceOption = {
   id: string;
   title: string;
@@ -15,6 +29,7 @@ export type ServiceOption = {
   price: number;
   image: string;
   popular?: boolean;
+  serviceLines?: ServiceCatalogLine[];
 };
 
 export type ServiceCategory = {
@@ -70,6 +85,90 @@ export const serviceCatalog: ServiceCategory[] = [
     ],
   },
 ];
+
+
+export function countPricedOptions(opt: ServiceOption): number {
+  if (!opt.serviceLines?.length) return 1;
+  const n = opt.serviceLines.reduce((acc, line) => acc + (line.pricedOptions?.length ?? 0), 0);
+  return n > 0 ? n : 1;
+}
+
+export function minPriceForOption(opt: ServiceOption): number {
+  if (!opt.serviceLines?.length) return opt.price ?? 0;
+  const prices = opt.serviceLines.flatMap((l) => l.pricedOptions?.map((p) => p.price) ?? []);
+  if (!prices.length) return opt.price ?? 0;
+  return Math.min(...prices);
+}
+
+export function findSinglePricedOption(opt: ServiceOption): {
+  line: ServiceCatalogLine;
+  priced: PricedOption;
+} | null {
+  const lines = opt.serviceLines ?? [];
+  const all: { line: ServiceCatalogLine; priced: PricedOption }[] = [];
+  for (const line of lines) {
+    for (const priced of line.pricedOptions ?? []) {
+      all.push({ line, priced });
+    }
+  }
+  if (all.length !== 1) return null;
+  return all[0]!;
+}
+
+export function buildBookingTitle(subTitle: string, line: ServiceCatalogLine, priced: PricedOption): string {
+  const parts = [subTitle, line.serviceName];
+  if (line.variantLabel) parts.push(line.variantLabel);
+  parts.push(priced.label);
+  return parts.join(" · ");
+}
+
+/** Map one API /catalog option into app types (same shape as home-services list). */
+export function normalizeServiceOptionFromApi(
+  opt: any,
+  context: {
+    categoryKey: string;
+    optionIndex: number;
+    fallbackOption?: ServiceOption;
+    fallbackImage?: string;
+  },
+): ServiceOption {
+  const { categoryKey, optionIndex, fallbackOption, fallbackImage } = context;
+  const pick = (...values: (string | undefined | null)[]) => {
+    for (const value of values) {
+      const normalized = String(value ?? "").trim();
+      if (normalized.length > 0) return normalized;
+    }
+    return "";
+  };
+  const rawLines = Array.isArray(opt?.serviceLines) ? opt.serviceLines : [];
+  const serviceLines = rawLines.map((line: any) => ({
+    id: String(line.id ?? ""),
+    serviceName: String(line.serviceName ?? ""),
+    variantLabel: line.variantLabel ? String(line.variantLabel) : undefined,
+    description: line.description ? String(line.description) : undefined,
+    pricedOptions: Array.isArray(line.pricedOptions)
+      ? line.pricedOptions.map((po: any) => ({
+          id: String(po.id ?? ""),
+          label: String(po.label ?? "Option"),
+          price: Number(po.price ?? 0),
+        }))
+      : [],
+  }));
+  const merged: ServiceOption = {
+    id: String(opt?.id ?? fallbackOption?.id ?? `${categoryKey}-opt-${optionIndex}`),
+    title: String(opt?.title ?? fallbackOption?.title ?? "Service"),
+    description: String(
+      opt?.description ?? fallbackOption?.description ?? "Professional service",
+    ),
+    price: Number(opt?.price ?? fallbackOption?.price ?? 0),
+    image: pick(opt?.image, fallbackOption?.image, fallbackImage ?? ""),
+    popular: Boolean(opt?.popular ?? fallbackOption?.popular ?? false),
+    serviceLines:
+      serviceLines.length > 0 ? serviceLines : fallbackOption?.serviceLines,
+  };
+  merged.price = minPriceForOption(merged);
+  return merged;
+}
 
 export function getServiceByKey(catalog: ServiceCategory[], key?: string) {
   return catalog.find((service) => service.key === key) ?? catalog[0];
