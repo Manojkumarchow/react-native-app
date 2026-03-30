@@ -7,12 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { useRouter } from "expo-router";
-import useAuthStore from "./store/authStore";
-import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
+import { BASE_URL } from "./config";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 interface EventItem {
   eventId: string;
@@ -37,7 +38,7 @@ export default function Events() {
   const fetchEvents = async () => {
     try {
       const res = await axios.get(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/events/${buildingId}`
+        `${BASE_URL}/events/${buildingId}`
       );
       setEvents(res.data || []);
     } catch (error) {
@@ -73,7 +74,7 @@ export default function Events() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
@@ -99,7 +100,7 @@ export default function Events() {
           />
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -112,23 +113,23 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingHorizontal: rs(18),
+    paddingVertical: rvs(16),
   },
 
   headerTitle: {
-    fontSize: 22,
+    fontSize: rms(22),
     fontWeight: "700",
     color: "#fff",
-    marginLeft: 12,
+    marginLeft: rs(12),
   },
 
   content: {
     flex: 1,
     backgroundColor: "#fff",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingTop: 20,
+    borderTopLeftRadius: rs(30),
+    borderTopRightRadius: rs(30),
+    paddingTop: rvs(20),
   },
 
   card: {

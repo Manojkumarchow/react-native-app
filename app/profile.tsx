@@ -1,295 +1,350 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import axios from "axios";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
-
-import SectionCard from "./profile/SectionCard";
-import Row from "./profile/Row";
-import AppPreferencesSection from "./profile/AppPreferencesSection";
-import SecurityPrivacySection from "./profile/SecurityPrivacySection";
-import ProfileAvatar from "./components/ProfileAvatar";
-import BottomNav from "./components/BottomNav";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import useProfileStore from "./store/profileStore";
 import useAuthStore from "./store/authStore";
-import CustomAlert from "./components/CustomAlert";
-import Toast from "react-native-toast-message";
 import useBuildingStore from "./store/buildingStore";
-import { useEffect } from "react";
+import CustomAlert from "./components/CustomAlert";
+import { STORAGE_KEYS } from "@/constants/storage";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
 
-type ReactNativeFile = {
-  uri: string;
-  name: string;
-  type: string;
+type ProfileAction = {
+  key: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  title: string;
+  subtitle: string;
+  iconBg?: string;
+  iconColor?: string;
+  titleColor?: string;
+  onPress?: () => void;
 };
+
+const PRIMARY = "#1C98ED";
+const LIGHT_ICON_BG = "rgba(39,153,206,0.1)";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const profile = useProfileStore();
-  const upiId = useBuildingStore((s) => s.upiId);
-  const username = useProfileStore((s) => s.phone);
+  const building = useBuildingStore();
+  const resetProfile = useProfileStore((s) => s.setProfile);
+  const resetAuth = useAuthStore((s) => s.resetAuth);
+  const resetBuilding = useBuildingStore((s) => s.resetBuilding);
 
-  const [uploading, setUploading] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
 
-  const resetProfile = useProfileStore((s) => s.setProfile);
-  const resetAuth = useAuthStore((s) => s.reset);
+  const isTenant = profile.role === "USER" || profile.role === "TENANT";
 
-  // useEffect(() => {
-  //   if (username) {
-  //     profile.setProfile({
-  //       ...profile,
-  //       avatarUri: `${process.env.EXPO_PUBLIC_BASE_URL}/uploads/${username}.jpg?ts=${Date.now()}`,
-  //     });
-  //   }
-  // }, [username]);
+  const initials = useMemo(() => {
+    if (!profile.name) return isTenant ? "SG" : "GR";
+    const parts = profile.name.trim().split(" ").filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+  }, [profile.name, isTenant]);
 
-  /* ----------------------------
-     IMAGE PICK + UPLOAD
-  ---------------------------- */
-  const pickAndUploadImage = async () => {
-    try {
-      const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const roleLabel = isTenant ? "Tenant" : "Owner";
+  const flatLabel = profile.flatNo || profile.flat || "202";
+  const phoneLabel = profile.phone || "+91-8919998087";
+  const buildingLabel = building.buildingName || profile.buildingName || "Sunrise Residency";
 
-      if (!permission.granted) {
-        Alert.alert("Permission required", "Allow gallery access");
-        return;
-      }
+  const goToFlatDetails = () => router.push("/apartment-details");
+  const goToEmergency = () => router.push("/emergency");
+  const goToChangePin = () => router.push("/reset-pin" as never);
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1], // square crop
-        quality: 0.8,
-      });
+  const ownerActions: ProfileAction[] = [
+    {
+      key: "flat-details",
+      icon: "home-outline",
+      title: "My Flat Details",
+      subtitle: `Flat ${flatLabel}, ${buildingLabel}`,
+      // onPress: goToFlatDetails,
+    },
+    {
+      key: "emergency",
+      icon: "shield-account-outline",
+      title: "Emergency Contacts",
+      subtitle: "Security, maintenance office",
+      onPress: goToEmergency,
+    },
+    {
+      key: "documents",
+      icon: "file-document-outline",
+      title: "Documents",
+      subtitle: "Receipts and records",
+      onPress: () => router.push("/ledger"),
+    },
+    {
+      key: "change-pin",
+      icon: "lock-reset",
+      title: "Change PIN",
+      subtitle: "Update your security PIN",
+      onPress: goToChangePin,
+    },
+  ];
 
-      if (result.canceled || !result.assets?.length) return;
+  const tenantActions: ProfileAction[] = [
+    {
+      key: "flat-details",
+      icon: "home-outline",
+      title: "My Flat Details",
+      subtitle: `Flat ${flatLabel}, ${buildingLabel}`,
+      // onPress: goToFlatDetails,
+    },
+    {
+      key: "agreement",
+      icon: "home-outline",
+      title: "Rental Agreement",
+      subtitle: "View your tenancy agreements",
+      onPress: () => router.push("/rent"),
+    },
+    {
+      key: "emergency",
+      icon: "shield-account-outline",
+      title: "Emergency Contacts",
+      subtitle: "Security, maintenance office",
+      onPress: goToEmergency,
+    },
+    {
+      key: "payments-receipts",
+      icon: "file-document-outline",
+      title: "Payments and Receipts",
+      subtitle: "Rent and maintenance history",
+      onPress: () => router.push("/payments"),
+    },
+    {
+      key: "change-pin",
+      icon: "lock-reset",
+      title: "Change PIN",
+      subtitle: "Update your security PIN",
+      onPress: goToChangePin,
+    },
+  ];
 
-      const asset = result.assets[0];
-
-      if (!asset.uri) return;
-
-      setUploading(true);
-
-      const formData = new FormData();
-      const file: ReactNativeFile = {
-        uri: asset.uri,
-        name: `${username}.jpg`,
-        type: asset.mimeType ?? "image/jpeg",
-      };
-
-      formData.append("file", file as unknown as Blob);
-
-      await axios.post(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/profile/${username}/upload`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-
-      const updatedProfile = await axios.get(`${process.env.EXPO_PUBLIC_BASE_URL}/profile/${username}`);
-      profile.setProfile(updatedProfile.data);
-
-      Toast.show({
-        type: "success",
-        text1: "Profile image updated",
-      });
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Upload failed", "Could not upload image");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-
-  /* ----------------------------
-     EDIT ACCOUNT
-  ---------------------------- */
-  const onEditAccount = () => {
-    router.push({
-      pathname: "/profile/edit-account",
-      params: {
-        name: profile.name,
-        phone: profile.phone,
-        email: profile.email,
-        flat: profile.flat,
-        building: profile.building,
-        address: profile.address,
-      },
+  const doLogout = async () => {
+    resetProfile({
+      userId: null,
+      name: null,
+      email: null,
+      phone: null,
+      flat: null,
+      buildingId: null,
+      address: null,
+      avatarUri: null,
+      role: null,
+      upiId: null,
+      buildingName: null,
+      flatNo: null,
     });
+    resetAuth();
+    resetBuilding();
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.LAST_LOGIN_PHONE);
+    } catch {
+      // continue logout flow even if local storage cleanup fails
+    }
+    setShowAlert(false);
+    router.replace("/login");
   };
+
+  const actions = isTenant ? tenantActions : ownerActions;
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-
-      <View style={styles.screen}>
-        <View style={styles.topSpacing} />
-
-        <ScrollView
-          contentContainerStyle={styles.container}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.card}>
-            {/* AVATAR */}
-            <ProfileAvatar
-              avatarUri={profile.avatarUri}
-              onAvatarChange={pickAndUploadImage}
-            />
-
-            <Text style={styles.name}>{profile.name}</Text>
-            <View style={{ height: 20 }} />
-
-            {/* ACCOUNT DETAILS */}
-            <SectionCard title="Account Details" onEdit={onEditAccount}>
-              {profile.name && <Row icon="account" label={profile.name} />}
-              {profile.phone && <Row icon="phone" label={profile.phone} />}
-              {profile.email && <Row icon="email" label={profile.email} />}
-
-              {/* ✅ UPI ID ADDED HERE */}
-              {upiId && <Row icon="bank" label={`UPI: ${upiId}`} />}
-
-              {profile.flat && <Row icon="home" label={profile.flat} />}
-              {profile.buildingName && (
-                <Row icon="office-building" label={profile.buildingName} />
-              )}
-              {profile.flatNo && (
-                <Row icon="home" label={`Flat No: ${profile.flatNo}`} />
-              )}
-              {profile.address && (
-                <Row icon="map-marker" label={profile.address} />
-              )}
-            </SectionCard>
-
-            <AppPreferencesSection />
-            <SecurityPrivacySection />
-
-            {/* LOGOUT */}
-            <TouchableOpacity
-              style={styles.logoutBtn}
-              onPress={() => setShowAlert(true)}
-            >
-              <Text style={styles.logoutText}>Log Out</Text>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.headerCard}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backTap}>
+              <Feather name="arrow-left" size={22} color="#181818" />
             </TouchableOpacity>
-
-            <View style={styles.versionRow}>
-              <Text style={styles.versionTitle}>App Version</Text>
-              <Text style={styles.versionValue}>2.4.1 (Build 241)</Text>
-            </View>
-
-            <Text style={styles.copy}>
-              2025 FinTech Pro. All rights reserved.
-            </Text>
+            <Text style={styles.headerTitle}>Profile</Text>
           </View>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.heroCard}>
+            <View style={styles.initialsBox}>
+              <Text style={styles.initialsText}>{initials}</Text>
+            </View>
+            <View style={styles.heroInfo}>
+              <Text style={styles.heroRole}>Flat - {flatLabel} {roleLabel}</Text>
+              <Text style={styles.heroPhone}>{phoneLabel}</Text>
+            </View>
+          </View>
+
+          {actions.map((item) => (
+            <ProfileActionRow key={item.key} item={item} />
+          ))}
+
+          <ProfileActionRow
+            item={{
+              key: "logout",
+              icon: "logout",
+              title: "Logout",
+              subtitle: "Sign out of Nestiti",
+              iconBg: "rgba(220,38,38,0.1)",
+              iconColor: "#DC2626",
+              titleColor: "#DC2626",
+              onPress: () => setShowAlert(true),
+            }}
+          />
         </ScrollView>
+      </SafeAreaView>
 
-        {/* LOGOUT CONFIRMATION */}
-        <CustomAlert
-          visible={showAlert}
-          title="Logout"
-          message="Are you sure you want to logout?"
-          onCancel={() => setShowAlert(false)}
-          onConfirm={() => {
-            resetProfile({
-              userId: null,
-              name: null,
-              email: null,
-              phone: null,
-              flat: null,
-              building: null,
-              address: null,
-              avatarUri: null,
-              role: null,
-              upiId: null, // ✅ RESET UPI ID
-            });
-            resetAuth();
-            setShowAlert(false);
-            router.replace("/login");
-          }}
-        />
-
-        <BottomNav />
-      </View>
+      <CustomAlert
+        visible={showAlert}
+        title="Logout"
+        message="Are you sure you want to logout?"
+        onCancel={() => setShowAlert(false)}
+        onConfirm={doLogout}
+      />
     </>
   );
 }
 
-/* ================= STYLES ================= */
+function ProfileActionRow({ item }: { item: ProfileAction }) {
+  return (
+    <TouchableOpacity
+      style={styles.actionRow}
+      activeOpacity={0.82}
+      onPress={() => {
+        try {
+          item.onPress();
+        } catch {
+          Alert.alert("Coming soon", "This option will be available soon.");
+        }
+      }}
+    >
+      <View style={[styles.actionIconWrap, { backgroundColor: item.iconBg || LIGHT_ICON_BG }]}>
+        <MaterialCommunityIcons
+          name={item.icon}
+          size={20}
+          color={item.iconColor || PRIMARY}
+        />
+      </View>
+      <View style={styles.actionTextWrap}>
+        <Text style={[styles.actionTitle, item.titleColor ? { color: item.titleColor } : null]}>
+          {item.title}
+        </Text>
+        <Text style={styles.actionSubtitle}>{item.subtitle}</Text>
+      </View>
+      <Feather name="chevron-right" size={18} color="#94A3B8" />
+    </TouchableOpacity>
+  );
+}
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#f7f9fb" },
-
-  topSpacing: {
-    height: 12,
-    backgroundColor: "#1C98ED",
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-
-  container: {
-    paddingBottom: 40,
-    alignItems: "center",
-  },
-
-  card: {
-    width: "92%",
-    backgroundColor: "#fff",
-    marginTop: 12,
-    borderRadius: 22,
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-    alignItems: "center",
+  safe: { flex: 1, backgroundColor: "#FAFAFA" },
+  headerCard: {
+    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
+    borderBottomColor: "#F1F5F9",
+    borderBottomWidth: 1,
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(14),
     shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-
-  name: {
-    fontSize: 16,
-    color: "#333",
-    marginTop: 8,
-  },
-
-  logoutBtn: {
-    marginTop: 20,
-    width: "90%",
-    height: 46,
-    borderRadius: 6,
-    backgroundColor: "#FEE2E2",
-    borderWidth: 1,
-    borderColor: "#DC2626",
+  headerRow: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
   },
-
-  logoutText: {
-    color: "#DC2626",
-    fontSize: 15,
+  backTap: { marginRight: rs(8), padding: rs(4) },
+  headerTitle: {
+    color: "#000000",
+    fontSize: rms(18),
     fontWeight: "500",
   },
-
-  versionRow: {
-    flexDirection: "row",
-    width: "90%",
-    justifyContent: "space-between",
-    marginTop: 18,
+  content: {
+    padding: 16,
+    paddingBottom: 28,
+    gap: 12,
   },
-
-  versionTitle: { color: "#333", fontSize: 14 },
-  versionValue: { color: "#666", fontSize: 12 },
-
-  copy: { color: "#666", fontSize: 11, marginTop: 10 },
+  heroCard: {
+    minHeight: 111,
+    borderRadius: 20,
+    backgroundColor: PRIMARY,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#2899CF",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: 20,
+  },
+  initialsBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 11,
+    borderWidth: 1.2,
+    borderColor: "#FAFAFA",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+  initialsText: {
+    color: "#FFFFFF",
+    fontSize: 34,
+    fontWeight: "600",
+  },
+  heroInfo: {
+    flex: 1,
+  },
+  heroRole: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  heroPhone: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  actionRow: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  actionIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+  actionTextWrap: {
+    flex: 1,
+  },
+  actionTitle: {
+    color: "#0F172A",
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  actionSubtitle: {
+    color: "#64748B",
+    fontSize: 14,
+  },
 });

@@ -1,7 +1,9 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { Stack, useRouter } from "expo-router";
-import FrostedCard from "./components/FrostedCard";
+
+const BRAND_BLUE = "#1c98ed";
+const CARD_BG = "#ffffff";
 
 export default function OTPSuccess() {
   const router = useRouter();
@@ -11,26 +13,29 @@ export default function OTPSuccess() {
       <Stack.Screen options={{ headerShown: false, title: "Success" }} />
 
       <View style={styles.bg}>
-        <View style={styles.centerWrapper}>
-          <View style={styles.cardWidth}>
-            <FrostedCard>
-              <View style={styles.circle}>
-                <Text style={styles.check}>✓</Text>
-              </View>
-
-              <Text style={styles.title}>Successfully Verified</Text>
-              <Text style={styles.subtitle}>
-                Your verification has been completed successfully
-              </Text>
-
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() => router.push("/login")}
-              >
-                <Text style={styles.buttonText}>Continue</Text>
-              </TouchableOpacity>
-            </FrostedCard>
+        <View style={styles.header}>
+          <Image
+            source={require("./../assets/images/nestiti-logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
+        <View style={styles.card}>
+          <View style={styles.circle}>
+            <Text style={styles.check}>✓</Text>
           </View>
+
+          <Text style={styles.title}>Successfully Verified</Text>
+          <Text style={styles.subtitle}>
+            Your verification has been completed successfully
+          </Text>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => router.push("/login")}
+          >
+            <Text style={styles.buttonText}>Continue</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </>
@@ -38,46 +43,60 @@ export default function OTPSuccess() {
 }
 
 const styles = StyleSheet.create({
-  bg: { flex: 1, backgroundColor: "#B3D6F7" },
-  centerWrapper: {
-    flex: 1,
-    justifyContent: "center",
+  bg: { flex: 1, backgroundColor: BRAND_BLUE },
+  header: {
     alignItems: "center",
-    paddingHorizontal: 16,
+    justifyContent: "center",
+    paddingTop: 22,
+    paddingBottom: 12,
   },
-  cardWidth: { width: "100%", maxWidth: 420 },
+  logo: {
+    width: 235,
+    height: 235,
+  },
+  card: {
+    marginTop: 4,
+    backgroundColor: CARD_BG,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 19,
+    paddingTop: 20,
+    paddingBottom: 88,
+    alignItems: "center",
+  },
 
   circle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 3,
-    borderColor: "#3B5BFE",
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2,
+    borderColor: BRAND_BLUE,
     alignItems: "center",
     justifyContent: "center",
-    alignSelf: "center",
-    marginBottom: 20,
+    marginBottom: 14,
   },
-  check: { fontSize: 40, color: "#3B5BFE" },
+  check: { fontSize: 40, color: BRAND_BLUE, lineHeight: 42 },
 
   title: {
-    fontSize: 22,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "500",
     textAlign: "center",
-    color: "#0A174E",
+    color: "#000",
   },
   subtitle: {
-    marginTop: 10,
+    marginTop: 8,
     textAlign: "center",
-    color: "#444",
-    marginBottom: 25,
+    color: "#666",
+    marginBottom: 22,
   },
 
   button: {
-    backgroundColor: "#3B5BFE",
-    paddingVertical: 14,
-    borderRadius: 12,
+    backgroundColor: BRAND_BLUE,
+    height: 48,
+    borderRadius: 100,
     alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
   },
-  buttonText: { color: "#fff", fontSize: 18, fontWeight: "600" },
+  buttonText: { color: "#fff", fontSize: 14, fontWeight: "600" },
 });

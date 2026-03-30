@@ -1,330 +1,1534 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Switch,
   View,
   Text,
-  TouchableOpacity,
+  TextInput,
+  Pressable,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
-  ActivityIndicator,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import axios from "axios";
-import * as FileSystem from "expo-file-system";
-import * as Sharing from "expo-sharing";
-import { Alert, Platform } from "react-native";
-import useAuthStore from "./store/authStore";
+import { BASE_URL } from "./config";
 import useProfileStore from "./store/profileStore";
+import useBuildingStore from "./store/buildingStore";
+import { getErrorMessage } from "./services/error";
+import { rms, rs, rvs } from "@/constants/responsive";
 
-type MaintenanceItem = {
-  id: number;
-  monthLabel: string;
-  amount: number;
-  dueDate?: string;
-  paidDate?: string;
-  status: "PAID" | "UNPAID";
-  invoiceAvailable: boolean;
-};
+type Step = 1 | 2 | 3 | 4;
+type WaterMode = "FIXED" | "MASTER" | "INDIVIDUAL" | "MIXED";
+type MeterRow = { flatNumber: string; reading: string; units: string };
+type CustomExpenseRow = { id: string; name: string; amount: string };
 
 export default function MaintenanceScreen() {
   const router = useRouter();
-  const username = useProfileStore((s) => s.phone);
+  const insets = useSafeAreaInsets();
+  const profileId = useProfileStore((s) => s.phone);
+  const buildingId = useBuildingStore((s) => s.buildingId);
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonthIndex = currentDate.getMonth();
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
 
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 3 }, (_, i) => `${currentYear - i}`);
+  const [step, setStep] = useState<Step>(1);
 
+  const years = Array.from({ length: 5 }, (_, i) => `${currentYear - i}`);
   const [selectedYear, setSelectedYear] = useState(`${currentYear}`);
-  const [showYearDropdown, setShowYearDropdown] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState(monthNames[currentMonthIndex]);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [tempMonth, setTempMonth] = useState(selectedMonth);
+  const [tempYear, setTempYear] = useState(selectedYear);
 
-  /* ---------------- FETCH DATA ---------------- */
-  const fetchMaintenance = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/maintenance/${username}`,
-      );
-      setMaintenance(res.data);
-    } catch (e) {
-      console.error("Failed to fetch maintenance", e);
-    } finally {
-      setLoading(false);
-    }
+  const [watchmanSalary, setWatchmanSalary] = useState("");
+  const [garbageCollection, setGarbageCollection] = useState("");
+  const [liftMaintenance, setLiftMaintenance] = useState("");
+  const [electricityCommon, setElectricityCommon] = useState("");
+  const [motorPump, setMotorPump] = useState("");
+  const [miscellaneous, setMiscellaneous] = useState("");
+  const [customExpenses, setCustomExpenses] = useState<CustomExpenseRow[]>([]);
+  const [customExpenseModalVisible, setCustomExpenseModalVisible] = useState(false);
+  const [customExpenseName, setCustomExpenseName] = useState("");
+  const [customExpenseAmount, setCustomExpenseAmount] = useState("");
+
+  const [waterMode, setWaterMode] = useState<WaterMode>("FIXED");
+  const [rememberWaterSetup, setRememberWaterSetup] = useState(false);
+  const [fixedWaterBill, setFixedWaterBill] = useState("");
+  const [masterWaterBill, setMasterWaterBill] = useState("");
+  const [individualRatePerUnit, setIndividualRatePerUnit] = useState("");
+  const [mixedRatePerUnit, setMixedRatePerUnit] = useState("");
+  const [mixedFixedPool, setMixedFixedPool] = useState("");
+
+  const [individualRows, setIndividualRows] = useState<MeterRow[]>([]);
+
+  const [selectedMixedFlats, setSelectedMixedFlats] = useState<string[]>([]);
+  const [mixedRowsMap, setMixedRowsMap] = useState<Record<string, { reading: string; units: string }>>({});
+  const [allFlats, setAllFlats] = useState<string[]>([]);
+  const [flatError, setFlatError] = useState<string | null>(null);
+
+  const [dueDateOpen, setDueDateOpen] = useState(false);
+  const dueDateOptions = useMemo(() => {
+    const monthIndex = monthNames.findIndex((m) => m === selectedMonth);
+    const yearNum = Number(selectedYear);
+    const makeLabel = (day: number) => {
+      if (monthIndex < 0 || !Number.isFinite(yearNum)) return "";
+      const d = new Date(yearNum, monthIndex, day);
+      return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    };
+    return [makeLabel(10), makeLabel(15), makeLabel(20), makeLabel(25)].filter(Boolean);
+  }, [selectedMonth, selectedYear]);
+  const [paymentDueDate, setPaymentDueDate] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const parseAmount = (value: string) => {
+    const clean = value.replace(/[^0-9]/g, "");
+    return clean ? Number(clean) : 0;
   };
+  const inputFormatter = (value: string) => value.replace(/[^0-9]/g, "");
+  const formatInr = (value: number) => `₹${Math.max(0, value).toLocaleString("en-IN")}`;
 
-  useEffect(() => {
-    fetchMaintenance();
-  }, []);
-
-  /* ---------------- FILTER BY YEAR ---------------- */
-  const filteredMaintenance = maintenance.filter((m) =>
-    (m.paidDate || m.dueDate || "").startsWith(selectedYear),
+  const flatsCount = allFlats.length;
+  const customExpensesTotal = useMemo(
+    () => customExpenses.reduce((sum, item) => sum + parseAmount(item.amount), 0),
+    [customExpenses],
   );
 
-  /* ---------------- ACTIONS ---------------- */
-  const markAsPaid = async (id: number) => {
-    await axios.patch(
-      `${process.env.EXPO_PUBLIC_BASE_URL}/maintenance/${id}/pay`,
-    );
-    fetchMaintenance();
+  useEffect(() => {
+    const run = async () => {
+      if (!buildingId) {
+        setAllFlats([]);
+        setIndividualRows([]);
+        setFlatError("Building is not configured for this account.");
+        return;
+      }
+      try {
+        setFlatError(null);
+        const res = await axios.get(`${BASE_URL}/flat/building/${buildingId}`);
+        const rows = Array.isArray(res.data) ? res.data : [];
+        const flats = Array.from(new Set(rows.map((item: any) => String(item ?? "").trim()).filter(Boolean)));
+        setAllFlats(flats);
+        setIndividualRows((prev) =>
+          flats.map((flat) => {
+            const existing = prev.find((row) => row.flatNumber === flat);
+            return {
+              flatNumber: flat,
+              reading: existing?.reading ?? "",
+              units: existing?.units ?? "",
+            };
+          }),
+        );
+      } catch {
+        setAllFlats([]);
+        setIndividualRows([]);
+        setFlatError("Unable to fetch flats for this building.");
+      }
+    };
+    run();
+  }, [buildingId]);
+
+  useEffect(() => {
+    if (dueDateOptions.length > 0 && (!paymentDueDate || !dueDateOptions.includes(paymentDueDate))) {
+      setPaymentDueDate(dueDateOptions[0]);
+    }
+  }, [dueDateOptions, paymentDueDate]);
+
+  const enteredExpensesTotal = useMemo(
+    () =>
+      parseAmount(watchmanSalary) +
+      parseAmount(garbageCollection) +
+      parseAmount(liftMaintenance) +
+      parseAmount(electricityCommon) +
+      parseAmount(motorPump) +
+      parseAmount(miscellaneous) +
+      customExpensesTotal,
+    [watchmanSalary, garbageCollection, liftMaintenance, electricityCommon, motorPump, miscellaneous, customExpensesTotal],
+  );
+
+  const expenseBreakdown = useMemo(
+    () => [
+      { label: "Watchman Salary", icon: "account-tie-outline", value: parseAmount(watchmanSalary) },
+      { label: "Garbage Collection", icon: "delete-outline", value: parseAmount(garbageCollection) },
+      { label: "Lift Maintenance", icon: "elevator", value: parseAmount(liftMaintenance) },
+      { label: "Common Area Electricity", icon: "flash-outline", value: parseAmount(electricityCommon) },
+      { label: "Motor Maintenance", icon: "cog-outline", value: parseAmount(motorPump) },
+      { label: "Miscellaneous", icon: "text-box-outline", value: parseAmount(miscellaneous) },
+      ...customExpenses
+        .filter((item) => item.name.trim().length > 0 && parseAmount(item.amount) > 0)
+        .map((item) => ({ label: item.name.trim(), icon: "plus-circle-outline", value: parseAmount(item.amount) })),
+    ],
+    [watchmanSalary, garbageCollection, liftMaintenance, electricityCommon, motorPump, miscellaneous, customExpenses],
+  );
+
+  const monthSummary = useMemo(() => {
+    const selectedMonthIdx = monthNames.findIndex((m) => m === selectedMonth);
+    const perFlat = flatsCount > 0 ? Math.round(enteredExpensesTotal / flatsCount) : 0;
+    if (selectedMonthIdx === -1) {
+      return { totalExpenses: enteredExpensesTotal, perFlat, collection: `0 / ${flatsCount} flats paid`, waterMode };
+    }
+    const totalExpenses = enteredExpensesTotal;
+    return {
+      totalExpenses,
+      perFlat,
+      collection: `0 / ${flatsCount} flats paid`,
+      waterMode,
+    };
+  }, [selectedMonth, flatsCount, enteredExpensesTotal, waterMode]);
+
+  const mixedRows = useMemo(
+    () =>
+      selectedMixedFlats.map((flat) => ({
+        flatNumber: flat,
+        reading: mixedRowsMap[flat]?.reading ?? "",
+        units: mixedRowsMap[flat]?.units ?? "",
+      })),
+    [selectedMixedFlats, mixedRowsMap],
+  );
+
+  const waterByFlat = useMemo(() => {
+    const map = new Map<string, number>();
+    const fixedPerFlat = flatsCount > 0 ? Math.round(parseAmount(fixedWaterBill) / flatsCount) : 0;
+    const masterPerFlat = flatsCount > 0 ? Math.round(parseAmount(masterWaterBill) / flatsCount) : 0;
+
+    if (waterMode === "FIXED") {
+      allFlats.forEach((flat) => map.set(flat, fixedPerFlat));
+      return map;
+    }
+    if (waterMode === "MASTER") {
+      allFlats.forEach((flat) => map.set(flat, masterPerFlat));
+      return map;
+    }
+    if (waterMode === "INDIVIDUAL") {
+      const rate = parseAmount(individualRatePerUnit);
+      individualRows.forEach((row) => map.set(row.flatNumber, parseAmount(row.units) * rate));
+      return map;
+    }
+
+    const mixedRate = parseAmount(mixedRatePerUnit);
+    const nonMetered = Math.max(1, flatsCount - selectedMixedFlats.length);
+    const nonMeteredShare = Math.round(parseAmount(mixedFixedPool) / nonMetered);
+    allFlats.forEach((flat) => {
+      if (selectedMixedFlats.includes(flat)) {
+        map.set(flat, parseAmount(mixedRowsMap[flat]?.units ?? "") * mixedRate);
+      } else {
+        map.set(flat, nonMeteredShare);
+      }
+    });
+    return map;
+  }, [
+    waterMode,
+    flatsCount,
+    fixedWaterBill,
+    masterWaterBill,
+    individualRatePerUnit,
+    individualRows,
+    selectedMixedFlats,
+    mixedRatePerUnit,
+    mixedFixedPool,
+    mixedRowsMap,
+  ]);
+
+  const perFlatBase = flatsCount > 0 ? Math.round(enteredExpensesTotal / flatsCount) : 0;
+  const perFlatRows = allFlats.map((flat) => {
+    const water = waterByFlat.get(flat) ?? 0;
+    return {
+      flat,
+      base: perFlatBase,
+      water,
+      total: perFlatBase + water,
+    };
+  });
+  const collectionTarget = perFlatRows.reduce((sum, row) => sum + row.total, 0);
+
+  const stepLabel = step === 1 ? "Period" : "Expenses";
+
+  const toggleMixedFlat = (flat: string) => {
+    setSelectedMixedFlats((prev) => {
+      if (prev.includes(flat)) return prev.filter((f) => f !== flat);
+      return [...prev, flat];
+    });
+    setMixedRowsMap((prev) => {
+      if (prev[flat]) return prev;
+      return { ...prev, [flat]: { reading: "", units: "" } };
+    });
   };
 
-  const downloadInvoice = async (id: number) => {
-    try {
-      const response = await axios.get(
-        `${process.env.EXPO_PUBLIC_BASE_URL}/maintenance/${id}/invoice`,
-        {
-          responseType: "arraybuffer", // 🔑 VERY IMPORTANT
-        },
-      );
-
-      // Convert arraybuffer → base64
-      const base64 = Buffer.from(response.data, "binary").toString("base64");
-
-      const fileUri = `${FileSystem.documentDirectory}invoice_${id}.pdf`;
-
-      await FileSystem.writeAsStringAsync(fileUri, base64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      // Open share / download dialog
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri);
-      } else {
-        Alert.alert("Downloaded", "Invoice saved to device.");
-      }
-    } catch (err) {
-      console.error("Invoice download failed", err);
-      Alert.alert("Error", "Unable to download invoice");
+  const addCustomExpense = () => {
+    const name = customExpenseName.trim();
+    const amount = inputFormatter(customExpenseAmount);
+    if (!name) {
+      Alert.alert("Missing name", "Please enter an expense name.");
+      return;
     }
+    if (!amount || parseAmount(amount) <= 0) {
+      Alert.alert("Invalid amount", "Please enter a valid expense amount.");
+      return;
+    }
+    setCustomExpenses((prev) => [
+      ...prev,
+      { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, amount },
+    ]);
+    setCustomExpenseName("");
+    setCustomExpenseAmount("");
+    setCustomExpenseModalVisible(false);
+  };
+
+  const removeCustomExpense = (id: string) => {
+    setCustomExpenses((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const customExpensesPayload = useMemo(() => {
+    const map: Record<string, number> = {};
+    customExpenses.forEach((item) => {
+      const name = item.name.trim();
+      const amount = parseAmount(item.amount);
+      if (!name || amount <= 0) return;
+      map[name] = (map[name] ?? 0) + amount;
+    });
+    return map;
+  }, [customExpenses]);
+
+  const onBack = () => {
+    if (step === 1) {
+      router.back();
+      return;
+    }
+    if (step === 2) {
+      setStep(1);
+      return;
+    }
+    if (step === 3) {
+      setStep(2);
+      return;
+    }
+    setStep(3);
+  };
+
+  const onNext = () => {
+    if (step === 1) {
+      setStep(2);
+      return;
+    }
+    if (step === 2) {
+      setStep(3);
+      return;
+    }
+    if (step === 3) {
+      setStep(4);
+      return;
+    }
+    if (step === 4) {
+      submitMaintenance();
+    }
+  };
+
+  const submitMaintenance = async () => {
+    if (!profileId || !buildingId) {
+      Alert.alert("Missing data", "Profile/building is missing. Please relogin.");
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const month = Math.max(1, monthNames.findIndex((m) => m === selectedMonth) + 1);
+      const payload = {
+        profileId,
+        buildingId: String(buildingId),
+        year: Number(selectedYear),
+        month,
+        dueDate: null as any,
+        totalFlats: flatsCount,
+        watchmanSalary: parseAmount(watchmanSalary),
+        garbageCollection: parseAmount(garbageCollection),
+        liftMaintenance: parseAmount(liftMaintenance),
+        electricityCommon: parseAmount(electricityCommon),
+        motorPump: parseAmount(motorPump),
+        miscellaneous: parseAmount(miscellaneous),
+        customExpenses: customExpensesPayload,
+        waterMode,
+        fixedWaterBill: parseAmount(fixedWaterBill),
+        masterWaterBill: parseAmount(masterWaterBill),
+        individualRatePerUnit: parseAmount(individualRatePerUnit),
+        mixedRatePerUnit: parseAmount(mixedRatePerUnit),
+        mixedFixedPool: parseAmount(mixedFixedPool),
+        individualRows: individualRows.map((row) => ({
+          flatNumber: row.flatNumber,
+          reading: parseAmount(row.reading),
+          units: parseAmount(row.units),
+        })),
+        mixedMeterRows: mixedRows.map((row) => ({
+          flatNumber: row.flatNumber,
+          reading: parseAmount(row.reading),
+          units: parseAmount(row.units),
+        })),
+        flatCharges: perFlatRows.map((row) => ({
+          flatNumber: row.flat,
+          baseAmount: row.base,
+          waterAmount: row.water,
+          amount: row.total,
+        })),
+        allFlats,
+      };
+      await axios.post(`${BASE_URL}/maintenance/create`, payload);
+      Alert.alert("Maintenance created", "Bills generated successfully.", [
+        { text: "OK", onPress: () => router.push("/ledger") },
+      ]);
+    } catch (error) {
+      Alert.alert("Failed to create maintenance", getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const nextText = step === 4 ? "Generate and Send Bills" : "Next";
+  const applyPeriodPicker = () => {
+    setSelectedMonth(tempMonth);
+    setSelectedYear(tempYear);
+    setPickerVisible(false);
   };
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-
       <SafeAreaView style={styles.safe}>
-        {/* HEADER */}
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Feather name="arrow-left" size={26} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Maintenance</Text>
+        <View style={styles.headerCard}>
+          <View style={styles.headerRow}>
+            <Pressable onPress={onBack}>
+              <Feather name="arrow-left" size={24} color="#181818" />
+            </Pressable>
+            <Text style={styles.headerTitle}>Monthly Maintenance</Text>
+          </View>
+          <Text style={styles.stepText}>{`Step ${step} of 4 \u2192 ${stepLabel}`}</Text>
+          <View style={styles.progressRow}>
+            {[1, 2, 3, 4].map((item) => (
+              <View key={item} style={[styles.progressBar, item <= step ? styles.progressBarActive : styles.progressBarMuted]} />
+            ))}
+          </View>
         </View>
 
-        {/* CONTENT */}
-        <View style={styles.container}>
-          {/* YEAR DROPDOWN */}
-          <View style={styles.dropdownWrapper}>
-            <TouchableOpacity
-              style={styles.dropdown}
-              onPress={() => setShowYearDropdown(!showYearDropdown)}
-            >
-              <Text style={styles.dropdownText}>{selectedYear}</Text>
-              <Feather name="chevron-down" size={18} color="#1C98ED" />
-            </TouchableOpacity>
+        <ScrollView
+          contentContainerStyle={[styles.container, { paddingBottom: rvs(120) + insets.bottom }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {flatError ? <Text style={styles.warningText}>{flatError}</Text> : null}
+          {step === 1 ? (
+            <>
+              <View style={styles.noteCard}>
+                <View style={styles.noteIcon}>
+                  <MaterialCommunityIcons name="calendar-month-outline" size={22} color="#EAB308" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.noteTitle}>Billing Period</Text>
+                  <Text style={styles.noteSub}>Which month are you raising maintenance bills for?</Text>
+                </View>
+              </View>
 
-            {showYearDropdown && (
-              <View style={styles.dropdownList}>
-                <ScrollView>
-                  {years.map((year) => (
-                    <TouchableOpacity
-                      key={year}
+              <View style={styles.periodRow}>
+                <View style={styles.periodColSmall}>
+                  <Text style={styles.inputLabel}>Year</Text>
+                  <Pressable
+                    style={styles.selectInput}
+                    onPress={() => {
+                      setTempYear(selectedYear);
+                      setTempMonth(selectedMonth);
+                      setPickerVisible(true);
+                    }}
+                  >
+                    <Text style={styles.selectText}>{selectedYear}</Text>
+                    <Feather name="chevron-down" size={18} color="#64748B" />
+                  </Pressable>
+                </View>
+
+                <View style={styles.periodColLarge}>
+                  <Text style={styles.inputLabel}>Month</Text>
+                  <Pressable
+                    style={styles.selectInput}
+                    onPress={() => {
+                      setTempYear(selectedYear);
+                      setTempMonth(selectedMonth);
+                      setPickerVisible(true);
+                    }}
+                  >
+                    <Text style={styles.selectText}>{selectedMonth}</Text>
+                    <Feather name="chevron-down" size={18} color="#64748B" />
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryTitle}>{`Last Generated \u00b7 ${selectedMonth} ${selectedYear} Details`}</Text>
+                <SummaryRow label="Total Expenses" value={formatInr(monthSummary.totalExpenses)} />
+                <SummaryRow label="Per Flat" value={formatInr(monthSummary.perFlat)} />
+                <SummaryRow label="Collection" value={monthSummary.collection} />
+                <SummaryRow label="Water Mode" value={monthSummary.waterMode} isLast />
+              </View>
+            </>
+          ) : null}
+
+          {step === 2 ? (
+            <>
+              <View style={styles.noteCard}>
+                <View style={styles.noteIcon}>
+                  <MaterialCommunityIcons name="cash-multiple" size={22} color="#EAB308" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.noteTitle}>Shared Expenses</Text>
+                  <Text style={styles.noteSub}>Enter all common building expenses. Water handled separately next.</Text>
+                </View>
+              </View>
+
+              <ExpenseInput label="Watchman Salary" subLabel="Monthly guard salary" value={watchmanSalary} onChangeText={(val) => setWatchmanSalary(inputFormatter(val))} />
+              <ExpenseInput label="Garbage Collection" subLabel="GHMC or private vendor" value={garbageCollection} onChangeText={(val) => setGarbageCollection(inputFormatter(val))} />
+              <ExpenseInput label="Lift Maintenance" subLabel="AMC or repair charges" value={liftMaintenance} onChangeText={(val) => setLiftMaintenance(inputFormatter(val))} />
+              <ExpenseInput label="Electricity Common" subLabel="Corridors, pump, lights" value={electricityCommon} onChangeText={(val) => setElectricityCommon(inputFormatter(val))} />
+              <ExpenseInput label="Motor / Pump Maintenance" subLabel="Sump pump & overhead tank" value={motorPump} onChangeText={(val) => setMotorPump(inputFormatter(val))} />
+              <ExpenseInput label="Miscellaneous" subLabel="Any other shared expense" value={miscellaneous} onChangeText={(val) => setMiscellaneous(inputFormatter(val))} />
+
+              <View style={styles.customExpenseBlock}>
+                <View style={styles.customExpenseHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.customExpenseTitle}>Custom Expenses</Text>
+                    <Text style={styles.customExpenseSubTitle}>Add one-off items like Water Tanker, Security Camera service, etc.</Text>
+                  </View>
+                  <Pressable style={styles.addCustomExpenseBtn} onPress={() => setCustomExpenseModalVisible(true)}>
+                    <Feather name="plus" size={16} color="#FAFAFA" />
+                    <Text style={styles.addCustomExpenseText}>Add Custom Expense</Text>
+                  </Pressable>
+                </View>
+                {customExpenses.length === 0 ? (
+                  <Text style={styles.customExpenseEmpty}>No custom expenses added yet.</Text>
+                ) : (
+                  customExpenses.map((item) => (
+                    <View key={item.id} style={styles.customExpenseRow}>
+                      <View style={{ flex: 1, paddingRight: rs(8) }}>
+                        <Text style={styles.customExpenseName}>{item.name}</Text>
+                        <Text style={styles.customExpenseAmount}>{formatInr(parseAmount(item.amount))}</Text>
+                      </View>
+                      <Pressable onPress={() => removeCustomExpense(item.id)} hitSlop={8}>
+                        <Feather name="trash-2" size={16} color="#DC2626" />
+                      </Pressable>
+                    </View>
+                  ))
+                )}
+              </View>
+
+              <View style={styles.totalCard}>
+                <View>
+                  <Text style={styles.totalMetaLabel}>Total entered so far</Text>
+                  <Text style={styles.totalMainValue}>{formatInr(enteredExpensesTotal)}</Text>
+                </View>
+                <View>
+                  <Text style={styles.totalMetaLabel}>Base per flat</Text>
+                  <Text style={styles.totalSideValue}>{formatInr(perFlatBase)}</Text>
+                </View>
+              </View>
+            </>
+          ) : null}
+
+          {step === 3 ? (
+            <>
+              <View style={styles.noteCard}>
+                <View style={styles.noteIcon}>
+                  <MaterialCommunityIcons name="water-outline" size={22} color="#EAB308" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.noteTitle}>Water Billing</Text>
+                  <Text style={styles.noteSub}>Choose how water is charged. Save your preference for next month.</Text>
+                </View>
+              </View>
+
+              <WaterModeCard title="Fixed Split" subTitle="One bill, divided equally" selected={waterMode === "FIXED"} onPress={() => setWaterMode("FIXED")}>
+                {waterMode === "FIXED" ? (
+                  <>
+                    <Text style={styles.inlineInfo}>Enter one utility bill. Each flat pays equal share.</Text>
+                    <Text style={styles.fixedInputLabel}>Utility Bill Amount (₹)</Text>
+                    <TextInput
+                      style={styles.fixedInput}
+                      value={fixedWaterBill}
+                      onChangeText={(v) => setFixedWaterBill(inputFormatter(v))}
+                      placeholder="eg ₹8000"
+                      keyboardType="number-pad"
+                      placeholderTextColor="#777"
+                    />
+                    <Text style={styles.fixedPerFlatText}>{`Per flat: ${formatInr(flatsCount ? Math.round(parseAmount(fixedWaterBill) / flatsCount) : 0)} — divided equally`}</Text>
+                  </>
+                ) : null}
+              </WaterModeCard>
+
+              <WaterModeCard title="Master Meter" subTitle="One meter for entire building" selected={waterMode === "MASTER"} onPress={() => setWaterMode("MASTER")}>
+                {waterMode === "MASTER" ? (
+                  <>
+                    <Text style={styles.inlineInfo}>Enter the single utility bill. Each flat pays an equal share.</Text>
+                    <Text style={styles.fixedInputLabel}>Utility Bill Amount (₹)</Text>
+                    <TextInput
+                      style={styles.fixedInput}
+                      value={masterWaterBill}
+                      onChangeText={(v) => setMasterWaterBill(inputFormatter(v))}
+                      placeholder="eg ₹8000"
+                      keyboardType="number-pad"
+                      placeholderTextColor="#777"
+                    />
+                    <Text style={styles.fixedPerFlatText}>{`Per flat: ${formatInr(flatsCount ? Math.round(parseAmount(masterWaterBill) / flatsCount) : 0)} — divided equally`}</Text>
+                  </>
+                ) : null}
+              </WaterModeCard>
+
+              <WaterModeCard title="Individual Meters" subTitle="Each flat has its own meter" selected={waterMode === "INDIVIDUAL"} onPress={() => setWaterMode("INDIVIDUAL")}>
+                {waterMode === "INDIVIDUAL" ? (
+                  <>
+                    <Text style={styles.inlineInfo}>Enter current reading per flat. Charged per unit consumed.</Text>
+                    {allFlats.length === 0 ? (
+                      <Text style={styles.inlineError}>No flats returned by backend for this building.</Text>
+                    ) : null}
+                    <Text style={styles.fixedInputLabel}>Rate per Unit (₹)</Text>
+                    <TextInput
+                      style={styles.fixedInput}
+                      value={individualRatePerUnit}
+                      onChangeText={(v) => setIndividualRatePerUnit(inputFormatter(v))}
+                      placeholder="eg ₹29"
+                      keyboardType="number-pad"
+                      placeholderTextColor="#777"
+                    />
+                    <MeterReadingsTable
+                      rows={individualRows}
+                      allowFlatEdit={false}
+                      onChangeFlat={(index, value) => {
+                        setIndividualRows((prev) => prev.map((row, i) => (i === index ? { ...row, flatNumber: value } : row)));
+                      }}
+                      onChangeReading={(index, value) => {
+                        setIndividualRows((prev) => prev.map((row, i) => (i === index ? { ...row, reading: inputFormatter(value) } : row)));
+                      }}
+                      onChangeUnits={(index, value) => {
+                        setIndividualRows((prev) => prev.map((row, i) => (i === index ? { ...row, units: inputFormatter(value) } : row)));
+                      }}
+                    />
+                  </>
+                ) : null}
+              </WaterModeCard>
+
+              <WaterModeCard title="Mixed Setup" subTitle="Some metered, some not" selected={waterMode === "MIXED"} onPress={() => setWaterMode("MIXED")}>
+                {waterMode === "MIXED" ? (
+                  <>
+                    <Text style={styles.fixedInputLabel}>Tap flats that have individual meters:</Text>
+                    {allFlats.length === 0 ? (
+                      <Text style={styles.inlineError}>No flats returned by backend for this building.</Text>
+                    ) : null}
+                    <View style={styles.flatChipsWrap}>
+                      {allFlats.map((flat) => {
+                        const selected = selectedMixedFlats.includes(flat);
+                        return (
+                          <Pressable key={flat} style={[styles.flatChip, selected ? styles.flatChipActive : styles.flatChipInactive]} onPress={() => toggleMixedFlat(flat)}>
+                            <Text style={[styles.flatChipText, selected ? styles.flatChipTextActive : styles.flatChipTextInactive]}>{flat}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <Text style={styles.inlineInfo}>Mark metered flats for unit billing. Non-metered flats share a fixed pool.</Text>
+                    <Text style={styles.fixedInputLabel}>Rate per Unit (₹) - metered flats</Text>
+                    <TextInput
+                      style={styles.fixedInput}
+                      value={mixedRatePerUnit}
+                      onChangeText={(v) => setMixedRatePerUnit(inputFormatter(v))}
+                      placeholder="eg ₹29"
+                      keyboardType="number-pad"
+                      placeholderTextColor="#777"
+                    />
+                    <MeterReadingsTable
+                      rows={mixedRows}
+                      allowFlatEdit={false}
+                      onChangeFlat={() => {}}
+                      onChangeReading={(index, value) => {
+                        const flat = mixedRows[index]?.flatNumber;
+                        if (!flat) return;
+                        setMixedRowsMap((prev) => ({
+                          ...prev,
+                          [flat]: { reading: inputFormatter(value), units: prev[flat]?.units ?? "" },
+                        }));
+                      }}
+                      onChangeUnits={(index, value) => {
+                        const flat = mixedRows[index]?.flatNumber;
+                        if (!flat) return;
+                        setMixedRowsMap((prev) => ({
+                          ...prev,
+                          [flat]: { reading: prev[flat]?.reading ?? "", units: inputFormatter(value) },
+                        }));
+                      }}
+                    />
+                    <Text style={styles.fixedInputLabel}>Fixed Water Pool for Non-Metered Flats (₹)</Text>
+                    <TextInput
+                      style={styles.fixedInput}
+                      value={mixedFixedPool}
+                      onChangeText={(v) => setMixedFixedPool(inputFormatter(v))}
+                      placeholder="eg ₹8000"
+                      keyboardType="number-pad"
+                      placeholderTextColor="#777"
+                    />
+                    <Text style={styles.fixedPerFlatText}>
+                      {`Non-metered per flat: ${formatInr(Math.round(parseAmount(mixedFixedPool) / Math.max(1, flatsCount - selectedMixedFlats.length)))}`}
+                    </Text>
+                  </>
+                ) : null}
+              </WaterModeCard>
+
+              {/* <View style={styles.toggleCard}>
+                <View style={styles.toggleIcon}>
+                  <MaterialCommunityIcons name="account-group-outline" size={20} color="#1C98ED" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleTitle}>Remember this water billing setup</Text>
+                  <Text style={styles.toggleSub}>Auto-load next month. Change anytime</Text>
+                </View>
+                <Switch value={rememberWaterSetup} onValueChange={setRememberWaterSetup} trackColor={{ false: "#E2E8F0", true: "#1C98ED" }} thumbColor="#FFFFFF" />
+              </View> */}
+            </>
+          ) : null}
+
+          {step === 4 ? (
+            <>
+              <View style={styles.reviewCard}>
+                <View style={styles.reviewIcon}>
+                  <MaterialCommunityIcons name="check-circle-outline" size={22} color="#16A34A" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.reviewTitle}>Review & Generate</Text>
+                  <Text style={styles.reviewSub}>{`Bills for ${selectedMonth} ${selectedYear} - ${flatsCount} flats - Ready to send`}</Text>
+                </View>
+              </View>
+
+              <View style={styles.heroCard}>
+                <Text style={styles.heroMeta}>{`${selectedMonth} ${selectedYear} - Total Collection Target`}</Text>
+                <Text style={styles.heroAmount}>{formatInr(collectionTarget)}</Text>
+                {/* <Pressable style={styles.heroPill}>
+                  <Text style={styles.heroPillText}>Pay Now</Text>
+                </Pressable> */}
+              </View>
+
+              <Text style={styles.sectionTitle}>Expense Breakdown</Text>
+              <View style={styles.breakdownCard}>
+                {expenseBreakdown.map((item, index) => (
+                  <View key={item.label} style={[styles.breakdownRow, index > 0 && styles.breakdownRowBorder]}>
+                    <View style={styles.breakdownLeft}>
+                      <MaterialCommunityIcons name={item.icon as never} size={16} color="#64748B" />
+                      <Text style={styles.breakdownLabel}>{item.label}</Text>
+                    </View>
+                    <Text style={styles.breakdownValue}>{formatInr(item.value)}</Text>
+                  </View>
+                ))}
+                <View style={styles.breakdownTotalRow}>
+                  <Text style={styles.breakdownTotalLabel}>Total Shared Expenses</Text>
+                  <Text style={styles.breakdownTotalValue}>{formatInr(enteredExpensesTotal)}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.sectionTitle}>Per-Flat Breakdown</Text>
+              <View style={styles.perFlatCard}>
+                <View style={styles.perFlatHeaderRow}>
+                  <Text style={[styles.perFlatHeaderText, styles.perFlatFlatCell]}>Flat</Text>
+                  <Text style={[styles.perFlatHeaderText, styles.perFlatNumCell]}>Base</Text>
+                  <Text style={[styles.perFlatHeaderText, styles.perFlatNumCell]}>Water</Text>
+                  <Text style={[styles.perFlatHeaderText, styles.perFlatNumCell]}>Total</Text>
+                </View>
+                {perFlatRows.map((row) => (
+                  <View key={row.flat} style={styles.perFlatBodyRow}>
+                    <Text style={[styles.perFlatBodyText, styles.perFlatFlatCell]}>{row.flat}</Text>
+                    <Text style={[styles.perFlatBodyText, styles.perFlatNumCell]}>{formatInr(row.base)}</Text>
+                    <Text style={[styles.perFlatBodyText, styles.perFlatNumCell]}>{formatInr(row.water)}</Text>
+                    <Text style={[styles.perFlatTotalText, styles.perFlatNumCell]}>{formatInr(row.total)}</Text>
+                  </View>
+                ))}
+                <View style={styles.perFlatFoot}>
+                  <Text style={styles.perFlatFootText}>Grand total: </Text>
+                  <Text style={styles.perFlatFootAmount}>{formatInr(collectionTarget)}</Text>
+                </View>
+              </View>
+
+              {/* <Text style={styles.inputLabel}>Payment Due Date</Text>
+              <Pressable
+                style={styles.dueDateInput}
+                onPress={() => setDueDateOpen((v) => !v)}
+              >
+                <MaterialCommunityIcons name="calendar-blank-outline" size={18} color="#64748B" />
+                <Text style={styles.dueDateText}>{paymentDueDate}</Text>
+                <Feather name="chevron-down" size={18} color="#64748B" />
+              </Pressable>
+              {dueDateOpen ? (
+                <View style={styles.dropdownListInline}>
+                  {dueDateOptions.map((date) => (
+                    <Pressable
+                      key={date}
+                      style={styles.dropdownItemWrap}
                       onPress={() => {
-                        setSelectedYear(year);
-                        setShowYearDropdown(false);
+                        setPaymentDueDate(date);
+                        setDueDateOpen(false);
                       }}
                     >
-                      <Text style={styles.dropdownItem}>{year}</Text>
-                    </TouchableOpacity>
+                      <Text style={styles.dropdownItem}>{date}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null} */}
+
+              <View style={styles.warningCard}>
+                <MaterialCommunityIcons name="alert-outline" size={18} color="#DC2626" />
+                <Text style={styles.warningText}>
+                  Once generated, bills are sent to all flats via notification and Community updates. Double-check amounts before proceeding.
+                </Text>
+              </View>
+            </>
+          ) : null}
+        </ScrollView>
+
+        <View style={[styles.footerRow, { bottom: rvs(16) + insets.bottom }]}>
+          <Pressable style={styles.cancelBtn} onPress={() => router.back()}>
+            <Text style={styles.cancelBtnText}>Cancel</Text>
+          </Pressable>
+          <Pressable style={styles.nextBtn} onPress={onNext}>
+            {submitting && step === 4 ? (
+              <ActivityIndicator color="#FAFAFA" />
+            ) : (
+              <Text style={styles.nextBtnText}>{nextText}</Text>
+            )}
+          </Pressable>
+        </View>
+
+        <Modal visible={customExpenseModalVisible} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.customExpenseModalCard}>
+              <Text style={styles.customExpenseModalTitle}>Add Custom Expense</Text>
+              <Text style={styles.customExpenseModalSub}>This will be included in maintenance summary and ledger.</Text>
+              <Text style={styles.inputLabel}>Expense Name</Text>
+              <TextInput
+                value={customExpenseName}
+                onChangeText={setCustomExpenseName}
+                placeholder="eg Water Tanker"
+                placeholderTextColor="#94A3B8"
+                style={styles.customExpenseModalInput}
+              />
+              <Text style={styles.inputLabel}>Amount (₹)</Text>
+              <TextInput
+                value={customExpenseAmount}
+                onChangeText={(val) => setCustomExpenseAmount(inputFormatter(val))}
+                placeholder="eg 5000"
+                placeholderTextColor="#94A3B8"
+                keyboardType="number-pad"
+                style={styles.customExpenseModalInput}
+              />
+              <View style={styles.customExpenseModalActions}>
+                <Pressable style={styles.customExpenseCancelBtn} onPress={() => setCustomExpenseModalVisible(false)}>
+                  <Text style={styles.customExpenseCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable style={styles.customExpenseSaveBtn} onPress={addCustomExpense}>
+                  <Text style={styles.customExpenseSaveText}>Add</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal visible={pickerVisible} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.pickerSheet}>
+              <View style={styles.sheetHandle} />
+              <Text style={styles.sheetTitle}>Pick Billing Period</Text>
+              <View style={styles.sheetLists}>
+                <ScrollView style={styles.sheetList} showsVerticalScrollIndicator={false}>
+                  {monthNames.map((month) => (
+                    <Pressable
+                      key={month}
+                      onPress={() => setTempMonth(month)}
+                      style={[styles.sheetItem, tempMonth === month && styles.sheetItemActive]}
+                    >
+                      <Text
+                        style={[styles.sheetItemText, tempMonth === month && styles.sheetItemTextActive]}
+                      >
+                        {month}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+                <ScrollView style={styles.sheetList} showsVerticalScrollIndicator={false}>
+                  {years.map((year) => (
+                    <Pressable
+                      key={year}
+                      onPress={() => setTempYear(year)}
+                      style={[styles.sheetItem, tempYear === year && styles.sheetItemActive]}
+                    >
+                      <Text
+                        style={[styles.sheetItemText, tempYear === year && styles.sheetItemTextActive]}
+                      >
+                        {year}
+                      </Text>
+                    </Pressable>
                   ))}
                 </ScrollView>
               </View>
-            )}
+              <Pressable style={styles.viewLedgerBtn} onPress={applyPeriodPicker}>
+                <Text style={styles.viewLedgerText}>Apply</Text>
+              </Pressable>
+              <Pressable style={styles.sheetCancelBtn} onPress={() => setPickerVisible(false)}>
+                <Text style={styles.sheetCancelText}>Cancel</Text>
+              </Pressable>
+            </View>
           </View>
-
-          {/* LIST */}
-          {loading ? (
-            <ActivityIndicator size="large" color="#1C98ED" />
-          ) : (
-            <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-              {filteredMaintenance.map((m) => {
-                const isPaid = m.status === "PAID";
-
-                return (
-                  <View
-                    key={m.id}
-                    style={[
-                      styles.card,
-                      isPaid ? styles.paidCard : styles.unpaidCard,
-                    ]}
-                  >
-                    <View style={styles.cardTop}>
-                      <Feather
-                        name="alert-circle"
-                        size={20}
-                        color={isPaid ? "#08401E" : "#C1282D"}
-                      />
-                      <Text
-                        style={[
-                          styles.cardTitle,
-                          { color: isPaid ? "#08401E" : "#C1282D" },
-                        ]}
-                      >
-                        {m.monthLabel}
-                      </Text>
-                    </View>
-
-                    <Text style={styles.amount}>₹ {m.amount}</Text>
-
-                    {isPaid ? (
-                      <Text style={styles.subText}>Paid on {m.paidDate}</Text>
-                    ) : (
-                      <Text style={styles.subText}>Due Date {m.dueDate}</Text>
-                    )}
-
-                    <View style={styles.line} />
-
-                    {isPaid ? (
-                      m.invoiceAvailable && (
-                        <TouchableOpacity onPress={() => downloadInvoice(m.id)}>
-                          <Text style={styles.download}>Download Invoice</Text>
-                        </TouchableOpacity>
-                      )
-                    ) : (
-                      <TouchableOpacity onPress={() => markAsPaid(m.id)}>
-                        <Text style={styles.unpaidAction}>I Already Paid</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                );
-              })}
-            </ScrollView>
-          )}
-        </View>
+        </Modal>
       </SafeAreaView>
     </>
   );
 }
 
-/* ---------------- STYLES ---------------- */
+function ExpenseInput({
+  label,
+  subLabel,
+  value,
+  onChangeText,
+}: {
+  label: string;
+  subLabel: string;
+  value: string;
+  onChangeText: (value: string) => void;
+}) {
+  return (
+    <View style={styles.expenseGroup}>
+      <Text style={styles.expenseLabel}>{label}</Text>
+      <Text style={styles.expenseSubLabel}>{subLabel}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType="number-pad"
+        placeholder="₹ xxxxx"
+        placeholderTextColor="#94A3B8"
+        style={styles.expenseInput}
+      />
+    </View>
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+  isLast = false,
+}: {
+  label: string;
+  value: string;
+  isLast?: boolean;
+}) {
+  return (
+    <View style={[styles.summaryRow, isLast && { borderBottomWidth: 0 }]}>
+      <Text style={styles.summaryRowLabel}>{label}</Text>
+      <Text style={styles.summaryRowValue}>{value}</Text>
+    </View>
+  );
+}
+
+function MeterReadingsTable({
+  rows,
+  allowFlatEdit = true,
+  onChangeFlat,
+  onChangeReading,
+  onChangeUnits,
+}: {
+  rows: MeterRow[];
+  allowFlatEdit?: boolean;
+  onChangeFlat: (index: number, value: string) => void;
+  onChangeReading: (index: number, value: string) => void;
+  onChangeUnits: (index: number, value: string) => void;
+}) {
+  return (
+    <View style={styles.tableWrap}>
+      <View style={styles.tableHeaderRow}>
+        <Text style={[styles.tableHeaderText, styles.tableFlat]}>Flat Number</Text>
+        <Text style={[styles.tableHeaderText, styles.tableNum]}>Current Readings</Text>
+        <Text style={[styles.tableHeaderText, styles.tableNum]}>Units</Text>
+      </View>
+      {rows.map((row, index) => (
+        <View key={`${row.flatNumber}-${index}`} style={styles.tableBodyRow}>
+          <TextInput
+            style={[styles.tableInput, styles.tableFlat, !allowFlatEdit && styles.tableInputReadonly]}
+            value={row.flatNumber}
+            onChangeText={(value) => onChangeFlat(index, value)}
+            placeholder="Flat"
+            placeholderTextColor="#94A3B8"
+            editable={allowFlatEdit}
+          />
+          <TextInput
+            style={[styles.tableInput, styles.tableNum]}
+            value={row.reading}
+            onChangeText={(value) => onChangeReading(index, value)}
+            keyboardType="number-pad"
+            placeholder="0"
+            placeholderTextColor="#94A3B8"
+          />
+          <TextInput
+            style={[styles.tableInput, styles.tableNum]}
+            value={row.units}
+            onChangeText={(value) => onChangeUnits(index, value)}
+            keyboardType="number-pad"
+            placeholder="0"
+            placeholderTextColor="#94A3B8"
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function WaterModeCard({
+  title,
+  subTitle,
+  selected,
+  onPress,
+  children,
+}: {
+  title: string;
+  subTitle: string;
+  selected: boolean;
+  onPress: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <Pressable style={[styles.modeCard, selected && styles.modeCardSelected]} onPress={onPress}>
+      <View style={styles.modeTopRow}>
+        <View style={styles.modeIcon}>
+          <MaterialCommunityIcons name="home-city-outline" size={20} color="#2899CF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.modeTitle}>{title}</Text>
+          <Text style={styles.modeSubTitle}>{subTitle}</Text>
+        </View>
+        <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>{selected ? <View style={styles.radioInner} /> : null}</View>
+      </View>
+      {children}
+    </Pressable>
+  );
+}
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#1C98ED" },
-
-  headerRow: {
+  safe: { flex: 1, backgroundColor: "#FAFAFA" },
+  headerCard: {
+    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(12),
+    paddingBottom: rvs(14),
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: rs(8) },
+  headerTitle: { fontSize: rms(18), fontWeight: "500", color: "#000000" },
+  stepText: { marginTop: rvs(12), color: "#777", fontSize: rms(12) },
+  progressRow: { marginTop: rvs(12), flexDirection: "row", gap: rs(5) },
+  progressBar: { flex: 1, height: rvs(6), borderRadius: rs(8) },
+  progressBarActive: { backgroundColor: "#1C98ED" },
+  progressBarMuted: { backgroundColor: "#F4F4F5" },
+  container: { paddingHorizontal: rs(16), paddingTop: rvs(16), paddingBottom: rvs(120), gap: rs(16) },
+  noteCard: {
+    flexDirection: "row",
+    gap: 12,
+    backgroundColor: "rgba(234,179,8,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(234,179,8,0.12)",
+    borderRadius: 24,
+    padding: 16,
+  },
+  noteIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "rgba(234,179,8,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  noteTitle: { color: "#09090B", fontSize: 14, fontWeight: "500" },
+  noteSub: { marginTop: 2, color: "#777", fontSize: 14, fontWeight: "500", lineHeight: 20 },
+  periodRow: { flexDirection: "row", gap: 12, zIndex: 10 },
+  periodColSmall: { width: "37%", position: "relative" },
+  periodColLarge: { flex: 1, position: "relative" },
+  inputLabel: { color: "#0F172A", fontSize: 14, fontWeight: "500", marginBottom: 6 },
+  selectInput: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    marginTop: 10,
-    height: 60,
+    justifyContent: "space-between",
   },
-
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#fff",
-    marginLeft: 10,
+  selectText: { color: "#0F172A", fontSize: 16, fontWeight: "400" },
+  dropdownListInline: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    backgroundColor: "#FFF",
+    overflow: "hidden",
+    maxHeight: 180,
   },
-
-  container: {
-    flex: 1,
-    marginTop: 20,
+  dropdownItemWrap: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  dropdownItem: { fontSize: 16, color: "#334155" },
+  summaryCard: {
+    marginTop: 4,
+    borderRadius: 16,
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
-
-  dropdownWrapper: { marginBottom: 10 },
-
-  dropdown: {
-    borderWidth: 2,
-    borderColor: "#F0A23A",
-    padding: 14,
-    borderRadius: 14,
+  summaryTitle: { color: "#1A1A1A", fontSize: 18, fontWeight: "500", marginBottom: 8 },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(229,231,235,0.5)",
+  },
+  summaryRowLabel: { color: "#777", fontSize: 14, fontWeight: "500" },
+  summaryRowValue: { color: "#1A1A1A", fontSize: 14, fontWeight: "500" },
+  expenseGroup: { width: "100%" },
+  expenseLabel: { color: "#334155", fontSize: 14, fontWeight: "500" },
+  expenseSubLabel: { color: "#777", fontSize: 10, marginTop: 2, marginBottom: 8 },
+  expenseInput: {
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: "#0F172A",
+    backgroundColor: "#FFFFFF",
+  },
+  customExpenseBlock: {
+    borderRadius: rs(16),
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    padding: rs(12),
+    gap: rvs(10),
+  },
+  customExpenseHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: rs(10),
+  },
+  customExpenseTitle: { color: "#0F172A", fontSize: rms(14), fontWeight: "600" },
+  customExpenseSubTitle: { marginTop: rvs(2), color: "#64748B", fontSize: rms(11), lineHeight: rms(16) },
+  addCustomExpenseBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: rs(4),
+    backgroundColor: "#1C98ED",
+    borderRadius: rs(10),
+    paddingHorizontal: rs(10),
+    minHeight: rvs(34),
+  },
+  addCustomExpenseText: { color: "#FAFAFA", fontSize: rms(11), fontWeight: "600" },
+  customExpenseEmpty: { color: "#777", fontSize: rms(12) },
+  customExpenseRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: rs(12),
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: rs(12),
+    paddingVertical: rvs(9),
+    backgroundColor: "#F8FAFC",
+  },
+  customExpenseName: { color: "#0F172A", fontSize: rms(13), fontWeight: "500" },
+  customExpenseAmount: { marginTop: rvs(2), color: "#1C98ED", fontSize: rms(12), fontWeight: "600" },
+  totalCard: {
+    marginTop: 2,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    padding: 16,
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: "#fff",
+    alignItems: "center",
   },
-
-  dropdownText: {
-    fontWeight: "700",
-    fontSize: 18,
-    color: "#1C98ED",
+  totalMetaLabel: { color: "#777", fontSize: 10 },
+  totalMainValue: { marginTop: 4, color: "#1C98ED", fontSize: 18, fontWeight: "500" },
+  totalSideValue: { marginTop: 4, color: "#09090B", fontSize: 14, fontWeight: "600" },
+  modeCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#E6E6E6",
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    gap: 10,
   },
-
-  dropdownList: {
-    maxHeight: 220,
+  modeCardSelected: { backgroundColor: "rgba(39,153,206,0.05)", borderColor: "#2799CE" },
+  modeTopRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  modeIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "rgba(39,153,206,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modeTitle: { color: "#0F172A", fontSize: 16, fontWeight: "400" },
+  modeSubTitle: { color: "#64748B", fontSize: 14, fontWeight: "500" },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioOuterSelected: { borderColor: "#2799CE" },
+  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#2799CE" },
+  inlineInfo: { color: "#777", fontSize: 12, lineHeight: 17 },
+  inlineError: { marginTop: 4, color: "#C81616", fontSize: 12, lineHeight: 17 },
+  fixedInputLabel: { marginTop: 2, color: "#000", fontSize: 12 },
+  fixedInput: {
+    marginTop: 6,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 10,
+    fontSize: 12,
+    color: "#111827",
+    borderWidth: 1,
+    borderColor: "#E4E4E7",
+  },
+  fixedPerFlatText: { marginTop: 6, color: "#777", fontSize: 12 },
+  tableWrap: {
     marginTop: 8,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#1C98ED",
-    borderRadius: 12,
-    backgroundColor: "#fff",
+    borderColor: "#B9B9B9",
+    overflow: "hidden",
+    backgroundColor: "#FFFFFF",
   },
-
-  dropdownItem: {
-    padding: 14,
-    fontSize: 16,
+  tableHeaderRow: { flexDirection: "row", backgroundColor: "rgba(0,0,0,0.06)", height: 50, alignItems: "center" },
+  tableHeaderText: { fontSize: 12, color: "#777", textAlign: "center" },
+  tableBodyRow: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#E4E4E7", minHeight: 42 },
+  tableInput: {
+    borderRightWidth: 1,
+    borderRightColor: "#E4E4E7",
+    paddingHorizontal: 8,
+    fontSize: 13,
+    color: "#09090B",
+    textAlign: "center",
   },
-
-  card: {
-    padding: 18,
+  tableInputReadonly: {
+    backgroundColor: "#F8FAFC",
+    color: "#334155",
+  },
+  tableFlat: { flex: 1, paddingVertical: 10 },
+  tableNum: { flex: 1, paddingVertical: 10 },
+  flatChipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 2 },
+  flatChip: {
+    height: 40,
+    minWidth: 86,
     borderRadius: 20,
-    marginTop: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  flatChipActive: { borderWidth: 1, borderColor: "#2799CE", backgroundColor: "rgba(39,153,206,0.05)" },
+  flatChipInactive: { borderWidth: 1, borderColor: "#E2E8F0", backgroundColor: "#FFFFFF" },
+  flatChipText: { fontSize: 14, fontWeight: "500" },
+  flatChipTextActive: { color: "#2799CE" },
+  flatChipTextInactive: { color: "#0F172A" },
+  toggleCard: {
     borderWidth: 1,
-  },
-
-  unpaidCard: {
-    backgroundColor: "#FFEBEB",
-    borderColor: "rgba(0,0,0,0.2)",
-  },
-
-  paidCard: {
-    backgroundColor: "#EBFFF3",
-    borderColor: "rgba(0,0,0,0.2)",
-  },
-
-  cardTop: {
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 16,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 6,
+    gap: 12,
   },
-
-  cardTitle: {
-    fontSize: 15,
+  toggleIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "rgba(39,153,206,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toggleTitle: { color: "#0F172A", fontSize: 14, fontWeight: "500" },
+  toggleSub: { marginTop: 2, color: "#64748B", fontSize: 12 },
+  reviewCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  reviewIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reviewTitle: { fontSize: 16, fontWeight: "700", color: "#0F172A" },
+  reviewSub: { marginTop: 2, fontSize: 12, color: "#64748B" },
+  heroCard: {
+    borderRadius: 20,
+    backgroundColor: "#1C98ED",
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    shadowColor: "#2899CF",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  heroMeta: { color: "rgba(255,255,255,0.8)", fontSize: 14, fontWeight: "500" },
+  heroAmount: { marginTop: 4, color: "#FFFFFF", fontSize: 34, fontWeight: "600" },
+  heroPill: {
+    marginTop: 14,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    alignSelf: "flex-start",
+  },
+  heroPillText: { color: "#1C98ED", fontSize: 14, fontWeight: "500" },
+  sectionTitle: { color: "#0F172A", fontSize: 14, fontWeight: "500", marginTop: 4 },
+  breakdownCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+  },
+  breakdownRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  breakdownRowBorder: { borderTopWidth: 1, borderTopColor: "#F8FAFC" },
+  breakdownLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  breakdownLabel: { color: "#0F172A", fontSize: 14, fontWeight: "500" },
+  breakdownValue: { color: "#0F172A", fontSize: 14, fontWeight: "500" },
+  breakdownTotalRow: {
+    borderTopWidth: 1,
+    borderTopColor: "rgba(39,153,206,0.1)",
+    backgroundColor: "rgba(39,153,206,0.05)",
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  breakdownTotalLabel: { color: "#2799CE", fontSize: 14, fontWeight: "500" },
+  breakdownTotalValue: { color: "#2799CE", fontSize: 18, fontWeight: "500" },
+  perFlatCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+  },
+  perFlatHeaderRow: { flexDirection: "row", backgroundColor: "#F8FAFC", paddingVertical: 10, paddingHorizontal: 8 },
+  perFlatHeaderText: { color: "#64748B", fontSize: 12, fontWeight: "500" },
+  perFlatBodyRow: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#F8FAFC", paddingVertical: 10, paddingHorizontal: 8 },
+  perFlatBodyText: { color: "#0F172A", fontSize: 13, fontWeight: "500" },
+  perFlatTotalText: { color: "#2799CE", fontSize: 13, fontWeight: "600" },
+  perFlatFlatCell: { flex: 1.2 },
+  perFlatNumCell: { flex: 1, textAlign: "right" },
+  perFlatFoot: {
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    backgroundColor: "#F8FAFC",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  perFlatFootText: { color: "#64748B", fontSize: 12 },
+  perFlatFootAmount: { color: "#1C98ED", fontSize: 14, fontWeight: "600" },
+  dueDateInput: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    minHeight: 48,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dueDateText: { flex: 1, color: "#0F172A", fontSize: 14, fontWeight: "500" },
+  warningCard: {
+    marginTop: 8,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#FEE2E2",
+    backgroundColor: "#FEF2F2",
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  warningText: { flex: 1, color: "#92400E", fontSize: 13, lineHeight: 21, fontWeight: "500" },
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.28)" },
+  customExpenseModalCard: {
+    marginHorizontal: rs(16),
+    marginBottom: rvs(250),
+    borderRadius: rs(16),
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    padding: rs(16),
+    gap: rvs(8),
+  },
+  customExpenseModalTitle: { color: "#0F172A", fontSize: rms(17), fontWeight: "700" },
+  customExpenseModalSub: { color: "#64748B", fontSize: rms(12), marginBottom: rvs(4) },
+  customExpenseModalInput: {
+    minHeight: rvs(44),
+    borderRadius: rs(10),
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: rs(12),
+    color: "#0F172A",
+    fontSize: rms(13),
+  },
+  customExpenseModalActions: {
+    marginTop: rvs(8),
+    flexDirection: "row",
+    gap: rs(10),
+  },
+  customExpenseCancelBtn: {
+    flex: 1,
+    minHeight: rvs(42),
+    borderRadius: rs(10),
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  customExpenseCancelText: { color: "#64748B", fontSize: rms(13), fontWeight: "500" },
+  customExpenseSaveBtn: {
+    flex: 1,
+    minHeight: rvs(42),
+    borderRadius: rs(10),
+    backgroundColor: "#1C98ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  customExpenseSaveText: { color: "#FAFAFA", fontSize: rms(13), fontWeight: "600" },
+  pickerSheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: rs(16),
+    borderTopRightRadius: rs(16),
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(20),
+    minHeight: rvs(380),
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: rs(40),
+    height: rvs(5),
+    borderRadius: rs(100),
+    backgroundColor: "#C5CBD3",
+    marginBottom: rvs(14),
+  },
+  sheetTitle: {
+    textAlign: "center",
+    color: "#111827",
+    fontSize: rms(22),
     fontWeight: "700",
-    marginLeft: 10,
+    marginBottom: rvs(8),
   },
-
-  amount: {
-    fontSize: 14,
-    color: "#555",
+  sheetLists: { flexDirection: "row", gap: rs(12), maxHeight: rvs(240), marginBottom: rvs(14) },
+  sheetList: { flex: 1 },
+  sheetItem: {
+    minHeight: rvs(42),
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: rs(8),
+    marginBottom: rvs(2),
   },
-
-  subText: {
-    fontSize: 12,
-    color: "#666",
-    marginTop: 4,
+  sheetItemActive: { backgroundColor: "#DEF4FF" },
+  sheetItemText: { color: "#7A7A7A", fontSize: rms(18) },
+  sheetItemTextActive: { color: "#1C98ED", fontWeight: "600" },
+  viewLedgerBtn: {
+    minHeight: rvs(48),
+    borderRadius: rs(16),
+    backgroundColor: "#1C98ED",
+    alignItems: "center",
+    justifyContent: "center",
   },
-
-  line: {
-    height: 1,
-    backgroundColor: "#999",
-    marginVertical: 10,
+  viewLedgerText: { color: "#FAFAFA", fontSize: rms(14), fontWeight: "600" },
+  sheetCancelBtn: {
+    minHeight: rvs(42),
+    borderRadius: rs(12),
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: rvs(10),
   },
-
-  unpaidAction: {
-    color: "#FF0606",
-    fontWeight: "700",
-    fontSize: 13,
+  sheetCancelText: { color: "#64748B", fontSize: rms(14), fontWeight: "500" },
+  footerRow: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    flexDirection: "row",
+    gap: 12,
   },
-
-  download: {
-    color: "#08401E",
-    fontWeight: "700",
-    fontSize: 13,
+  cancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: "#F4F4F5",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
+  cancelBtnText: { color: "#777", fontSize: 14, fontWeight: "500" },
+  nextBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 100,
+    backgroundColor: "#1C98ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nextBtnText: { color: "#FAFAFA", fontSize: 14, fontWeight: "500" },
 });

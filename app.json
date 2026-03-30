@@ -4,24 +4,38 @@
     "slug": "nestiti",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "helloworldappappapp",
+    "icon": "./assets/images/app-icon.png",
+    "splash": {
+      "image": "./assets/images/splash-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1c98ed"
+    },
+    "scheme": "nestitiappappapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.helloworldappappapp"
+      "bundleIdentifier": "com.anonymous.nestitiappappapp",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#2b96de",
+        "foregroundImage": "./assets/images/app-icon.png"
+      },
+      "splash": {
+        "image": "./assets/images/splash-logo.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#1c98ed"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.nestiti"
+      "package": "com.nestiti",
+      "versionCode": 16,
+      "googleServicesFile": "./app/google-services.json"
     },
     "web": {
       "output": "static",
@@ -30,9 +44,38 @@
     "plugins": [
       "expo-router",
       [
+        "@react-native-firebase/app",
+        {
+          "android": {
+            "googleServicesFile": "./app/google-services.json"
+          },
+          "ios": {
+            "googleServicesFile": "./GoogleService-Info.plist"
+          }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "default",
+          "enableBackgroundRemoteNotifications": true
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          },
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/splash-logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -49,8 +92,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "a6173b39-bb05-4939-b67e-ae0b586eb0e6"
+        "projectId": "e8f3b43e-524e-46f2-94c6-3f82e8abd059"
       }
-    }
+    },
+    "owner": "manojchow72"
   }
 }

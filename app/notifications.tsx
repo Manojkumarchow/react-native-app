@@ -1,223 +1,276 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { BASE_URL } from "./config";
-import useAuthStore from "./store/authStore";
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
+  Image,
+  Pressable,
   ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
 import useProfileStore from "./store/profileStore";
+import { getErrorMessage } from "./services/error";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { rms, rs, rvs } from "@/constants/responsive";
+
 type BackendNotification = {
   id: number;
   title: string;
-  body: string;
-  type: string; // SYSTEM | NOTICE | ALERT
-  createdAt: string; // ISO string
-  isRead: boolean;
+  message: string;
+  type: string;
+  createdAt: string;
 };
 
 type UIType = "ALERT" | "SUCCESS" | "INFO";
+type FilterType = "ALL" | UIType;
 
 type NotificationItem = {
   id: string;
   title: string;
   description: string;
   type: UIType;
-  daysAgo: string;
+  timeLabel: string;
 };
 
+const FILTERS: { key: FilterType; label: string }[] = [
+  { key: "ALL", label: "All" },
+  { key: "ALERT", label: "Alerts" },
+  { key: "SUCCESS", label: "Success" },
+  { key: "INFO", label: "Info" },
+];
+
+const DISPLAY_AD = require("../assets/images/heliq.jpeg");
+
 export default function NotificationsScreen() {
-  const [data, setData] = useState<NotificationItem[]>([]);
-  const phone = useProfileStore((profile) => profile.phone);
+  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterType>("ALL");
+  const phone = useProfileStore((s) => s.phone);
+
   useEffect(() => {
-    fetchNotifications();
-  }, []);
-  const fetchNotifications = async () => {
-    try {
-      const res = await axios.get(`${BASE_URL}/notifications/${phone}`);
-      console.log("Response from notifications: ", res);
-      const mapped: NotificationItem[] = res.data.map(
-        (n: BackendNotification) => ({
-          id: String(n.id),
-          title: n.title,
-          description: n.body,
-          type: mapBackendTypeToUI(n.type),
-          daysAgo: getDaysAgo(n.createdAt),
-        }),
-      );
-      setData(mapped);
-    } catch (err) {
-      console.log("Failed to load notifications", err);
-    }
-  };
+    const run = async () => {
+      setLoading(true);
+      if (!phone) {
+        setItems([]);
+        setErrorText("Profile phone is missing. Please login again.");
+        setLoading(false);
+        return;
+      }
+      try {
+        setErrorText(null);
+        const res = await axios.get(`${BASE_URL}/notifications`, {
+          params: { phone },
+        });
+        const mapped = Array.isArray(res.data)
+          ? (res.data as BackendNotification[]).map((n) => ({
+              id: String(n.id),
+              title: n.title || "Notification",
+              description: n.message || "",
+              type: mapBackendTypeToUI(n.type),
+              timeLabel: toRelativeTime(n.createdAt),
+            }))
+          : [];
+        setItems(mapped);
+      } catch (error) {
+        setItems([]);
+        setErrorText(getErrorMessage(error, "Unable to fetch notifications."));
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, [phone]);
 
-  const mapBackendTypeToUI = (type: string): UIType => {
-    switch (type) {
-      case "ALERT":
-        return "ALERT";
-      case "SUCCESS":
-        return "SUCCESS";
-      default:
-        return "INFO";
-    }
-  };
-
-  const getDaysAgo = (dateString: string): string => {
-    const created = new Date(dateString).getTime();
-    const now = Date.now();
-    const diffDays = Math.floor((now - created) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "1 Day Ago";
-    return `${diffDays} Days Ago`;
-  };
+  const filtered = useMemo(
+    () => (activeFilter === "ALL" ? items : items.filter((x) => x.type === activeFilter)),
+    [items, activeFilter],
+  );
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-
-      <View style={styles.screen}>
-        {/* HEADER */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#fff" style={styles.arrowButton} />
-          </TouchableOpacity>
-
-          <Text style={styles.headerTitle}>Notifications</Text>
-
-          <View style={{ width: 24 }} />
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.headerCard}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={22} color="#181818" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Notifications</Text>
+          </View>
         </View>
 
-        {/* CONTENT */}
-        <View style={styles.container}>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {data.map((item) => {
-              const isAlert = item.type === "ALERT";
-              const isSuccess = item.type === "SUCCESS";
-
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            {FILTERS.map((f) => {
+              const active = activeFilter === f.key;
               return (
-                <View
-                  key={item.id}
-                  style={[
-                    styles.card,
-                    isAlert && styles.alertCard,
-                    !isAlert && styles.successCard,
-                  ]}
+                <Pressable
+                  key={f.key}
+                  style={[styles.filterChip, active && styles.filterChipActive]}
+                  onPress={() => setActiveFilter(f.key)}
                 >
-                  <View style={styles.iconRow}>
-                    <Ionicons
-                      name={
-                        isAlert
-                          ? "alert-circle-outline"
-                          : isSuccess
-                            ? "checkmark-circle-outline"
-                            : "information-circle-outline"
-                      }
-                      size={22}
-                      color={isAlert ? "#C1282D" : "#08401E"}
-                    />
-
-                    <Text style={styles.daysAgo}>{item.daysAgo}</Text>
-                  </View>
-
-                  <Text
-                    style={[
-                      styles.title,
-                      { color: isAlert ? "#C1282D" : "#08401E" },
-                    ]}
-                  >
-                    {item.title}
-                  </Text>
-
-                  <Text style={styles.desc}>{item.description}</Text>
-                </View>
+                  <Text style={[styles.filterText, active && styles.filterTextActive]}>{f.label}</Text>
+                </Pressable>
               );
             })}
           </ScrollView>
-        </View>
-      </View>
+
+          <View style={styles.adCard}>
+            <Image source={DISPLAY_AD} style={styles.adImage} resizeMode="cover" />
+            {/* <View style={styles.adOverlay}>
+              <Text style={styles.adTitle}>Sponsored</Text>
+              <Text style={styles.adSub}>Heliq</Text>
+            </View> */}
+          </View>
+
+          {errorText ? <Text style={styles.hintText}>{errorText}</Text> : null}
+
+          {loading ? (
+            <ActivityIndicator size="large" color="#1C98ED" style={{ marginTop: 22 }} />
+          ) : filtered.length === 0 ? (
+            <Text style={styles.hintText}>No notifications available.</Text>
+          ) : (
+            filtered.map((item) => {
+            const isAlert = item.type === "ALERT";
+            const isSuccess = item.type === "SUCCESS";
+            const color = isAlert ? "#C1282D" : isSuccess ? "#15803D" : "#1C98ED";
+            const badgeBg = isAlert
+              ? "rgba(220,38,38,0.12)"
+              : isSuccess
+                ? "rgba(22,163,74,0.12)"
+                : "rgba(28,152,237,0.12)";
+              return (
+              <View key={item.id} style={styles.card}>
+                <View style={[styles.leftAccent, { backgroundColor: color }]} />
+                <View style={styles.cardBody}>
+                  <View style={styles.rowTop}>
+                    <View style={[styles.badge, { backgroundColor: badgeBg }]}>
+                      <Text style={[styles.badgeText, { color }]}>
+                        {isAlert ? "Alert" : isSuccess ? "Success" : "Info"}
+                      </Text>
+                    </View>
+                    <Text style={styles.time}>{item.timeLabel}</Text>
+                  </View>
+                  <Ionicons
+                    name={
+                      isAlert
+                        ? "alert-circle-outline"
+                        : isSuccess
+                          ? "checkmark-circle-outline"
+                          : "information-circle-outline"
+                    }
+                    size={20}
+                    color={color}
+                    style={styles.icon}
+                  />
+                  <Text style={styles.title}>{item.title}</Text>
+                  <Text style={styles.desc}>{item.description}</Text>
+                </View>
+              </View>
+              );
+            })
+          )}
+        </ScrollView>
+      </SafeAreaView>
     </>
   );
 }
 
-/* ================= STYLES ================= */
+function mapBackendTypeToUI(type: string): UIType {
+  switch ((type || "").toUpperCase()) {
+    case "ALERT":
+      return "ALERT";
+    case "SUCCESS":
+      return "SUCCESS";
+    default:
+      return "INFO";
+  }
+}
+
+function toRelativeTime(date: string): string {
+  const t = new Date(date).getTime();
+  if (Number.isNaN(t)) return "Just now";
+  const mins = Math.max(1, Math.floor((Date.now() - t) / 60000));
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs > 1 ? "s" : ""} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days > 1 ? "s" : ""} ago`;
+}
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#4C97E8",
+  screen: { flex: 1, backgroundColor: "#FAFAFA" },
+  headerCard: {
+    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(14),
   },
-
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 18,
-    height: 130,
-  },
-
-  headerTitle: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "700",
-    marginLeft: 12,
-    marginTop: 70
-  },
-  arrowButton: {
-    marginTop: 70
-  },
-
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 16,
-  },
-
-  card: {
-    borderRadius: 22,
-    padding: 16,
-    marginBottom: 14,
+  headerRow: { flexDirection: "row", alignItems: "center" },
+  backBtn: { marginRight: rs(8), padding: rs(4) },
+  headerTitle: { color: "#000000", fontSize: rms(18), fontWeight: "500" },
+  content: { paddingTop: rvs(14), paddingHorizontal: rs(12), paddingBottom: rvs(28) },
+  filterRow: { gap: rs(10), paddingHorizontal: rs(4), paddingBottom: rvs(12) },
+  filterChip: {
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.15)",
-  },
-
-  alertCard: {
-    backgroundColor: "#FDECEA",
-  },
-
-  successCard: {
-    backgroundColor: "#EBFFF3",
-  },
-
-  iconRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    borderColor: "#1C98ED",
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    minWidth: 92,
     alignItems: "center",
+    backgroundColor: "#FAFAFA",
   },
-
-  title: {
-    fontSize: 15,
-    fontWeight: "700",
-    marginTop: 6,
+  filterChipActive: { backgroundColor: "#1C98ED" },
+  filterText: { fontSize: 14, color: "#1C98ED", fontWeight: "500" },
+  filterTextActive: { color: "#FAFAFA" },
+  adCard: {
+    height: 160,
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 12,
   },
-
-  desc: {
-    fontSize: 13,
-    color: "#555",
-    marginTop: 6,
-    lineHeight: 18,
+  adImage: { width: "100%", height: "100%" },
+  adOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "rgba(0,0,0,0.35)",
   },
-
-  daysAgo: {
-    fontSize: 11,
-    color: "#666",
+  adTitle: { color: "#FFF", fontSize: 12, fontWeight: "700" },
+  adSub: { color: "#F8FAFC", fontSize: 11, marginTop: 2 },
+  hintText: { fontSize: 12, color: "#64748B", marginBottom: 10, marginLeft: 2 },
+  card: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+    marginBottom: 12,
+    flexDirection: "row",
   },
+  leftAccent: { width: 6 },
+  cardBody: { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
+  rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  badgeText: { fontSize: 12, fontWeight: "600" },
+  time: { fontSize: 11, color: "#94A3B8" },
+  icon: { marginBottom: 8 },
+  title: { fontSize: 14, fontWeight: "600", color: "#0F172A" },
+  desc: { fontSize: 12, color: "#64748B", marginTop: 6, lineHeight: 18 },
 });

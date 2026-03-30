@@ -1,222 +1,660 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
+  Switch,
+  Text,
   TextInput,
   TouchableOpacity,
+  View,
 } from "react-native";
 import { Stack, router } from "expo-router";
 import Toast from "react-native-toast-message";
 import axios from "axios";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
+import { BASE_URL } from "./config";
+import { getErrorMessage } from "./services/error";
+import { rms, rs, rvs } from "@/constants/responsive";
+
+type BackendNoticeType = "ALERT" | "INFO" | "HIGH" | "MEDIUM" | "LOW" | "EVENT";
+type NoticeCategory = "NOTICE" | "ANNOUNCEMENT" | "EVENT";
+type Audience = "ALL_RESIDENTS" | "ALL_OWNERS" | "ALL_TENANTS";
+type RootTab = "NEW" | "HISTORY";
+
+interface Notice {
+  noticeId: string;
+  title: string;
+  description: string;
+  type: BackendNoticeType;
+  createdAt: string;
+}
+
+const NOTICE_FILTERS: NoticeCategory[] = ["NOTICE", "ANNOUNCEMENT", "EVENT"];
+const AUDIENCE_OPTIONS: { key: Audience; label: string }[] = [
+  { key: "ALL_RESIDENTS", label: "All Residents" },
+  { key: "ALL_OWNERS", label: "All Owners" },
+  { key: "ALL_TENANTS", label: "All Tenants" },
+];
+
+const mapNoticeTypeToCategory = (type: string): NoticeCategory => {
+  const value = type?.toUpperCase();
+  if (value === "HIGH" || value === "ALERT" || value === "NOTICE") return "NOTICE";
+  if (value === "EVENT" || value === "LOW") return "EVENT";
+  return "ANNOUNCEMENT";
+};
+
+const mapCategoryToCreateType = (category: NoticeCategory): "HIGH" | "MEDIUM" | "LOW" => {
+  if (category === "NOTICE") return "HIGH";
+  if (category === "EVENT") return "LOW";
+  return "MEDIUM";
+};
+
+const timeAgo = (dateStr?: string) => {
+  const createdMs = dateStr ? new Date(dateStr).getTime() : Date.now();
+  if (Number.isNaN(createdMs)) return "Just now";
+  const diffMin = Math.floor((Date.now() - createdMs) / 60000);
+  if (diffMin < 1) return "Just now";
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return diffHr === 1 ? "1 hour ago" : `${diffHr} hours ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  return diffDay === 1 ? "1 day ago" : `${diffDay} days ago`;
+};
 
 export default function CreateNotice() {
   const profile = useProfileStore();
   const buildingId = useBuildingStore((s) => s.buildingId);
+
+  const [activeRootTab, setActiveRootTab] = useState<RootTab>("NEW");
+  const [historyFilter, setHistoryFilter] = useState<NoticeCategory>("NOTICE");
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [type, setType] = useState<"HIGH" | "MEDIUM" | "LOW" | "">("");
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [category, setCategory] = useState<NoticeCategory>("NOTICE");
+  const [audience, setAudience] = useState<Audience>("ALL_RESIDENTS");
+  const [scheduleLater, setScheduleLater] = useState(false);
 
-  const isValid = title.trim() && description.trim() && type;
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const fetchNotices = async () => {
+    if (!buildingId) {
+      setNotices([]);
+      setErrorText("Building is not configured for this account.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setErrorText(null);
+      const res = await axios.get(`${BASE_URL}/notices/${buildingId}`);
+      const apiData = Array.isArray(res.data) ? (res.data as Notice[]) : [];
+      setNotices(apiData);
+    } catch (error) {
+      setNotices([]);
+      setErrorText(getErrorMessage(error, "Failed to fetch notices."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotices();
+  }, [buildingId]);
+
+  const filteredHistory = useMemo(
+    () => notices.filter((item) => mapNoticeTypeToCategory(item.type) === historyFilter),
+    [notices, historyFilter],
+  );
+
+  const isValid = title.trim() && category;
+
+  const clearForm = () => {
+    setTitle("");
+    setDescription("");
+    setCategory("NOTICE");
+    setAudience("ALL_RESIDENTS");
+    setScheduleLater(false);
+  };
 
   const sendNotice = async () => {
+    if (!isValid || sending) return;
+
     try {
-      await axios.post(`${process.env.EXPO_PUBLIC_BASE_URL}/notices/create`, {
+      setSending(true);
+      await axios.post(`${BASE_URL}/notices/create`, {
         title,
         description,
-        type,
+        type: mapCategoryToCreateType(category),
         profileId: profile.phone,
-        buildingId: buildingId,
+        buildingId,
+        audience,
       });
 
-      router.replace("/notices");
+      setShowSuccessModal(true);
+      clearForm();
+      fetchNotices();
     } catch (error) {
       Toast.show({
         type: "error",
         text1: "Error",
         text2: "Some error occurred while sending notice",
       });
+    } finally {
+      setSending(false);
     }
+  };
+
+  const renderHistoryItem = ({ item }: { item: Notice }) => {
+    const categoryLabel = mapNoticeTypeToCategory(item.type);
+    const isNotice = categoryLabel === "NOTICE";
+    const pillBg = isNotice ? "rgba(220, 38, 38, 0.12)" : "rgba(28, 152, 237, 0.12)";
+    const pillText = isNotice ? "#DC2626" : "#1C98ED";
+    const leftBar = isNotice ? "#C81616" : "#1C98ED";
+
+    return (
+      <View style={styles.noticeCard}>
+        <View style={[styles.noticeSide, { backgroundColor: leftBar }]} />
+        <View style={styles.noticeCardContent}>
+          <View style={styles.noticeCardTop}>
+            <View style={[styles.noticeTypePill, { backgroundColor: pillBg }]}>
+              <Text style={[styles.noticeTypePillText, { color: pillText }]}>
+                {categoryLabel === "ANNOUNCEMENT" ? "Announcement" : categoryLabel}
+              </Text>
+            </View>
+            <Text style={styles.noticeTime}>{timeAgo(item.createdAt)}</Text>
+          </View>
+          <Text style={styles.noticeTitle}>{item.title || "Untitled notice"}</Text>
+          <Text numberOfLines={3} style={styles.noticeDescription}>
+            {item.description || "No description available."}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-
-      <View style={styles.container}>
-        {/* HEADER */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-
-          <Text style={styles.heading}>Create a Notice</Text>
-
-          <TouchableOpacity onPress={() => router.replace("/notices")}>
-            <Text style={styles.allNotices}>All Notices</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* TITLE */}
-        <TextInput
-          style={styles.input}
-          placeholder="Title"
-          value={title}
-          onChangeText={setTitle}
-        />
-
-        {/* CATEGORY DROPDOWN */}
-        <TouchableOpacity
-          style={styles.dropdown}
-          onPress={() => setShowDropdown(!showDropdown)}
-          activeOpacity={0.8}
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.safeArea}
         >
-          <Text style={[styles.dropdownText, !type && styles.placeholder]}>
-            {type || "Select Category"}
-          </Text>
-          <Ionicons
-            name={showDropdown ? "chevron-up" : "chevron-down"}
-            size={20}
-            color="#1C98ED"
-          />
-        </TouchableOpacity>
+          <View style={styles.screen}>
+            <View style={styles.headerCard}>
+              <View style={styles.headerTop}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.iconTap}>
+                  <Ionicons name="arrow-back" size={22} color="#181818" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Post Notice</Text>
+              </View>
 
-        {showDropdown && (
-          <View style={styles.dropdownMenu}>
-            {["HIGH", "MEDIUM", "LOW"].map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={styles.dropdownItem}
-                onPress={() => {
-                  setType(option as "HIGH" | "MEDIUM" | "LOW");
-                  setShowDropdown(false);
-                }}
+              <View style={styles.rootTabWrap}>
+                <Pressable
+                  style={[styles.rootTab, activeRootTab === "NEW" && styles.rootTabActive]}
+                  onPress={() => setActiveRootTab("NEW")}
+                >
+                  <Text
+                    style={[
+                      styles.rootTabText,
+                      activeRootTab === "NEW" && styles.rootTabTextActive,
+                    ]}
+                  >
+                    New
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.rootTab, activeRootTab === "HISTORY" && styles.rootTabActive]}
+                  onPress={() => setActiveRootTab("HISTORY")}
+                >
+                  <Text
+                    style={[
+                      styles.rootTabText,
+                      activeRootTab === "HISTORY" && styles.rootTabTextActive,
+                    ]}
+                  >
+                    History
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {activeRootTab === "NEW" ? (
+              <ScrollView
+                style={styles.content}
+                contentContainerStyle={styles.newTabContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
               >
-                <Text style={styles.dropdownItemText}>{option}</Text>
-              </TouchableOpacity>
-            ))}
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>Category</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chipRow}
+                  >
+                    {NOTICE_FILTERS.map((item) => {
+                      const active = category === item;
+                      return (
+                        <Pressable
+                          key={item}
+                          style={[styles.chip, active && styles.chipActive]}
+                          onPress={() => setCategory(item)}
+                        >
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                            {item === "ANNOUNCEMENT" ? "Announcement" : item}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>Title</Text>
+                  <TextInput
+                    value={title}
+                    onChangeText={setTitle}
+                    placeholder="Title of the issue"
+                    placeholderTextColor="#A1A1AA"
+                    style={styles.input}
+                  />
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>Description (Optional)</Text>
+                  <TextInput
+                    value={description}
+                    onChangeText={setDescription}
+                    placeholder="Describe the issue..."
+                    placeholderTextColor="#A1A1AA"
+                    multiline
+                    textAlignVertical="top"
+                    style={styles.textarea}
+                  />
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>Send To</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chipRow}
+                  >
+                    {AUDIENCE_OPTIONS.map((item) => {
+                      const active = audience === item.key;
+                      return (
+                        <Pressable
+                          key={item.key}
+                          style={[styles.chip, active && styles.chipActiveBlue]}
+                          onPress={() => setAudience(item.key)}
+                        >
+                          <Text
+                            style={[
+                              styles.chipText,
+                              active && styles.chipTextPrimary,
+                            ]}
+                          >
+                            {item.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
+                <View style={styles.scheduleCard}>
+                  <View style={styles.scheduleLeft}>
+                    <View style={styles.scheduleIconWrap}>
+                      <Ionicons name="time-outline" size={20} color="#2899CF" />
+                    </View>
+                    <View>
+                      <Text style={styles.scheduleTitle}>Schedule for later</Text>
+                      <Text style={styles.scheduleSub}>Set a specific date and time</Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={scheduleLater}
+                    onValueChange={setScheduleLater}
+                    trackColor={{ false: "#E2E8F0", true: "#9CD8FA" }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={styles.actionsRow}>
+                  <Pressable style={styles.cancelBtn} onPress={clearForm}>
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.sendBtn, !isValid && styles.disabledBtn]}
+                    onPress={sendNotice}
+                    disabled={!isValid || sending}
+                  >
+                    {sending ? (
+                      <ActivityIndicator color="#FAFAFA" />
+                    ) : (
+                      <Text style={styles.sendBtnText}>Send Now</Text>
+                    )}
+                  </Pressable>
+                </View>
+              </ScrollView>
+            ) : loading ? (
+              <ActivityIndicator size="large" color="#1C98ED" style={{ marginTop: 28 }} />
+            ) : (
+              <View style={styles.content}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.historyFilterRow}
+                >
+                  {NOTICE_FILTERS.map((item) => {
+                    const active = historyFilter === item;
+                    return (
+                      <Pressable
+                        key={item}
+                        style={[styles.historyFilterChip, active && styles.historyFilterChipActive]}
+                        onPress={() => setHistoryFilter(item)}
+                      >
+                        <Text
+                          style={[
+                            styles.historyFilterText,
+                            active && styles.historyFilterTextActive,
+                          ]}
+                        >
+                          {item === "ANNOUNCEMENT" ? "Announcements" : `${item}s`}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+
+                {errorText ? <Text style={styles.fallbackHint}>{errorText}</Text> : null}
+
+                <FlatList
+                  data={filteredHistory}
+                  keyExtractor={(item) => item.noticeId}
+                  renderItem={renderHistoryItem}
+                  contentContainerStyle={styles.historyList}
+                  showsVerticalScrollIndicator={false}
+                  ListEmptyComponent={
+                    <View style={styles.emptyState}>
+                      <Text style={styles.emptyTitle}>No notices found</Text>
+                      <Text style={styles.emptySub}>
+                        Try another type filter or create a new notice.
+                      </Text>
+                    </View>
+                  }
+                />
+              </View>
+            )}
           </View>
-        )}
+        </KeyboardAvoidingView>
+      </SafeAreaView>
 
-        {/* DESCRIPTION */}
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Subject"
-          multiline
-          value={description}
-          onChangeText={setDescription}
-        />
-
-        {/* SEND BUTTON */}
-        <TouchableOpacity
-          style={[styles.sendBtn, !isValid && { opacity: 0.5 }]}
-          disabled={!isValid}
-          onPress={sendNotice}
-        >
-          <Text style={styles.sendText}>Send Notice</Text>
-        </TouchableOpacity>
-      </View>
-
+      <Modal visible={showSuccessModal} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconCircle}>
+              <Ionicons name="checkmark" size={38} color="#16A34A" />
+            </View>
+            <Text style={styles.modalTitle}>Notice Posted!</Text>
+            <Text style={styles.modalDescription}>
+              Your notice has been successfully broadcasted to residents.
+            </Text>
+            <Pressable
+              style={styles.modalPrimary}
+              onPress={() => {
+                setShowSuccessModal(false);
+                router.replace("/home");
+              }}
+            >
+              <Text style={styles.modalPrimaryText}>Back to Dashboard</Text>
+            </Pressable>
+            <Pressable
+              style={styles.modalSecondary}
+              onPress={() => {
+                setShowSuccessModal(false);
+                setActiveRootTab("HISTORY");
+                fetchNotices();
+              }}
+            >
+              <Text style={styles.modalSecondaryText}>View Post</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
       <Toast />
     </>
   );
 }
 
-/* ================= STYLES ================= */
-
 const styles = StyleSheet.create({
-  container: {
+  safeArea: { flex: 1, backgroundColor: "#FAFAFA" },
+  screen: { flex: 1, backgroundColor: "#FAFAFA" },
+  headerCard: {
+    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(14),
+    shadowColor: "#000000",
+    shadowOpacity: 0.08,
+    shadowRadius: rs(4),
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  headerTop: { flexDirection: "row", alignItems: "center", marginBottom: rvs(12) },
+  iconTap: { marginRight: rs(8), paddingVertical: rvs(6), paddingRight: rs(6) },
+  headerTitle: { color: "#000000", fontSize: rms(18), fontWeight: "500" },
+  rootTabWrap: {
+    backgroundColor: "#F1F5F9",
+    borderRadius: rs(24),
+    padding: rs(4),
+    flexDirection: "row",
+  },
+  rootTab: {
     flex: 1,
-    backgroundColor: "#A3C9FF",
-    padding: 20,
-  },
-
-  header: {
-    flexDirection: "row",
+    minHeight: rvs(36),
+    borderRadius: rs(16),
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 40,
-    marginTop: 50
+    justifyContent: "center",
   },
-
-  heading: {
-    fontSize: 20,
-    fontWeight: "700",
+  rootTabActive: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000000",
+    shadowOpacity: 0.08,
+    shadowRadius: rs(3),
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
-
-  allNotices: {
-    color: "#1C98ED",
-    fontWeight: "600",
-    fontSize: 13,
+  rootTabText: { color: "#64748B", fontSize: rms(14), fontWeight: "500" },
+  rootTabTextActive: { color: "#2899CF" },
+  content: { flex: 1, paddingHorizontal: rs(16), paddingTop: rvs(16) },
+  newTabContent: { paddingBottom: rvs(30) },
+  section: { marginBottom: rvs(16) },
+  sectionLabel: { color: "#0F172A", fontSize: rms(14), fontWeight: "500", marginBottom: rvs(10) },
+  chipRow: { gap: rs(10), paddingRight: rs(16) },
+  chip: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E2E8F0",
+    borderWidth: 1,
+    borderRadius: 28,
+    paddingHorizontal: 18,
+    minHeight: 42,
+    alignItems: "center",
+    justifyContent: "center",
   },
-
+  chipActive: { borderColor: "#1C98ED" },
+  chipActiveBlue: { backgroundColor: "#1C98ED", borderColor: "#1C98ED" },
+  chipText: { color: "#777777", fontSize: 14, fontWeight: "500" },
+  chipTextActive: { color: "#1C98ED" },
+  chipTextPrimary: { color: "#FAFAFA" },
   input: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#1C98ED",
-    paddingVertical: 10,
-    fontSize: 15,
-    marginBottom: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    minHeight: 44,
+    paddingHorizontal: 14,
+    color: "#09090B",
+    fontSize: 16,
   },
-
-  textArea: {
-    height: 100,
-    textAlignVertical: "top",
-  },
-
-  dropdown: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#1C98ED",
+  textarea: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    minHeight: 180,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    marginBottom: 10,
+    color: "#09090B",
+    fontSize: 16,
   },
-
-  dropdownText: {
-    fontSize: 15,
-    color: "#000",
+  scheduleCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderColor: "#F1F5F9",
+    borderWidth: 1,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 18,
   },
-
-  placeholder: {
-    color: "#999",
+  scheduleLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  scheduleIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: "rgba(40,153,207,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-
-  dropdownMenu: {
+  scheduleTitle: { color: "#1E293B", fontSize: 14, fontWeight: "500" },
+  scheduleSub: { color: "#64748B", fontSize: 12, marginTop: 2 },
+  actionsRow: { flexDirection: "row", gap: 12 },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: "#F4F4F5",
+    minHeight: 48,
+    borderRadius: 100,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelBtnText: { color: "#777777", fontSize: 14, fontWeight: "500" },
+  sendBtn: {
+    flex: 1,
+    backgroundColor: "#1C98ED",
+    minHeight: 48,
+    borderRadius: 100,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  disabledBtn: { opacity: 0.5 },
+  sendBtnText: { color: "#FAFAFA", fontSize: 14, fontWeight: "500" },
+  historyFilterRow: { gap: 10, paddingBottom: 12, paddingRight: 12 },
+  historyFilterChip: {
     borderWidth: 1,
     borderColor: "#1C98ED",
-    borderRadius: 10,
-    marginBottom: 20,
-    overflow: "hidden",
-  },
-
-  dropdownItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: "#fff",
-  },
-
-  dropdownItemText: {
-    fontSize: 14,
-    color: "#1C98ED",
-    fontWeight: "600",
-  },
-
-  sendBtn: {
-    backgroundColor: "#1C98ED",
-    paddingVertical: 14,
     borderRadius: 24,
+    paddingHorizontal: 18,
+    minHeight: 42,
     alignItems: "center",
-    marginTop: 30,
+    justifyContent: "center",
+    backgroundColor: "#FAFAFA",
   },
-
-  sendText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
+  historyFilterChipActive: { backgroundColor: "#1C98ED" },
+  historyFilterText: { color: "#1C98ED", fontSize: 16, fontWeight: "400" },
+  historyFilterTextActive: { color: "#FAFAFA" },
+  fallbackHint: { color: "#64748B", fontSize: 12, marginBottom: 10, marginLeft: 2 },
+  historyList: { paddingBottom: 18, gap: 12 },
+  noticeCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E5E7EB",
+    borderWidth: 1,
+    borderRadius: 24,
+    overflow: "hidden",
+    flexDirection: "row",
   },
+  noticeSide: { width: 6 },
+  noticeCardContent: { flex: 1, paddingHorizontal: 16, paddingVertical: 14 },
+  noticeCardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  noticeTypePill: { borderRadius: 8, paddingHorizontal: 9, paddingVertical: 3 },
+  noticeTypePillText: { fontSize: 14, fontWeight: "500" },
+  noticeTime: { color: "#94A3B8", fontSize: 10, fontWeight: "500" },
+  noticeTitle: { color: "#0F172A", fontSize: 14, fontWeight: "500", marginBottom: 8 },
+  noticeDescription: { color: "#64748B", fontSize: 10, lineHeight: 15 },
+  emptyState: { paddingVertical: 48, alignItems: "center" },
+  emptyTitle: { color: "#111827", fontWeight: "600", fontSize: 16, marginBottom: 6 },
+  emptySub: { color: "#6B7280", fontSize: 13, textAlign: "center", paddingHorizontal: 24 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(157,157,157,0.71)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    alignItems: "center",
+  },
+  modalIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 999,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  modalTitle: { color: "#1A1A1A", fontSize: 20, fontWeight: "700", marginBottom: 10 },
+  modalDescription: {
+    color: "#6B7280",
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 23,
+    marginBottom: 18,
+  },
+  modalPrimary: {
+    width: "100%",
+    minHeight: 56,
+    borderRadius: 14,
+    backgroundColor: "#1C98ED",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  modalPrimaryText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
+  modalSecondary: {
+    width: "100%",
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalSecondaryText: { color: "#2799CE", fontSize: 14, fontWeight: "600" },
 });

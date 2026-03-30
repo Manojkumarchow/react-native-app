@@ -1,726 +1,570 @@
-// MyFlatLedger.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
+  ActivityIndicator,
+  Modal,
+  Pressable,
   ScrollView,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Stack, router } from "expo-router";
+import Svg, { Circle } from "react-native-svg";
 import axios from "axios";
-import * as FileSystem from "expo-file-system";
-import { shareAsync } from "expo-sharing";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { BASE_URL } from "./config";
 import useBuildingStore from "./store/buildingStore";
-import { Picker } from "@react-native-picker/picker";
-import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
-import useProfileStore from "./store/profileStore";
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { rms, rs, rvs } from "@/constants/responsive";
 
-/* ---------------------------------
-   Backend Config (DO NOT TOUCH)
----------------------------------- */
-const API_BASE_URL = process.env.EXPO_PUBLIC_BASE_URL;
-
-/* ---------------------------------
-   Types
----------------------------------- */
-type LedgerItem = {
-  id?: number;
-  name: string;
-  amount: number;
+type MonthData = {
+  key: string;
+  monthYearLabel: string;
+  collectionTitle: string;
+  collected: number;
+  spent: number;
+  balance: number;
+  flatsPaid: number;
+  flatsTotal: number;
+  status: "IN_PROGRESS" | "COMPLETED";
+  expenses: { label: string; amount: number; icon: keyof typeof MaterialCommunityIcons.glyphMap }[];
+  pie: { label: string; value: number; color: string }[];
 };
 
-type LedgerResponse = {
-  id: number;
-  year: number;
-  month: string;
-  totalAmount: number;
-  totalFlats: number;
-  perFlatAmount: number;
-  items: LedgerItem[];
-};
+const CURRENT_DATE = new Date();
+const CURRENT_MONTH = CURRENT_DATE.toLocaleString("en-US", { month: "short" });
+const CURRENT_YEAR = String(CURRENT_DATE.getFullYear());
 
-type LedgerMap = Record<string, LedgerResponse | null | undefined>;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const YEARS = Array.from({ length: 1 }, (_, i) => String(2026 + i)).reverse();
 
-/* ---------------------------------
-   Constants
----------------------------------- */
-const PRIMARY = "#1C98ED";
-const YEARS = [2024, 2025, 2026];
-const LEDGER_ITEM_OPTIONS = [
-  "Water Bill",
-  "Electricity",
-  "Lift Maintenance",
-  "Security Salary",
-  "Cleaning Charges",
-  "Garbage Collection",
-  "Water Tanker",
-  "Festival Expenses",
-  "Miscellaneous",
-];
+const formatCurrency = (value: number) => `₹${value.toLocaleString("en-IN")}`;
+const PIE_COLORS = ["#8B5CF6", "#F59E0B", "#3B82F6", "#F97316", "#10B981", "#94A3B8", "#06B6D4", "#F43F5E"];
 
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
+function mapExpenseIcon(label: string): keyof typeof MaterialCommunityIcons.glyphMap {
+  const text = label.toLowerCase();
+  if (text.includes("watchman")) return "shield-home-outline";
+  if (text.includes("garbage")) return "trash-can-outline";
+  if (text.includes("lift")) return "elevator-passenger";
+  if (text.includes("electric")) return "lightning-bolt-outline";
+  if (text.includes("motor")) return "cog-outline";
+  if (text.includes("water")) return "water-outline";
+  return "clipboard-text-outline";
+}
 
-/* ---------------------------------
-   Helpers
----------------------------------- */
-const currency = (n: number) => `₹ ${n.toLocaleString("en-IN")}`;
-const ledgerKey = (year: number, month: string) => `${year}-${month}`;
+function buildPieSegments(expenses: { label: string; amount: number }[]) {
+  const total = expenses.reduce((sum, item) => sum + item.amount, 0);
+  if (total <= 0) return [];
+  return expenses.map((item, idx) => ({
+    label: item.label,
+    value: Math.round((item.amount / total) * 100),
+    color: PIE_COLORS[idx % PIE_COLORS.length],
+  }));
+}
 
-/* ---------------------------------
-   Component
----------------------------------- */
-export default function MyFlatLedger() {
-  const navigation = useNavigation();
+function PieDonut({
+  data,
+  size = 116,
+  strokeWidth = 15,
+}: {
+  data: { value: number; color: string }[];
+  size?: number;
+  strokeWidth?: number;
+}) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const total = data.reduce((sum, i) => sum + i.value, 0);
 
-  /** ✅ BUILDING CONTEXT */
-  const buildingId = useBuildingStore((s) => s.buildingId);
-  const totalResidents = useBuildingStore((s) => s.totalResidents);
-  const role = useProfileStore((s) => s.role);
-  const isAdmin = role === "ADMIN";
-  const getCurrentYear = () => new Date().getFullYear();
-  const [activeYear, setActiveYear] = useState(getCurrentYear());
-  const getCurrentMonthName = () => {
-    const monthIndex = new Date().getMonth(); // 0–11
-    return MONTHS[monthIndex];
-  };
-  const [expandedMonth, setExpandedMonth] = useState<string | null>(getCurrentMonthName());
-
-  const [ledgerMap, setLedgerMap] = useState<LedgerMap>({});
-  const [isEditing, setIsEditing] = useState(false);
-  const [draftItems, setDraftItems] = useState<LedgerItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [addingIndex, setAddingIndex] = useState<number | null>(null);
-  const [editingItemId, setEditingItemId] = useState<number | null>(null);
-  const [addingRow, setAddingRow] = useState(false);
-
-  const activeKey = expandedMonth ? ledgerKey(activeYear, expandedMonth) : null;
-
-  const activeLedger =
-    activeKey && ledgerMap[activeKey] !== undefined
-      ? ledgerMap[activeKey] ?? null
-      : null;
-
-  /* ---------------------------------
-     Fetch Ledger (BUILDING-SCOPED)
-  ---------------------------------- */
-  useEffect(() => {
-    if (!expandedMonth || !buildingId) return;
-
-    const key = ledgerKey(activeYear, expandedMonth);
-
-    setIsEditing(false);
-    setDraftItems([]);
-    setAddingRow(false);
-    setEditingItemId(null);
-    const fetchLedger = async () => {
-      setLoading(true);
-      try {
-        const res = await axios.get<LedgerResponse>(
-          `${API_BASE_URL}/ledgers`,
-          {
-            params: {
-              year: activeYear,
-              month: expandedMonth,
-              buildingId, // ✅ IMPORTANT
-            },
-          }
+  let offsetAccumulator = 0;
+  return (
+    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <Circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        stroke="#E2E8F0"
+        strokeWidth={strokeWidth}
+        fill="none"
+      />
+      {data.map((segment, idx) => {
+        const segmentLength = (segment.value / total) * circumference;
+        const strokeDasharray = `${segmentLength} ${circumference - segmentLength}`;
+        const strokeDashoffset = -offsetAccumulator;
+        offsetAccumulator += segmentLength;
+        return (
+          <Circle
+            key={`${segment.color}-${idx}`}
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={segment.color}
+            strokeWidth={strokeWidth}
+            strokeDasharray={strokeDasharray}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="butt"
+            fill="none"
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
         );
-        setLedgerMap((prev) => ({ ...prev, [key]: res.data }));
-      } catch (err: any) {
-        if (err?.response?.status === 404) {
-          setLedgerMap((prev) => ({ ...prev, [key]: null }));
-        } else {
-          Alert.alert("Error", "Unable to load ledger");
+      })}
+    </Svg>
+  );
+}
+
+export default function LedgerScreen() {
+  const buildingId = useBuildingStore((s) => s.buildingId);
+  const [selectedLabel, setSelectedLabel] = useState(`${CURRENT_MONTH} ${CURRENT_YEAR}`);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [tempMonth, setTempMonth] = useState(CURRENT_MONTH);
+  const [tempYear, setTempYear] = useState(CURRENT_YEAR);
+  const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [backendLedger, setBackendLedger] = useState<{
+    totalAmount: number;
+    perFlatAmount: number;
+    totalFlats: number;
+    flatsPaid: number;
+    items: { name: string; amount: number }[];
+    month: string;
+    year: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchLedger = async () => {
+      if (!buildingId) return;
+      try {
+        setLoading(true);
+        setErrorText(null);
+        const [month, year] = selectedLabel.split(" ");
+        const res = await axios.get(`${BASE_URL}/ledgers`, {
+          params: {
+            year: Number(year),
+            month,
+            buildingId: String(buildingId),
+          },
+        });
+        if (res.data) {
+          setBackendLedger({
+            totalAmount: Number(res.data.totalAmount ?? 0),
+            perFlatAmount: Number(res.data.perFlatAmount ?? 0),
+            totalFlats: Number(res.data.totalFlats ?? 0),
+            flatsPaid: Number(res.data.flatsPaid ?? 0),
+            items: Array.isArray(res.data.items)
+              ? res.data.items.map((item: any) => ({
+                  name: String(item.name ?? "Unknown"),
+                  amount: Number(item.amount ?? 0),
+                }))
+              : [],
+            month: String(res.data.month ?? month),
+            year: Number(res.data.year ?? year),
+          });
         }
+      } catch {
+        setBackendLedger(null);
+        setErrorText("No ledger data found for this month.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchLedger();
-  }, [activeYear, expandedMonth, buildingId]);
+  }, [selectedLabel, buildingId]);
 
-  /* ---------------------------------
-     Derived State
-  ---------------------------------- */
-  // const visibleItems = isEditing ? draftItems : activeLedger?.items ?? [];
-  // const visibleItems =  draftItems.length > 0 ? draftItems : activeLedger?.items ?? [];
-  const visibleItems = draftItems.length > 0 ? draftItems : activeLedger?.items ?? [];
-
-  const totalAmount = useMemo(
-    () => visibleItems.reduce((s, i) => s + (i.amount || 0), 0),
-    [visibleItems]
-  );
-
-  const perFlatAmount = useMemo(() => {
-    if (!activeLedger) return 0;
-    return Math.ceil(totalAmount / activeLedger.totalFlats);
-  }, [totalAmount, activeLedger]);
-
-  /* ---------------------------------
-     Actions
-  ---------------------------------- */
-  const addItem = () => {
-    const baseItems =
-      draftItems.length > 0 ? draftItems : activeLedger?.items ?? [];
-
-    const newItem: LedgerItem = {
-      id: Date.now(),
-      name: "",
-      amount: 0,
+  const uiData = useMemo<MonthData>(() => {
+    const monthFromSelection = selectedLabel.split(" ")[0];
+    const yearFromSelection = selectedLabel.split(" ")[1];
+    const monthYearLabel = `${monthFromSelection} ${yearFromSelection}`;
+    const collectionTitle = `${monthFromSelection} Collection`;
+    const expenses = (backendLedger?.items ?? []).map((item) => ({
+      label: item.name,
+      amount: item.amount,
+      icon: mapExpenseIcon(item.name),
+    }));
+    const totalSpent = expenses.reduce((sum, i) => sum + i.amount, 0);
+    const collected = backendLedger?.totalAmount ?? 0;
+    const flatsTotal = backendLedger?.totalFlats ?? 0;
+    const flatsPaid = backendLedger?.flatsPaid ?? 0;
+    return {
+      key: `${yearFromSelection}-${monthFromSelection}`,
+      monthYearLabel,
+      collectionTitle,
+      collected,
+      spent: totalSpent,
+      balance: Math.max(0, collected - totalSpent),
+      flatsPaid,
+      flatsTotal,
+      status: flatsTotal > 0 && flatsPaid >= flatsTotal ? "COMPLETED" : "IN_PROGRESS",
+      expenses,
+      pie: buildPieSegments(expenses),
     };
+  }, [selectedLabel, backendLedger]);
 
-    setDraftItems([...baseItems, newItem]);
-    setEditingItemId(newItem.id!);
-    setIsEditing(true);
+  const progressPct = uiData.flatsTotal > 0 ? Math.round((uiData.flatsPaid / uiData.flatsTotal) * 100) : 0;
+  const statusUi =
+    uiData.status === "COMPLETED"
+      ? {
+          label: "Completed",
+          badgeBg: "rgba(5,150,105,0.12)",
+          badgeText: "#36A033",
+          progressColor: "#059669",
+        }
+      : {
+          label: "In Progress",
+          badgeBg: "rgba(234,179,8,0.12)",
+          badgeText: "#A16207",
+          progressColor: "#F59E0B",
+        };
+
+  const applyPicker = () => {
+    setSelectedLabel(`${tempMonth} ${tempYear}`);
+    setPickerVisible(false);
   };
 
+  const pieTotal = uiData.pie.reduce((sum, s) => sum + s.value, 0);
+  const sharePerFlat = uiData.flatsTotal > 0
+    ? Math.round(uiData.expenses.reduce((sum, row) => sum + row.amount, 0) / uiData.flatsTotal)
+    : 0;
 
-  const updateDraftItem = (
-    index: number,
-    field: "name" | "amount",
-    value: string
-  ) => {
-    setDraftItems((prev) =>
-      prev.map((i, idx) =>
-        idx === index
-          ? {
-            ...i,
-            [field]:
-              field === "amount"
-                ? Number(value.replace(/[^0-9]/g, ""))
-                : value,
-          }
-          : i
-      )
-    );
-  };
-
-  const onCancel = () => {
-    setIsEditing(false);
-    setDraftItems([]);
-  };
-
-  const onSave = async () => {
-    if (!expandedMonth || !activeKey || !buildingId) return;
-
-    const names = draftItems.map((i) => i.name.trim().toLowerCase()).filter(Boolean);
-    const hasDuplicate = new Set(names).size !== names.length;
-    if (hasDuplicate) {
-      Alert.alert("Duplicate Items", "Ledger items must be unique.");
-      return;
-    }
-    try {
-      setLoading(true);
-
-      let saved: LedgerResponse;
-
-      if (activeLedger) {
-        const res = await axios.put<LedgerResponse>(
-          `${API_BASE_URL}/ledgers/${activeLedger.id}`,
-          {
-            buildingId, // ✅ IMPORTANT
-            items: draftItems,
-          }
-        );
-        saved = res.data;
-      } else {
-        const res = await axios.post<LedgerResponse>(
-          `${API_BASE_URL}/ledgers`,
-          {
-            buildingId, // ✅ IMPORTANT
-            year: activeYear,
-            month: expandedMonth,
-            totalFlats: totalResidents,
-            items: draftItems,
-          }
-        );
-        saved = res.data;
-      }
-
-      setLedgerMap((prev) => ({ ...prev, [activeKey]: saved }));
-      setIsEditing(false);
-      setDraftItems([]);
-    } catch (err: any) {
-      console.log(err);
-      Alert.alert("Error", "Unable to save ledger");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteItem = (id: number) => {
-    const baseItems =
-      draftItems.length > 0 ? draftItems : activeLedger?.items ?? [];
-
-    const updated = baseItems.filter((item) => item.id !== id);
-
-    setDraftItems(updated);
-    setIsEditing(true);
-
-    if (editingItemId === id) {
-      setEditingItemId(null);
-    }
-  };
-
-
-  /* ---------------------------------
-     PDF Download (UNCHANGED)
-  ---------------------------------- */
-  const downloadPdf = async () => {
-    if (!activeLedger) return;
-
-    try {
-      const res = await axios.get(
-        `${API_BASE_URL}/ledgers/${activeLedger.id}/pdf`,
-        { responseType: "arraybuffer" }
-      );
-
-      const base64 = Buffer.from(res.data).toString("base64");
-      const fileName = `Ledger_${activeLedger.month}_${activeLedger.year}.pdf`;
-
-      if (Platform.OS === "ios") {
-        const uri = FileSystem.documentDirectory + fileName;
-        await FileSystem.writeAsStringAsync(uri, base64, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        await shareAsync(uri);
-        return;
-      }
-
-      const permissions =
-        await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-
-      if (!permissions.granted) {
-        Alert.alert("Permission required", "Cannot save file");
-        return;
-      }
-
-      const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(
-        permissions.directoryUri,
-        fileName,
-        "application/pdf"
-      );
-
-      await FileSystem.writeAsStringAsync(fileUri, base64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      Alert.alert("Success", "PDF downloaded to Downloads");
-    } catch {
-      Alert.alert("Error", "Failed to download PDF");
-    }
-  };
-
-  /* ---------------------------------
-     Render (UNCHANGED)
-  ---------------------------------- */
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Flat Ledger</Text>
+          <Pressable onPress={() => router.back()} style={styles.backTap}>
+            <Feather name="arrow-left" size={22} color="#181818" />
+          </Pressable>
+          <Text style={styles.headerTitle}>Apartment Ledger</Text>
         </View>
 
-        {/* Year Selector */}
-        <View style={styles.yearRow}>
-          {YEARS.map((y) => (
-            <TouchableOpacity
-              key={y}
-              onPress={() => setActiveYear(y)}
-              style={[styles.yearBtn, activeYear === y && styles.yearBtnActive]}
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.titleRow}>
+            <Text style={styles.collectionTitle}>{uiData.collectionTitle}</Text>
+            <Pressable
+              style={styles.calendarBtn}
+              onPress={() => {
+                const [m, y] = selectedLabel.split(" ");
+                setTempMonth(m);
+                setTempYear(y);
+                setPickerVisible(true);
+              }}
             >
-              <Text
-                style={[
-                  styles.yearText,
-                  activeYear === y && { color: PRIMARY },
-                ]}
-              >
-                {y}
+              <Ionicons name="calendar-outline" size={14} color="#1C98ED" />
+              <Text style={styles.calendarText}>{selectedLabel}</Text>
+              <Ionicons name="chevron-down" size={14} color="#64748B" />
+            </Pressable>
+          </View>
+
+          <View style={styles.metricsGrid}>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>Collected</Text>
+              <Text style={[styles.metricValue, { color: "#10B981" }]}>
+                {formatCurrency(uiData.collected)}
               </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>Spent</Text>
+              <Text style={[styles.metricValue, { color: "#EF4444" }]}>
+                {formatCurrency(uiData.spent)}
+              </Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>Balance</Text>
+              <Text style={[styles.metricValue, { color: "#38BDF8" }]}>
+                {formatCurrency(uiData.balance)}
+              </Text>
+            </View>
+          </View>
 
-        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-          {MONTHS.map((m) => {
-            const open = expandedMonth === m;
-            return (
-              <View key={m} style={styles.monthWrapper}>
-                <TouchableOpacity
-                  style={styles.monthHeader}
-                  onPress={() => setExpandedMonth(open ? null : m)}
-                >
-                  <Text style={styles.monthTitle}>
-                    {m} {activeYear}
-                  </Text>
-                  <Ionicons
-                    name={open ? "chevron-up" : "chevron-down"}
-                    size={20}
-                    color={PRIMARY}
-                  />
-                </TouchableOpacity>
-
-                {open && (
-                  <View style={styles.card}>
-                    {visibleItems.map((i, idx) => {
-                      const isEditingRow = editingItemId === i.id;
-
-                      return (
-                        <View key={idx} style={styles.itemRow}>
-                            {/* NAME COLUMN */}
-                            <View style={styles.nameContainer}>
-                          {isEditingRow ? (
-                            <View style={{ flexDirection: "row", alignItems: "center" }}>
-                              {/* If name is empty → show dropdown first */}
-                              {i.name === "" ? (
-                                <Picker
-                                  selectedValue={i.name}
-                                  style={{ flex: 1 }}
-                                  onValueChange={(value) =>
-                                    updateDraftItem(idx, "name", value)
-                                  }
-                                >
-                                  <Picker.Item label="Select item" value="" />
-                                  {LEDGER_ITEM_OPTIONS.map((option) => (
-                                    <Picker.Item
-                                      key={option}
-                                      label={option}
-                                      value={option}
-                                    />
-                                  ))}
-                                </Picker>
-                              ) : (
-                                <TextInput
-                                  value={i.name}
-                                  onChangeText={(t) =>
-                                    updateDraftItem(idx, "name", t)
-                                  }
-                                  style={[styles.itemInput, { flex: 1 }]}
-                                />
-                              )}
-
-                              <TouchableOpacity
-                                onPress={() => setEditingItemId(null)}
-                                style={styles.tickBtn}
-                              >
-                                <Ionicons name="checkmark" size={18} color="#fff" />
-                              </TouchableOpacity>
-                            </View>
-                          ) : (
-                            <Text style={{ fontSize: 14 }}>{i.name}</Text>
-                          )}
-                          </View>
-
-
-                          {/* Amount Input (Always Editable) */}
-                          <TextInput
-                            placeholder="0"
-                            keyboardType="numeric"
-                            value={i.amount ? String(i.amount) : ""}
-                            onChangeText={(t) =>
-                              updateDraftItem(idx, "amount", t)
-                            }
-                            editable = {isAdmin}
-                            style={[styles.amountInput, !isAdmin && styles.disabledInput]}
-                          />
-
-                          {/* Pencil Icon (Only if not adding) */}
-                          {isAdmin && !isEditingRow && (
-                            <TouchableOpacity
-                              onPress={() => {
-                                if (draftItems.length === 0) {
-                                  setDraftItems(activeLedger?.items ?? []);
-                                }
-                                setEditingItemId(i.id!);
-                                setIsEditing(true); 
-                              }}
-                              style={styles.editBtn}
-                            >
-                              <MaterialCommunityIcons
-              name="pencil-outline"
-              size={20}
-              color="#C1282D"
-            />
-                            </TouchableOpacity>
-                          )}
-
-                          {/* Delete */}
-                          {/* <TouchableOpacity
-                            onPress={() => deleteItem(i.id!)}
-                            style={styles.deleteBtn}
-                          >
-                            <Ionicons name="trash-outline" size={18} color="#fff" />
-                          </TouchableOpacity> */}
-                        </View>
-                      );
-                    })}
-
-                    {isAdmin && (<TouchableOpacity style={styles.addBtn} onPress={addItem}>
-                      <Ionicons name="add-circle-outline" size={20} />
-                      <Text style={{ marginLeft: 6 }}>Add Item</Text>
-                    </TouchableOpacity>)}
-
-                    <View style={styles.divider} />
-
-                    <Row label="Total" value={currency(totalAmount)} />
-                    <Row label="Total Flats in Apartment" value={totalResidents.toString()} />
-                    <Row
-                      label="Each Flat Payable Amount"
-                      value={currency(perFlatAmount)}
-                    />
-
-                    <View style={styles.actionRow}>
-                      {isEditing ? (
-                        <>
-                          <TouchableOpacity
-                            style={[styles.actionBtn, styles.saveBtn]}
-                            onPress={onSave}
-                            disabled={loading}
-                          >
-                            <Text style={styles.actionText}>Save</Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={[styles.actionBtn, styles.cancelBtn]}
-                            onPress={onCancel}
-                          >
-                            <Text style={styles.actionText}>Cancel</Text>
-                          </TouchableOpacity>
-                        </>
-                      ) : (
-                        <TouchableOpacity
-                          style={styles.pdfBtn}
-                          onPress={downloadPdf}
-                        >
-                          <Text style={styles.pdfText}>Download PDF</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                )}
+          <View style={styles.statusCard}>
+            <View style={styles.statusTop}>
+              <Text style={styles.statusTitle}>Collection Status</Text>
+              <View style={[styles.statusBadge, { backgroundColor: statusUi.badgeBg }]}>
+                <Text style={[styles.statusBadgeText, { color: statusUi.badgeText }]}>
+                  {statusUi.label}
+                </Text>
               </View>
-            );
-          })}
+            </View>
+            <View style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${progressPct}%`, backgroundColor: statusUi.progressColor },
+                ]}
+              />
+            </View>
+            <View style={styles.statusBottom}>
+              <Text style={styles.statusMeta}>
+                {uiData.flatsPaid} of {uiData.flatsTotal} flats paid
+              </Text>
+              <Text style={styles.statusMeta}>{progressPct}%</Text>
+            </View>
+          </View>
+          {loading ? <ActivityIndicator size="small" color="#1C98ED" /> : null}
+          {!loading && errorText ? <Text style={styles.shareText}>{errorText}</Text> : null}
+
+          <View style={styles.expenseSection}>
+            <Text style={styles.expenseTitle}>Expense Breakdown</Text>
+            <View style={styles.expenseCard}>
+              {uiData.expenses.map((row, idx) => (
+                <View key={`${row.label}-${idx}`} style={[styles.expenseRow, idx > 0 && styles.expenseRowBorder]}>
+                  <View style={styles.expenseLeft}>
+                    <MaterialCommunityIcons name={row.icon} size={19} color="#94A3B8" />
+                    <Text style={styles.expenseLabel}>{row.label}</Text>
+                  </View>
+                  <Text style={styles.expenseAmount}>{formatCurrency(row.amount)}</Text>
+                </View>
+              ))}
+              {uiData.expenses.length > 0 ? (
+                <View style={styles.expenseTotalRow}>
+                  <Text style={styles.expenseTotalLabel}>Total Shared Expenses</Text>
+                  <Text style={styles.expenseTotalAmount}>
+                    {formatCurrency(uiData.expenses.reduce((sum, i) => sum + i.amount, 0))}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.expenseRow}>
+                  <Text style={styles.expenseLabel}>No expense breakdown available.</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.pieCard}>
+            <Text style={styles.pieTitle}>Where Your Money Goes</Text>
+            <View style={styles.pieContent}>
+              <View style={styles.pieWrap}>
+                <PieDonut data={uiData.pie} />
+                <View style={styles.pieCenterLabel}>
+                  <Text style={styles.pieCenterTop}>Total</Text>
+                  <Text style={styles.pieCenterBottom}>100%</Text>
+                </View>
+              </View>
+              <View style={styles.legend}>
+                {uiData.pie.map((segment) => (
+                  <View key={segment.label} style={styles.legendRow}>
+                    <View style={[styles.legendDot, { backgroundColor: segment.color }]} />
+                    <Text style={styles.legendName}>{segment.label}</Text>
+                    <Text style={styles.legendValue}>{String(segment.value).padStart(2, "0")}%</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <Text style={styles.shareText}>
+              Your share of expenses{" "}
+              <Text style={styles.shareHighlight}>{formatCurrency(sharePerFlat)}/flat</Text> based on{" "}
+              {uiData.flatsTotal} flats in the apartment.
+            </Text>
+          </View>
         </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+
+      <Modal visible={pickerVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.pickerSheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Pick a Date</Text>
+            <View style={styles.sheetLists}>
+              <ScrollView style={styles.sheetList} showsVerticalScrollIndicator={false}>
+                {MONTHS.map((month) => (
+                  <Pressable
+                    key={month}
+                    onPress={() => setTempMonth(month)}
+                    style={[styles.sheetItem, tempMonth === month && styles.sheetItemActive]}
+                  >
+                    <Text
+                      style={[styles.sheetItemText, tempMonth === month && styles.sheetItemTextActive]}
+                    >
+                      {month}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <ScrollView style={styles.sheetList} showsVerticalScrollIndicator={false}>
+                {YEARS.map((year) => (
+                  <Pressable
+                    key={year}
+                    onPress={() => setTempYear(year)}
+                    style={[styles.sheetItem, tempYear === year && styles.sheetItemActive]}
+                  >
+                    <Text
+                      style={[styles.sheetItemText, tempYear === year && styles.sheetItemTextActive]}
+                    >
+                      {year}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+            <Pressable style={styles.viewLedgerBtn} onPress={applyPicker}>
+              <Text style={styles.viewLedgerText}>View Ledger</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
-/* ---------------------------------
-   Row Component
----------------------------------- */
-const Row = ({ label, value }: { label: string; value: string }) => (
-  <View style={styles.row}>
-    <Text style={styles.rowLabel}>{label}</Text>
-    <Text style={styles.rowValue}>{value}</Text>
-  </View>
-);
-
-/* ---------------------------------
-   Styles (UNCHANGED)
----------------------------------- */
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
+  safe: { flex: 1, backgroundColor: "#FAFAFA" },
   header: {
-    height: 50,
-    backgroundColor: PRIMARY,
+    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: rs(24),
+    borderBottomRightRadius: rs(24),
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(14),
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
   },
-  headerTitle: {
-    flex: 1,
-    textAlign: "center",
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  yearRow: { flexDirection: "row", padding: 16, gap: 12 },
-  yearBtn: {
-    borderWidth: 1,
-    borderColor: PRIMARY,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-  },
-  yearBtnActive: { backgroundColor: "#EAF5FD" },
-  yearText: { fontWeight: "600" },
-  monthWrapper: { marginHorizontal: 16, marginBottom: 12 },
-  monthHeader: {
-    borderWidth: 1,
-    borderColor: PRIMARY,
-    borderRadius: 10,
-    padding: 14,
+  backTap: { marginRight: rs(8), padding: rs(4) },
+  headerTitle: { color: "#1A1A1A", fontSize: rms(18), fontWeight: "500" },
+  content: { padding: rs(16), paddingBottom: rvs(30), gap: rs(12) },
+  titleRow: {
+    marginTop: rvs(4),
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
   },
-  monthTitle: { fontWeight: "600", color: PRIMARY },
-  card: {
+  collectionTitle: { color: "#000000", fontSize: rms(32), fontWeight: "500" },
+  calendarBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: rs(6),
+    borderColor: "#1C98ED",
     borderWidth: 1,
-    borderColor: PRIMARY,
+    backgroundColor: "#DEF4FF",
+    borderRadius: rs(8),
+    minHeight: rvs(28),
+    paddingHorizontal: rs(7),
+  },
+  calendarText: { color: "#334155", fontSize: rms(10) },
+  metricsGrid: { flexDirection: "row", gap: rs(8) },
+  metricCard: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: rs(12),
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    minHeight: rvs(80),
+    paddingHorizontal: rs(12),
+    justifyContent: "center",
+  },
+  metricLabel: { color: "#64748B", fontSize: rms(14), marginBottom: rvs(4) },
+  metricValue: { fontSize: rms(16), fontWeight: "500", lineHeight: rms(28) },
+  statusCard: {
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    padding: 12,
-    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 14,
   },
-  // itemRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
-  itemRow: {
+  statusTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  statusTitle: { color: "#09090B", fontSize: 14, fontWeight: "600" },
+  statusBadge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  statusBadgeText: { fontSize: 14, fontWeight: "500" },
+  progressTrack: { height: 9, borderRadius: 999, backgroundColor: "#E2E8F0", overflow: "hidden" },
+  progressFill: { height: 9, borderRadius: 999 },
+  statusBottom: { marginTop: 12, flexDirection: "row", justifyContent: "space-between" },
+  statusMeta: { color: "#777777", fontSize: 14, fontWeight: "500" },
+  expenseSection: { marginTop: 2, gap: 10 },
+  expenseTitle: { color: "#0F172A", fontSize: 14, fontWeight: "500" },
+  expenseCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    overflow: "hidden",
+  },
+  expenseRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 10,
     alignItems: "center",
+    justifyContent: "space-between",
   },
-
-  picker: {
-    height: 55,
-  },
-
-  deleteBtn: {
-    backgroundColor: "#E53935",
-    padding: 2,
-    borderRadius: 6,
-    marginLeft: 6,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  editBtn: {
-  // backgroundColor: "#1C98ED",
-  padding: 6,
-  borderRadius: 6,
-  marginLeft: 6,
-  justifyContent: "center",
-  alignItems: "center",
-},
-
-disabledInput: {
-  backgroundColor: "#f2f2f2cf",
-  color: "#090909de",
-},
-
-tickBtn: {
-  backgroundColor: "#4CAF50",
-  padding: 2,
-  borderRadius: 4,
-  marginLeft: 4,
-  justifyContent: "center",
-  alignItems: "center",
-},
-nameContainer: {
-  flex: 1,
-  paddingRight: 8,
-},
-
-nameText: {
-  fontSize: 14,
-},
-
-nameInput: {
-  borderBottomWidth: 1,
-  borderColor: "#ddd",
-  paddingVertical: 4,
-},
-
-amountInput: {
-  width: 90,
-  textAlign: "right",
-  borderBottomWidth: 1,
-  borderColor: "#ddd",
-  paddingVertical: 4,
-  marginRight: 8,
-},
-
-iconBtnBlue: {
-  width: 34,
-  height: 34,
-  borderRadius: 6,
-  backgroundColor: "#1C98ED",
-  justifyContent: "center",
-  alignItems: "center",
-  marginRight: 6,
-},
-
-iconBtnRed: {
-  width: 34,
-  height: 34,
-  borderRadius: 6,
-  backgroundColor: "#E53935",
-  justifyContent: "center",
-  alignItems: "center",
-},
-
-
-  itemInput: {
-    flex: 1,
-    borderBottomWidth: 1,
-    borderColor: "#ddd",
-    paddingVertical: 6,
-  },
-  amountInput: {
-    width: 90,
-    textAlign: "right",
-    borderBottomWidth: 1,
-    borderColor: "#ddd",
-    paddingVertical: 6,
-  },
-  addBtn: { flexDirection: "row", alignItems: "center", marginVertical: 8 },
-  divider: { height: 1, backgroundColor: "#ddd", marginVertical: 8 },
-  row: {
+  expenseRowBorder: { borderTopWidth: 1, borderTopColor: "#F1F5F9" },
+  expenseLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  expenseLabel: { color: "#111827", fontSize: 16, fontWeight: "500" },
+  expenseAmount: { color: "#111827", fontSize: 16, fontWeight: "500" },
+  expenseTotalRow: {
+    borderTopWidth: 1,
+    borderTopColor: "#D5E8F5",
+    backgroundColor: "rgba(39,153,206,0.05)",
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     flexDirection: "row",
     justifyContent: "space-between",
-    marginVertical: 4,
+    alignItems: "center",
   },
-  rowLabel: { fontWeight: "500" },
-  rowValue: { fontWeight: "600" },
-  actionRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 12,
-    marginTop: 12,
-  },
-  actionBtn: {
-    borderRadius: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  saveBtn: { backgroundColor: PRIMARY },
-  cancelBtn: { backgroundColor: "#999" },
-  actionText: { color: "#fff", fontWeight: "600" },
-  pdfBtn: {
+  expenseTotalLabel: { color: "#2799CE", fontSize: 15, fontWeight: "500" },
+  expenseTotalAmount: { color: "#2799CE", fontSize: 16, fontWeight: "600", lineHeight: rms(28) },
+  pieCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: PRIMARY,
-    borderRadius: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    borderColor: "#E2E8F0",
+    padding: 14,
+    marginTop: 2,
   },
-  pdfText: { color: PRIMARY, fontWeight: "600" },
+  pieTitle: { color: "#1A1A1A", fontSize: 14, fontWeight: "600", marginBottom: 10 },
+  pieContent: { flexDirection: "row", alignItems: "center" },
+  pieWrap: { width: 148, height: 148, justifyContent: "center", alignItems: "center" },
+  pieCenterLabel: { position: "absolute", alignItems: "center", justifyContent: "center" },
+  pieCenterTop: { color: "#6B7280", fontSize: 12 },
+  pieCenterBottom: { color: "#1F2937", fontSize: 24, fontWeight: "700" },
+  legend: { flex: 1, paddingLeft: 6, gap: 8 },
+  legendRow: { flexDirection: "row", alignItems: "center" },
+  legendDot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
+  legendName: { flex: 1, color: "#64748B", fontSize: 11 },
+  legendValue: { color: "#374151", fontSize: 11, fontWeight: "500" },
+  shareText: { marginTop: 8, color: "#737373", fontSize: 10 },
+  shareHighlight: { color: "#1C98ED", fontWeight: "500" },
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.28)" },
+  pickerSheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 20,
+    minHeight: 430,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 5,
+    borderRadius: 100,
+    backgroundColor: "#C5CBD3",
+    marginBottom: 14,
+  },
+  sheetTitle: {
+    textAlign: "center",
+    color: "#111827",
+    fontSize: 18,
+    lineHeight: rms(28),
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  sheetLists: { flexDirection: "row", gap: 12, maxHeight: 240, marginBottom: 16 },
+  sheetList: { flex: 1 },
+  sheetItem: {
+    minHeight: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    marginBottom: 2,
+  },
+  sheetItemActive: { backgroundColor: "#DEF4FF" },
+  sheetItemText: { color: "#7A7A7A", fontSize: 14, lineHeight: rms(28) },
+  sheetItemTextActive: { color: "#1C98ED", fontWeight: "500" },
+  viewLedgerBtn: {
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "#1C98ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewLedgerText: { color: "#FAFAFA", fontSize: 14, fontWeight: "500" },
 });

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-nati
 import DropDownPicker from "react-native-dropdown-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { rms, rs, rvs } from "@/constants/responsive";
 
 export default function ApartmentScreen() {
   const router = useRouter();
@@ -193,21 +194,21 @@ const styles = StyleSheet.create({
   card: {
     width: "85%",
     backgroundColor: "white",
-    padding: 25,
-    borderRadius: 20,
+    padding: rs(25),
+    borderRadius: rs(20),
     elevation: 5,
   },
-  title: { fontSize: 22, fontWeight: "800", color: "#1F1F1F" },
-  sub: { marginTop: -5, marginBottom: 15, color: "#777" },
-  label: { marginTop: 15, marginBottom: 5, color: "#666", fontSize: 13 },
+  title: { fontSize: rms(22), fontWeight: "800", color: "#1F1F1F" },
+  sub: { marginTop: rvs(-5), marginBottom: rvs(15), color: "#777" },
+  label: { marginTop: rvs(15), marginBottom: rvs(5), color: "#666", fontSize: rms(13) },
   dropdown: { borderColor: "#B5C8E6", marginBottom: 10 },
   dropdownContainer: { borderColor: "#B5C8E6", backgroundColor: "white" },
   relative: { position: "relative" },
-  button: { marginTop: 20 },
+  button: { marginTop: rvs(20) },
   buttonInner: {
-    paddingVertical: 12,
-    borderRadius: 25,
+    paddingVertical: rvs(12),
+    borderRadius: rs(25),
     alignItems: "center",
   },
-  buttonText: { color: "white", fontSize: 16, fontWeight: "700" },
+  buttonText: { color: "white", fontSize: rms(16), fontWeight: "700" },
 });

@@ -143,3 +143,6 @@ vite.config.ts.timestamp-*
 
 expo-env.d.ts
 # @end expo-cli
+
+# Android Play upload signing secrets (local only)
+android/keystore.properties
