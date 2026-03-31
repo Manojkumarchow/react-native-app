@@ -87,6 +87,7 @@ export default function Home() {
   const { name, avatarUri, buildingName, role, flatNo, phone, userId, buildingId } = useProfileStore();
   const { watchmen, buildingName: storeBuildingName, setBuildingData } = useBuildingStore();
   const watchmanPhone = watchmen?.phone;
+  const isServicePerson = (role ?? "").toUpperCase() === "SERVICE_PERSON";
   const [showWatchmanSheet, setShowWatchmanSheet] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -141,6 +142,10 @@ export default function Home() {
   };
 
   useEffect(() => {
+    if (isServicePerson) {
+      router.replace("/service-person-home");
+      return;
+    }
     const run = async () => {
       setLoading(true);
       setErrorText(null);
@@ -255,6 +260,10 @@ export default function Home() {
   if (hour >= 17 && hour < 22) return "Good Evening";
   return "Good Night & Time to sleep";
 }
+
+  if (isServicePerson) {
+    return null;
+  }
 
   if (isTenant) {
     return (

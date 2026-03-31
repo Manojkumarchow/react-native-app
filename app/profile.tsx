@@ -42,17 +42,19 @@ export default function ProfileScreen() {
 
   const [showAlert, setShowAlert] = useState(false);
 
-  const isTenant = profile.role === "USER" || profile.role === "TENANT";
+  const roleUpper = (profile.role ?? "").toUpperCase();
+  const isServicePerson = roleUpper === "SERVICE_PERSON";
+  const isTenant = roleUpper === "USER" || roleUpper === "TENANT";
 
   const initials = useMemo(() => {
-    if (!profile.name) return isTenant ? "SG" : "GR";
+    if (!profile.name) return isServicePerson ? "SP" : isTenant ? "SG" : "GR";
     const parts = profile.name.trim().split(" ").filter(Boolean);
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
     return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-  }, [profile.name, isTenant]);
+  }, [profile.name, isTenant, isServicePerson]);
 
-  const roleLabel = isTenant ? "Tenant" : "Owner";
-  const flatLabel = profile.flatNo || profile.flat || "202";
+  const roleLabel = isServicePerson ? "Service Person" : isTenant ? "Tenant" : "Owner";
+  const flatLabel = isServicePerson ? "—" : profile.flatNo || profile.flat || "202";
   const phoneLabel = profile.phone || "+91-8919998087";
   const buildingLabel = building.buildingName || profile.buildingName || "Sunrise Residency";
 
@@ -155,7 +157,24 @@ export default function ProfileScreen() {
     router.replace("/login");
   };
 
-  const actions = isTenant ? tenantActions : ownerActions;
+  const servicePersonActions: ProfileAction[] = [
+    {
+      key: "orders",
+      icon: "clipboard-text-outline",
+      title: "Orders",
+      subtitle: "Accept or reject requests",
+      onPress: () => router.push("/service-person-orders"),
+    },
+    {
+      key: "change-pin",
+      icon: "lock-reset",
+      title: "Change PIN",
+      subtitle: "Update your security PIN",
+      onPress: goToChangePin,
+    },
+  ];
+
+  const actions = isServicePerson ? servicePersonActions : isTenant ? tenantActions : ownerActions;
 
   return (
     <>
@@ -176,7 +195,9 @@ export default function ProfileScreen() {
               <Text style={styles.initialsText}>{initials}</Text>
             </View>
             <View style={styles.heroInfo}>
-              <Text style={styles.heroRole}>Flat - {flatLabel} {roleLabel}</Text>
+              <Text style={styles.heroRole}>
+                {isServicePerson ? "Service Person" : `Flat - ${flatLabel} ${roleLabel}`}
+              </Text>
               <Text style={styles.heroPhone}>{phoneLabel}</Text>
             </View>
           </View>

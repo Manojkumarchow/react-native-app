@@ -5,6 +5,7 @@ import Svg, { Path } from "react-native-svg";
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { rms, rs, rvs } from "@/constants/responsive";
+import useProfileStore from "./store/profileStore";
 
 const BRAND_BLUE = "#1c98ed";
 
@@ -13,13 +14,19 @@ const ShapeSetPath =
 
 export default function LoginSuccessScreen() {
   const router = useRouter();
+  const role = useProfileStore((s) => s.role);
 
   useEffect(() => {
     const timer = setTimeout(() => {
+      const normalizedRole = (role ?? "").toUpperCase();
+      if (normalizedRole === "SERVICE_PERSON") {
+        router.replace("/service-person-home");
+        return;
+      }
       router.replace("/home");
     }, 2000);
     return () => clearTimeout(timer);
-  }, [router]);
+  }, [router, role]);
 
   return (
     <>

@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import axios from "axios";
+import Constants from "expo-constants";
 import { Feather } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -41,7 +42,7 @@ const DISABLED_TEXT = "#a1a1aa";
 export default function LoginPinScreen() {
   const router = useRouter();
   const { phone } = useLocalSearchParams<{ phone: string }>();
-  const resolvedPhone = Array.isArray(phone) ? phone[0] : phone ?? "";
+  const resolvedPhone = Array.isArray(phone) ? phone[0] : (phone ?? "");
 
   const setAuth = useAuthStore((state) => state.setAuth);
   const setProfile = useProfileStore((state) => state.setProfile);
@@ -106,6 +107,16 @@ export default function LoginPinScreen() {
     setHasError(false);
 
     try {
+      const isExpoGo = Constants.appOwnership === "expo";
+      // if (Platform.OS === "ios" && isExpoGo && BASE_URL.startsWith("http://")) {
+      //   Toast.show({
+      //     type: "error",
+      //     text1: "HTTP backend blocked on iOS",
+      //     text2: "Use HTTPS for the backend URL, or run a dev build (not Expo Go).",
+      //   });
+      //   return;
+      // }
+
       const response = await axios.post(`${BASE_URL}/users/login`, {
         phone: resolvedPhone,
         pin: pinStr,
@@ -114,7 +125,10 @@ export default function LoginPinScreen() {
         const { jwtToken } = response.data;
         setAuth(jwtToken, resolvedPhone);
         try {
-          await AsyncStorage.setItem(STORAGE_KEYS.LAST_LOGIN_PHONE, resolvedPhone);
+          await AsyncStorage.setItem(
+            STORAGE_KEYS.LAST_LOGIN_PHONE,
+            resolvedPhone,
+          );
         } catch {
           // Storage is optional for convenience; login should still succeed.
         }
@@ -132,17 +146,19 @@ export default function LoginPinScreen() {
               platform: Platform.OS.toUpperCase(),
               phone: resolvedPhone,
             },
-            { headers: { Authorization: `Bearer ${jwtToken}` } }
+            { headers: { Authorization: `Bearer ${jwtToken}` } },
           );
         }
-        try {
-          const buildingId = profileData.buildingId;
-          const buildingRes = await axios.get(
-            `${BASE_URL}/building/${buildingId}`
-          );
-          setBuildingData(buildingRes.data);
-        } catch {
-          // ignore
+        const buildingId = profileData.buildingId;
+        if (buildingId) {
+          try {
+            const buildingRes = await axios.get(
+              `${BASE_URL}/building/${buildingId}`,
+            );
+            setBuildingData(buildingRes.data);
+          } catch {
+            // ignore
+          }
         }
 
         router.replace("/login-success");
@@ -159,7 +175,10 @@ export default function LoginPinScreen() {
       Toast.show({
         type: "error",
         text1: "Login failed",
-        text2: getErrorMessage(error, "Invalid phone or PIN. Please try again."),
+        text2: getErrorMessage(
+          error,
+          "Invalid phone or PIN. Please try again.",
+        ),
       });
     } finally {
       setLoading(false);
@@ -200,7 +219,9 @@ export default function LoginPinScreen() {
             {/* Card directly below logo with whitespace below */}
             <View style={styles.card}>
               <View style={styles.segmentedControl}>
-                <TouchableOpacity style={[styles.segment, styles.segmentActive]}>
+                <TouchableOpacity
+                  style={[styles.segment, styles.segmentActive]}
+                >
                   <Text style={[styles.segmentText, styles.segmentTextActive]}>
                     LOGIN
                   </Text>
@@ -227,10 +248,7 @@ export default function LoginPinScreen() {
                   <TextInput
                     key={i}
                     ref={refs[i]}
-                    style={[
-                      styles.pinBox,
-                      hasError && styles.pinBoxError,
-                    ]}
+                    style={[styles.pinBox, hasError && styles.pinBoxError]}
                     value={pin[i]}
                     secureTextEntry={!showPin}
                     onChangeText={(v) => handlePinChange(i, v)}

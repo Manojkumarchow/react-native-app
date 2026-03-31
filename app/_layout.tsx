@@ -9,6 +9,7 @@ import { Buffer } from "buffer";
 import { BackHandler, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import useAuthStore from "./store/authStore";
+import useProfileStore from "./store/profileStore";
 import Constants from "expo-constants";
 
 export default function RootLayout() {
@@ -16,6 +17,8 @@ export default function RootLayout() {
   const pathname = usePathname();
   const isAuthenticated = !!useAuthStore((s) => s.token);
   const isExpoGo = Constants.appOwnership === "expo";
+  const role = useProfileStore((s) => s.role);
+  const isServicePerson = (role ?? "").toUpperCase() === "SERVICE_PERSON";
 
   useEffect(() => {
     if (isExpoGo) return;
@@ -93,6 +96,30 @@ export default function RootLayout() {
 
     return () => sub.remove();
   }, [isAuthenticated, pathname, router]);
+
+  useEffect(() => {
+    if (!isServicePerson) return;
+
+    const allowedPrefixes = [
+      "/service-person-",
+      "/profile",
+      "/reset-pin",
+      "/login",
+      "/auth",
+      "/otp",
+      "/forgot-password",
+      "/login-success",
+      "/splash",
+    ];
+
+    const isAllowed = allowedPrefixes.some((p) =>
+      pathname === p || (p.endsWith("-") && pathname?.startsWith(p)) || (!p.endsWith("-") && pathname?.startsWith(p)),
+    );
+
+    if (!isAllowed) {
+      router.replace("/service-person-home");
+    }
+  }, [isServicePerson, pathname, router]);
 
   global.Buffer = Buffer;
   return (
