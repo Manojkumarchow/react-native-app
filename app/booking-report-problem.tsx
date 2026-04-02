@@ -2,18 +2,41 @@ import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { getBookings, raiseIssue } from "./data/homeServicesData";
+import axios from "axios";
+import { BASE_URL } from "./config";
+import useProfileStore from "./store/profileStore";
+import { getErrorMessage } from "./services/error";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { rms, rs, rvs } from "@/constants/responsive";
 
 export default function BookingReportProblemScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ bookingId?: string }>();
-  const booking = useMemo(
-    () => getBookings().find((item) => item.id === params.bookingId) ?? getBookings()[0],
-    [params.bookingId]
+  const profileId = useProfileStore((s) => s.phone);
+  const bookingId = useMemo(
+    () => (Array.isArray(params.bookingId) ? params.bookingId[0] : params.bookingId ?? ""),
+    [params.bookingId],
   );
-  const [problem, setProblem] = useState("Describe the problem with the service.");
+
+  const [booking, setBooking] = useState<any | null>(null);
+  const [problem, setProblem] = useState("");
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    const run = async () => {
+      if (!profileId || !bookingId) return;
+      try {
+        setErrorText(null);
+        const res = await axios.get(`${BASE_URL}/service/order/${profileId}/${bookingId}`);
+        setBooking(res.data ?? null);
+      } catch (error) {
+        setErrorText(getErrorMessage(error, "Unable to load booking details."));
+        setBooking(null);
+      }
+    };
+    run();
+  }, [profileId, bookingId]);
 
   return (
     <>
@@ -26,7 +49,9 @@ export default function BookingReportProblemScreen() {
             </Pressable>
             <Text style={styles.headerTitle}>Booking Details</Text>
             <View style={[styles.statusPill, styles.completedPill]}>
-              <Text style={[styles.statusText, styles.completedText]}>Completed</Text>
+              <Text style={[styles.statusText, styles.completedText]}>
+                {String(booking?.orderStatus ?? "COMPLETED")}
+              </Text>
             </View>
           </View>
         </View>
@@ -38,15 +63,22 @@ export default function BookingReportProblemScreen() {
                 <MaterialCommunityIcons name="tools" size={18} color="#1C98ED" />
               </View>
               <View>
-                <Text style={styles.mainTitle}>{booking.optionTitle}</Text>
-                <Text style={styles.mainSub}>{booking.serviceKey}</Text>
+                <Text style={styles.mainTitle}>{String(booking?.optionTitle ?? "Service")}</Text>
+                <Text style={styles.mainSub}>{String(booking?.orderType ?? "SERVICE")}</Text>
               </View>
             </View>
             <View style={styles.line} />
-            <InfoRow label="Booking ID" value={booking.id} />
-            <InfoRow label="Date & Time" value={`${booking.dateLabel} · ${booking.timeLabel}`} />
-            <InfoRow label="Professional" value={booking.providerName} valueColor="#2899CF" />
-            <InfoRow label="Amount Paid" value={`₹${booking.amount}`} />
+            <InfoRow label="Booking ID" value={String((booking?.orderId ?? bookingId) || "--")} />
+            <InfoRow
+              label="Date & Time"
+              value={`${String(booking?.date ?? "--")} · ${String(booking?.timeSlot ?? "--")}`}
+            />
+            <InfoRow
+              label="Professional"
+              value={String(booking?.vhsServicePersonName ?? booking?.servicePersonName ?? "Assigning service person")}
+              valueColor="#2899CF"
+            />
+            <InfoRow label="Amount Paid" value={`₹${String(booking?.amount ?? "--")}`} />
           </View>
 
           <View style={styles.issueCard}>
@@ -61,6 +93,7 @@ export default function BookingReportProblemScreen() {
               placeholder="Describe the problem with the service."
               placeholderTextColor="#777"
             />
+            {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
 
             <View style={styles.actionRow}>
               <Pressable style={styles.ghostBtn} onPress={() => router.back()}>
@@ -68,12 +101,32 @@ export default function BookingReportProblemScreen() {
               </Pressable>
               <Pressable
                 style={styles.ghostBtn}
-                onPress={() => {
-                  raiseIssue(booking.id, problem);
-                  router.replace({ pathname: "/booking-problem-success", params: { bookingId: booking.id } } as never);
+                onPress={async () => {
+                  const issueText = problem.trim();
+                  if (!issueText) {
+                    setErrorText("Please describe the problem before submitting.");
+                    return;
+                  }
+                  if (!bookingId) {
+                    setErrorText("Booking id is missing.");
+                    return;
+                  }
+                  try {
+                    setSubmitting(true);
+                    setErrorText(null);
+                    await axios.patch(`${BASE_URL}/service/order/${bookingId}/issue`, {
+                      issueText,
+                    });
+                    router.replace({ pathname: "/booking-problem-success", params: { bookingId } } as never);
+                  } catch (error) {
+                    setErrorText(getErrorMessage(error, "Unable to submit issue."));
+                  } finally {
+                    setSubmitting(false);
+                  }
                 }}
+                disabled={submitting}
               >
-                <Text style={styles.ghostText}>Submit Issue</Text>
+                <Text style={styles.ghostText}>{submitting ? "Submitting..." : "Submit Issue"}</Text>
               </Pressable>
             </View>
           </View>
@@ -167,4 +220,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   ghostText: { color: "#777", fontSize: 14, fontWeight: "500" },
+  errorText: { marginTop: 10, color: "#C81616", fontSize: 13 },
 });
