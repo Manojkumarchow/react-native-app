@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "nestiti",
+    "name": "Nestiti",
     "slug": "nestiti",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -34,7 +34,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.nestiti",
-      "versionCode": 18,
+      "versionCode": 23,
       "googleServicesFile": "./app/google-services.json"
     },
     "web": {

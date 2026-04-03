@@ -25,6 +25,8 @@ import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
 import { BASE_URL } from "./config";
 import { getErrorMessage } from "./services/error";
+import { normalizeCatalogFromApi } from "./data/homeServicesData";
+import useHomeServicesCatalogStore from "./store/homeServicesCatalogStore";
 import { rms, rs, rvs } from "@/constants/responsive";
 
 const displayAd = require("../assets/images/heliq.jpeg");
@@ -183,6 +185,8 @@ export default function Home() {
         }
 
         const catalog = Array.isArray(servicesRes?.data) ? servicesRes.data : [];
+        const normalizedCatalog = normalizeCatalogFromApi(catalog);
+        useHomeServicesCatalogStore.getState().setCatalog(normalizedCatalog);
         setServiceCategories(
           catalog.map((item: any) => ({
             key: String(item.key ?? item.label ?? Math.random()),

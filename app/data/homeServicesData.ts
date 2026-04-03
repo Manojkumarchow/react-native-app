@@ -59,7 +59,7 @@ export type BookingRecord = {
 export const SERVICE_IMAGE_BY_CATEGORY: Record<string, string> = {
   cleaning: "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=1200&q=80",
   painting: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&w=1200&q=80",
-  "pest-control": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1200&q=80",
+  "pest-control" : "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1200&q=80",
   "floor-polishing": "https://images.unsplash.com/photo-1616486029423-aaa4789e8c9a?auto=format&fit=crop&w=1200&q=80",
   "appliance-service": "https://images.unsplash.com/photo-1581578731548-52f8d69d89f1?auto=format&fit=crop&w=1200&q=80",
   "home-repair-services": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1200&q=80",
@@ -168,6 +168,35 @@ export function normalizeServiceOptionFromApi(
   };
   merged.price = minPriceForOption(merged);
   return merged;
+}
+
+/** Full API `/service/catalog/all` payload → app catalog (same shape as home-services). */
+export function normalizeCatalogFromApi(data: unknown): ServiceCategory[] {
+  if (!Array.isArray(data) || data.length === 0) return [];
+  const fallbackMap = new Map(serviceCatalog.map((s) => [s.key, s]));
+  return data.map((item: any) => {
+    const fallback = fallbackMap.get(String(item.key ?? "") as any);
+    const incomingOptions = Array.isArray(item.options) ? item.options : [];
+    const options =
+      incomingOptions.length > 0
+        ? incomingOptions.map((opt: any, idx: number) => {
+            const fallbackOption = fallback?.options[idx];
+            const catKey = String(item.key ?? "");
+            return normalizeServiceOptionFromApi(opt, {
+              categoryKey: catKey,
+              optionIndex: idx,
+              fallbackOption,
+            });
+          })
+        : fallback?.options ?? [];
+    return {
+      key: String(item.key ?? fallback?.key ?? "service"),
+      label: String(item.label ?? fallback?.label ?? "Service"),
+      subtitle: String(item.subtitle ?? fallback?.subtitle ?? ""),
+      icon: String(item.icon ?? fallback?.icon ?? "tools"),
+      options,
+    };
+  });
 }
 
 export function getServiceByKey(catalog: ServiceCategory[], key?: string) {

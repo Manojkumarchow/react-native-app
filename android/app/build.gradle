@@ -106,7 +106,7 @@ android {
         applicationId 'com.nestiti'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 18
+        versionCode 23
         versionName "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
@@ -153,11 +153,12 @@ android {
     }
 }
 
-// Fail fast for Play bundle if upload signing is missing (do not ship debug-signed release by mistake).
-def wantsPlayBundle = gradle.startParameter.taskNames.any { name ->
-    name.equalsIgnoreCase("bundleRelease") || name.endsWith(":bundleRelease")
+// Fail fast if upload signing is missing (keystore.properties and/or RELEASE_* env). Works for bundleRelease and assembleRelease.
+def wantsSignedReleaseArtifact = gradle.startParameter.taskNames.any { name ->
+    name.equalsIgnoreCase("bundleRelease") || name.endsWith(":bundleRelease") ||
+            name.equalsIgnoreCase("assembleRelease") || name.endsWith(":assembleRelease")
 }
-if (wantsPlayBundle && !releaseSigningReady) {
+if (wantsSignedReleaseArtifact && !releaseSigningReady) {
     throw new GradleException(
             "Release signing is not configured. Copy android/keystore.properties.example to android/keystore.properties " +
             "(or set RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD). " +
