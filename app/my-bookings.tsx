@@ -157,9 +157,13 @@ export default function MyBookingsScreen() {
                     <View style={styles.iconCircle}>
                       <MaterialCommunityIcons name="tools" size={18} color="#2563EB" />
                     </View>
-                    <View>
-                      <Text style={styles.cardTitle}>{booking.optionTitle}</Text>
-                      <Text style={styles.cardSub}>{booking.providerName}</Text>
+                    <View style={styles.titleWrap}>
+                      <Text style={styles.cardTitle} numberOfLines={3} ellipsizeMode="tail">
+                        {booking.optionTitle}
+                      </Text>
+                      <Text style={styles.cardSub} numberOfLines={1} ellipsizeMode="tail">
+                        {booking.providerName}
+                      </Text>
                     </View>
                   </View>
                   <StatusPill booking={booking} />
@@ -193,14 +197,16 @@ function StatusPill({ booking }: { booking: BookingRecord }) {
   if (booking.status === "ASSIGNING_SERVICE_PERSON" || booking.status === "CREATED") {
     return (
       <View style={[styles.statusPill, { backgroundColor: "rgba(245,158,11,0.12)" }]}>
-        <Text style={[styles.statusText, { color: "#B45309" }]}>Assigning</Text>
+        <Text style={[styles.statusText, { color: "#B45309" }]} numberOfLines={1} ellipsizeMode="tail">
+          Assigning
+        </Text>
       </View>
     );
   }
   if (booking.status === "CONFIRMED" || booking.status === "ASSIGNED") {
     return (
       <View style={[styles.statusPill, { backgroundColor: "rgba(39,153,206,0.1)" }]}>
-        <Text style={[styles.statusText, { color: "#1C98ED" }]}>
+        <Text style={[styles.statusText, { color: "#1C98ED" }]} numberOfLines={1} ellipsizeMode="tail">
           {booking.status === "ASSIGNED" ? "Assigned" : "Confirmed"}
         </Text>
       </View>
@@ -209,20 +215,26 @@ function StatusPill({ booking }: { booking: BookingRecord }) {
   if (booking.status === "COMPLETED") {
     return (
       <View style={[styles.statusPill, { backgroundColor: "rgba(5,150,105,0.1)" }]}>
-        <Text style={[styles.statusText, { color: "#059669" }]}>Completed</Text>
+        <Text style={[styles.statusText, { color: "#059669" }]} numberOfLines={1} ellipsizeMode="tail">
+          Completed
+        </Text>
       </View>
     );
   }
   if (booking.status === "IN_PROGRESS") {
     return (
       <View style={[styles.statusPill, { backgroundColor: "rgba(16,185,129,0.12)" }]}>
-        <Text style={[styles.statusText, { color: "#047857" }]}>In Progress</Text>
+        <Text style={[styles.statusText, { color: "#047857" }]} numberOfLines={1} ellipsizeMode="tail">
+          In Progress
+        </Text>
       </View>
     );
   }
   return (
     <View style={[styles.statusPill, { backgroundColor: "rgba(220,38,38,0.12)" }]}>
-      <Text style={[styles.statusText, { color: "#DC2626" }]}>Cancelled</Text>
+      <Text style={[styles.statusText, { color: "#DC2626" }]} numberOfLines={1} ellipsizeMode="tail">
+        Cancelled
+      </Text>
     </View>
   );
 }
@@ -280,8 +292,9 @@ const styles = StyleSheet.create({
     gap: rvs(10),
   },
   issueCardBorder: { borderColor: "#DC2626" },
-  cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  leftTop: { flexDirection: "row", alignItems: "center", gap: rs(12), flex: 1, paddingRight: rs(8) },
+  cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: rs(8) },
+  leftTop: { flexDirection: "row", alignItems: "center", gap: rs(12), flex: 1, minWidth: 0, paddingRight: rs(4) },
+  titleWrap: { flex: 1, minWidth: 0 },
   iconCircle: {
     width: rs(48),
     height: rs(48),
@@ -292,7 +305,17 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: rms(16), color: "#0F172A", fontWeight: "600", flexShrink: 1 },
   cardSub: { fontSize: rms(13), color: "#64748B", marginTop: rvs(2) },
-  statusPill: { borderRadius: rs(8), paddingHorizontal: rs(8), paddingVertical: rvs(2), maxWidth: rs(96), alignSelf: "flex-start" },
+  statusPill: {
+    borderRadius: rs(8),
+    paddingHorizontal: rs(8),
+    paddingVertical: rvs(2),
+    maxWidth: rs(88),
+    minWidth: rs(72),
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "flex-start",
+    flexShrink: 0,
+  },
   statusText: { fontSize: rms(11), fontWeight: "500" },
   cardBottom: {
     borderTopWidth: 1,

@@ -13,7 +13,10 @@ import {
   type ServiceCatalogLine,
   type ServiceOption,
 } from "./data/homeServicesData";
-import { getGlobalServiceImageFallback, getSubcategoryImageUri } from "./data/homeServiceSubcategoryImages";
+import {
+  getGlobalServiceImageFallback,
+  resolveHomeServiceImageSource,
+} from "./data/homeServiceSubcategoryImages";
 
 function firstStr(v: string | string[] | undefined): string {
   if (Array.isArray(v)) return v[0] ?? "";
@@ -41,23 +44,26 @@ export default function ServiceOptionDetailScreen() {
   const optionPriceParam = Number(firstStr(params.optionPrice) || 0);
   const needsVariantPick = firstStr(params.needsVariantPick) === "1";
 
-  const staticHeroUri = React.useMemo(
-    () => getSubcategoryImageUri(optionId, serviceKey),
-    [optionId, serviceKey],
-  );
   const [heroImageFailed, setHeroImageFailed] = React.useState(false);
-  const heroUri = heroImageFailed ? getGlobalServiceImageFallback() : staticHeroUri;
-
-  React.useEffect(() => {
-    setHeroImageFailed(false);
-  }, [optionId, serviceKey, staticHeroUri]);
-
   const [loadingCatalog, setLoadingCatalog] = React.useState(needsVariantPick);
   const [catalogError, setCatalogError] = React.useState<string | null>(null);
   const [catalogOption, setCatalogOption] = React.useState<ServiceOption | null>(null);
   const [selectedPricedId, setSelectedPricedId] = React.useState<string | null>(
     pricedOptionIdParam || null,
   );
+
+  const apiHeroImage = needsVariantPick ? (catalogOption?.image ?? "") : "";
+  const heroSource = React.useMemo(
+    () =>
+      heroImageFailed
+        ? { uri: getGlobalServiceImageFallback() }
+        : resolveHomeServiceImageSource(apiHeroImage, optionId, serviceKey),
+    [apiHeroImage, optionId, serviceKey, heroImageFailed],
+  );
+
+  React.useEffect(() => {
+    setHeroImageFailed(false);
+  }, [optionId, serviceKey, apiHeroImage]);
 
   React.useEffect(() => {
     if (!needsVariantPick || !serviceKey || !optionId) {
@@ -152,7 +158,7 @@ export default function ServiceOptionDetailScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.detailCard}>
             <Image
-              source={{ uri: heroUri }}
+              source={heroSource}
               style={styles.heroImage}
               resizeMode="cover"
               onError={() => setHeroImageFailed(true)}

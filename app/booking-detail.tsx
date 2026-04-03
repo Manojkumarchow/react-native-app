@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import axios from "axios";
@@ -53,6 +53,24 @@ export default function BookingDetailScreen() {
     return rawOrderStatus;
   }, [booking]);
 
+  const isCancelled = displayStatus === "CANCELLED" || "COMPLETED";
+
+  const assigneeName = useMemo(
+    () => String(booking?.vhsServicePersonName ?? booking?.servicePersonName ?? "Assigning service person"),
+    [booking],
+  );
+  const assigneePhone = useMemo(
+    () => String(booking?.vhsServicePersonPhone ?? booking?.servicePersonPhone ?? "Awaiting assignment"),
+    [booking],
+  );
+  const assigneeInitials = useMemo(() => {
+    const source = assigneeName.trim();
+    if (!source || source.toLowerCase().includes("assigning")) return "SP";
+    const parts = source.split(" ").filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+  }, [assigneeName]);
+
   if (!booking) {
     return (
       <>
@@ -85,11 +103,24 @@ export default function BookingDetailScreen() {
             </Pressable>
             <Text style={styles.headerTitle}>Booking Details</Text>
             <View style={styles.spacer} />
-            <View style={[styles.statusPill, displayStatus === "COMPLETED" ? styles.completedPill : styles.confirmedPill]}>
+            <View
+              style={[
+                styles.statusPill,
+                displayStatus === "COMPLETED"
+                  ? styles.completedPill
+                  : displayStatus === "CANCELLED"
+                  ? styles.cancelledPill
+                  : styles.confirmedPill,
+              ]}
+            >
               <Text
                 style={[
                   styles.statusText,
-                  displayStatus === "COMPLETED" ? styles.completedText : styles.confirmedText,
+                  displayStatus === "COMPLETED"
+                    ? styles.completedText
+                    : displayStatus === "CANCELLED"
+                    ? styles.cancelledText
+                    : styles.confirmedText,
                 ]}
               >
                 {displayStatus === "ASSIGNING_SERVICE_PERSON" || displayStatus === "CREATED"
@@ -106,67 +137,96 @@ export default function BookingDetailScreen() {
               <View style={styles.iconBubble}>
                 <MaterialCommunityIcons name="tools" size={18} color="#1C98ED" />
               </View>
-              <View>
-                <Text style={styles.mainTitle}>{booking.optionTitle}</Text>
+              <View style={styles.topTextWrap}>
+                <Text style={styles.mainTitle} numberOfLines={4} ellipsizeMode="tail">
+                  {booking.optionTitle}
+                </Text>
                 <Text style={styles.mainSub}>{booking.orderType}</Text>
               </View>
             </View>
             <View style={styles.line} />
             <InfoRow label="Booking ID" value={booking.orderId} />
             <InfoRow label="Date & Time" value={dateTimeLabel} />
-            <InfoRow label="Professional" value={booking.vhsServicePersonName ?? booking.servicePersonName ?? "Assigning service person"} valueColor="#2899CF" />
+            <InfoRow
+              label="Professional"
+              value={isCancelled ? "--" : assigneeName}
+              valueColor={isCancelled ? undefined : "#2899CF"}
+            />
             <InfoRow label="Amount Paid" value={`₹${booking.amount}`} />
-            <View style={styles.actionRow}>
-              <Pressable
-                style={styles.secondaryBtn}
-                onPress={() =>
-                  router.push({
-                    pathname: "/service-schedule",
-                    params: {
-                      bookingId: booking.orderId,
-                      optionId: booking.optionId,
-                      optionTitle: booking.optionTitle,
-                      optionPrice: String(booking.amount ?? 0),
-                    },
-                  } as never)
-                }
-              >
-                <Text style={styles.secondaryBtnText}>Change Date/Slot</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.secondaryBtn, { borderColor: "#FCA5A5" }]}
-                onPress={async () => {
-                  try {
-                    await axios.patch(`${BASE_URL}/service/order/${profileId}/${booking.orderId}/cancel`, {
-                      cancelReason: "Customer requested cancellation",
-                    });
-                    router.replace("/my-bookings");
-                  } catch (error) {
-                    setErrorText(getErrorMessage(error, "Unable to cancel booking."));
+            {!isCancelled ? (
+              <View style={styles.actionRow}>
+                <Pressable
+                  style={styles.secondaryBtn}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/service-schedule",
+                      params: {
+                        bookingId: booking.orderId,
+                        optionId: booking.optionId,
+                        optionTitle: booking.optionTitle,
+                        optionPrice: String(booking.amount ?? 0),
+                      },
+                    } as never)
                   }
-                }}
-              >
-                <Text style={[styles.secondaryBtnText, { color: "#DC2626" }]}>Cancel</Text>
-              </Pressable>
-            </View>
+                >
+                  <Text style={styles.secondaryBtnText}>Change Date/Slot</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.secondaryBtn, { borderColor: "#FCA5A5" }]}
+                  onPress={() => {
+                    Alert.alert(
+                      "Cancel booking?",
+                      "Are you sure you want to cancel this booking?",
+                      [
+                        { text: "No", style: "cancel" },
+                        {
+                          text: "Cancel booking",
+                          style: "destructive",
+                          onPress: async () => {
+                            try {
+                              await axios.patch(`${BASE_URL}/service/order/${profileId}/${booking.orderId}/cancel`, {
+                                cancelReason: "Customer requested cancellation",
+                              });
+                              router.replace("/my-bookings");
+                            } catch (error) {
+                              setErrorText(getErrorMessage(error, "Unable to cancel booking."));
+                            }
+                          },
+                        },
+                      ],
+                    );
+                  }}
+                >
+                  <Text style={[styles.secondaryBtnText, { color: "#DC2626" }]}>Cancel</Text>
+                </Pressable>
+              </View>
+            ) : null}
             {errorText ? <Text style={styles.issueSub}>{errorText}</Text> : null}
           </View>
 
-          <View style={styles.profCard}>
-            <View style={styles.profAvatar}>
-              <Text style={styles.profAvatarText}>RK</Text>
-            </View>
-            <View style={styles.profBody}>
-              <View style={styles.profNameRow}>
-              <Text style={styles.profName}>{booking.vhsServicePersonName ?? booking.servicePersonName ?? "Assigning service person"}</Text>
-                <Text style={styles.verifyBadge}>Nestiti Verified</Text>
+          {!isCancelled ? (
+            <View style={styles.profCard}>
+              <View style={styles.profAvatar}>
+                <Text style={styles.profAvatarText}>{assigneeInitials}</Text>
               </View>
-              <Text style={styles.profRating}>{booking.vhsServicePersonPhone ?? booking.servicePersonPhone ?? "Awaiting assignment"}</Text>
+              <View style={styles.profBody}>
+                <View style={styles.profNameRow}>
+                  <Text style={styles.profName} numberOfLines={1} ellipsizeMode="tail">
+                    {assigneeName}
+                  </Text>
+                  <Text style={styles.verifyBadge} numberOfLines={1}>
+                    Nestiti Verified
+                  </Text>
+                </View>
+                <Text style={styles.profRating} numberOfLines={1} ellipsizeMode="tail">
+                  {assigneePhone}
+                </Text>
+              </View>
+              <Pressable style={styles.callBtn}>
+                <MaterialCommunityIcons name="phone-outline" size={18} color="#2899CF" />
+              </Pressable>
             </View>
-            <Pressable style={styles.callBtn}>
-              <MaterialCommunityIcons name="phone-outline" size={18} color="#2899CF" />
-            </Pressable>
-          </View>
+          ) : null}
 
           <View style={styles.issueCard}>
             <Text style={styles.issueHeading}>Report a Problem</Text>
@@ -190,7 +250,10 @@ export default function BookingDetailScreen() {
               <Pressable
                 style={styles.problemBtn}
                 onPress={() =>
-                  router.push({ pathname: "/booking-report-problem", params: { bookingId: booking.id } } as never)
+                  router.push({
+                    pathname: "/booking-report-problem",
+                    params: { bookingId: String(booking.orderId ?? booking.id ?? "") },
+                  } as never)
                 }
               >
                 <Text style={styles.problemBtnText}>Report a Problem</Text>
@@ -207,7 +270,13 @@ function InfoRow({ label, value, valueColor }: { label: string; value: string; v
   return (
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={[styles.infoValue, valueColor ? { color: valueColor } : undefined]}>{value}</Text>
+      <Text
+        style={[styles.infoValue, valueColor ? { color: valueColor } : undefined]}
+        numberOfLines={2}
+        ellipsizeMode="tail"
+      >
+        {value}
+      </Text>
     </View>
   );
 }
@@ -229,9 +298,11 @@ const styles = StyleSheet.create({
   statusPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
   completedPill: { backgroundColor: "rgba(5,150,105,0.1)" },
   confirmedPill: { backgroundColor: "rgba(39,153,206,0.1)" },
+  cancelledPill: { backgroundColor: "rgba(220,38,38,0.12)" },
   statusText: { fontSize: 14, fontWeight: "500" },
   completedText: { color: "#059669" },
   confirmedText: { color: "#1C98ED" },
+  cancelledText: { color: "#DC2626" },
   content: { padding: 16, gap: 12, paddingBottom: 30 },
   mainCard: {
     backgroundColor: "#FFFFFF",
@@ -243,6 +314,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   topInfo: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
+  topTextWrap: { flex: 1, minWidth: 0 },
   iconBubble: {
     width: 48,
     height: 48,
@@ -251,12 +323,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  mainTitle: { fontSize: 16, color: "#0F172A", fontWeight: "600" },
+  mainTitle: { fontSize: 16, color: "#0F172A", fontWeight: "600", flexShrink: 1 },
   mainSub: { fontSize: 14, color: "#64748B" },
   line: { height: 1, backgroundColor: "#F1F5F9", marginBottom: 8 },
-  infoRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: 8 },
+  infoRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: 8, gap: 12 },
   infoLabel: { fontSize: 12, color: "#64748B" },
-  infoValue: { fontSize: 14, color: "#0F172A", fontWeight: "500" },
+  infoValue: { fontSize: 14, color: "#0F172A", fontWeight: "500", flex: 1, textAlign: "right" },
   actionRow: { flexDirection: "row", gap: rs(8), marginTop: rvs(10) },
   secondaryBtn: {
     flex: 1,
@@ -289,9 +361,17 @@ const styles = StyleSheet.create({
   },
   profAvatarText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
   profBody: { flex: 1 },
-  profNameRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },
-  profName: { fontSize: 14, color: "#0F172A", fontWeight: "500" },
-  verifyBadge: { color: "#1C98ED", fontSize: 14, backgroundColor: "#F1F5F9", paddingHorizontal: 6, borderRadius: 8 },
+  profNameRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4, minWidth: 0 },
+  profName: { fontSize: 14, color: "#0F172A", fontWeight: "500", flexShrink: 1, maxWidth: "62%" },
+  verifyBadge: {
+    color: "#1C98ED",
+    fontSize: 13,
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    overflow: "hidden",
+    flexShrink: 0,
+  },
   profRating: { fontSize: 10, color: "#475569" },
   callBtn: {
     width: 40,

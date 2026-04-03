@@ -1,72 +1,94 @@
 import React from "react";
-import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   buildBookingTitle,
   countPricedOptions,
   findSinglePricedOption,
-  normalizeServiceOptionFromApi,
+  normalizeCatalogFromApi,
   serviceCatalog,
 } from "./data/homeServicesData";
-import { getGlobalServiceImageFallback, getSubcategoryImageUri } from "./data/homeServiceSubcategoryImages";
+import useHomeServicesCatalogStore from "./store/homeServicesCatalogStore";
+import {
+  getGlobalServiceImageFallback,
+  resolveHomeServiceImageSource,
+} from "./data/homeServiceSubcategoryImages";
 import axios from "axios";
 import { BASE_URL } from "./config";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { rms, rs, rvs } from "@/constants/responsive";
+
+function firstStr(v: string | string[] | undefined): string {
+  if (Array.isArray(v)) return v[0] ?? "";
+  return v ?? "";
+}
 
 export default function HomeServicesScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ service?: string }>();
-  const [catalog, setCatalog] = React.useState(serviceCatalog);
+  const catalog = useHomeServicesCatalogStore((s) => s.catalog);
+  const setCatalog = useHomeServicesCatalogStore((s) => s.setCatalog);
+  const [catalogReady, setCatalogReady] = React.useState(
+    () => useHomeServicesCatalogStore.getState().catalog.length > 0,
+  );
   const [failedImageIds, setFailedImageIds] = React.useState<Record<string, boolean>>({});
   const tabScrollRef = React.useRef<ScrollView>(null);
   const [chipLayouts, setChipLayouts] = React.useState<Record<string, { x: number; width: number }>>({});
   const screenWidth = Dimensions.get("window").width;
-  const selectedService =
-    catalog.find((service) => service.key === String(params.service ?? "")) ?? catalog[0];
+
+  const [optimisticServiceKey, setOptimisticServiceKey] = React.useState<string | null>(null);
+  const paramServiceKey = firstStr(params.service);
 
   React.useEffect(() => {
+    if (optimisticServiceKey && paramServiceKey === optimisticServiceKey) {
+      setOptimisticServiceKey(null);
+    }
+  }, [paramServiceKey, optimisticServiceKey]);
+
+  const effectiveServiceKey = optimisticServiceKey || paramServiceKey;
+
+  const selectedService = React.useMemo(() => {
+    if (!catalog.length) return null;
+    if (effectiveServiceKey) {
+      const match = catalog.find((s) => s.key === effectiveServiceKey);
+      if (match) return match;
+    }
+    return catalog[0] ?? null;
+  }, [catalog, effectiveServiceKey]);
+
+  React.useEffect(() => {
+    let cancelled = false;
     const fetchCatalog = async () => {
       try {
         const res = await axios.get(`${BASE_URL}/service/catalog/all`);
+        if (cancelled) return;
         if (Array.isArray(res.data) && res.data.length) {
-          const fallbackMap = new Map(serviceCatalog.map((s) => [s.key, s]));
-          const normalized = res.data.map((item: any) => {
-            const fallback = fallbackMap.get(String(item.key ?? "") as any);
-            const incomingOptions = Array.isArray(item.options) ? item.options : [];
-            const options =
-              incomingOptions.length > 0
-                ? incomingOptions.map((opt: any, idx: number) => {
-                    const fallbackOption = fallback?.options[idx];
-                    const catKey = String(item.key ?? "");
-                    const merged = normalizeServiceOptionFromApi(opt, {
-                      categoryKey: catKey,
-                      optionIndex: idx,
-                      fallbackOption,
-                    });
-                    return {
-                      ...merged,
-                      image: getSubcategoryImageUri(merged.id, catKey),
-                    };
-                  })
-                : fallback?.options ?? [];
-            return {
-              key: String(item.key ?? fallback?.key ?? "service"),
-              label: String(item.label ?? fallback?.label ?? "Service"),
-              subtitle: String(item.subtitle ?? fallback?.subtitle ?? ""),
-              icon: String(item.icon ?? fallback?.icon ?? "tools"),
-              options,
-            };
-          });
-          setCatalog(normalized);
+          setCatalog(normalizeCatalogFromApi(res.data));
+        } else {
+          setCatalog([]);
         }
       } catch {
-        setCatalog(serviceCatalog);
+        if (!cancelled) setCatalog(serviceCatalog);
+      } finally {
+        if (!cancelled) setCatalogReady(true);
       }
     };
     fetchCatalog();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [setCatalog]);
 
   React.useEffect(() => {
     const selectedKey = selectedService?.key;
@@ -76,6 +98,45 @@ export default function HomeServicesScreen() {
     const targetX = Math.max(0, layout.x + layout.width / 2 - screenWidth / 2);
     tabScrollRef.current?.scrollTo({ x: targetX, animated: true });
   }, [selectedService?.key, chipLayouts, screenWidth]);
+
+  const onSelectTab = (key: string) => {
+    setOptimisticServiceKey(key);
+    router.replace({ pathname: "/home-services", params: { service: key } } as never);
+  };
+
+  if (!catalogReady) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView style={[styles.safe, styles.loadingSafe]}>
+          <Pressable onPress={() => router.back()} style={[styles.loadingBack, { top: insets.top + rvs(8) }]}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#181818" />
+          </Pressable>
+          <ActivityIndicator size="large" color="#1C98ED" />
+          <Text style={styles.loadingText}>Loading services…</Text>
+        </SafeAreaView>
+      </>
+    );
+  }
+
+  if (!catalog.length) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView style={[styles.safe, styles.loadingSafe]}>
+          <Pressable onPress={() => router.back()} style={[styles.loadingBack, { top: insets.top + rvs(8) }]}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#181818" />
+          </Pressable>
+          <Text style={styles.emptyTitle}>No services yet</Text>
+          <Text style={styles.emptySubtitle}>Pricing is being updated. Please check back soon.</Text>
+        </SafeAreaView>
+      </>
+    );
+  }
+
+  if (!selectedService) {
+    return null;
+  }
 
   return (
     <>
@@ -114,7 +175,7 @@ export default function HomeServicesScreen() {
                       return { ...prev, [item.key]: { x, width } };
                     });
                   }}
-                  onPress={() => router.replace({ pathname: "/home-services", params: { service: item.key } } as never)}
+                  onPress={() => onSelectTab(item.key)}
                 >
                   <MaterialCommunityIcons
                     name={item.icon as any}
@@ -128,69 +189,71 @@ export default function HomeServicesScreen() {
           </ScrollView>
 
           {selectedService.options.map((option) => {
-            const staticUri = getSubcategoryImageUri(option.id, selectedService.key);
-            const resolvedImage = failedImageIds[option.id] ? getGlobalServiceImageFallback() : staticUri;
+            const resolvedSource = failedImageIds[option.id]
+              ? { uri: getGlobalServiceImageFallback() }
+              : resolveHomeServiceImageSource(option.image, option.id, selectedService.key);
             return (
-            <View key={option.id} style={styles.card}>
-              <Image
-                source={{ uri: resolvedImage }}
-                style={styles.cardImage}
-                resizeMode="cover"
-                onError={() => {
-                  setFailedImageIds((prev) => ({ ...prev, [option.id]: true }));
-                }}
-              />
-              <View style={styles.cardContent}>
-                <View style={styles.badgeRow}>
-                  {option.popular ? <Text style={styles.popularBadge}>POPULAR</Text> : null}
-                  <Text style={styles.verifiedBadge}>Nestiti Verified</Text>
-                </View>
-                <Text style={styles.optionTitle}>{option.title}</Text>
-                <Text style={styles.optionDescription}>{option.description}</Text>
-                <View style={styles.priceRow}>
-                  <Text style={styles.priceText}>
-                    {countPricedOptions(option) > 1 ? `From ₹${option.price}` : `₹${option.price}`}
-                  </Text>
-                  <Pressable
-                    style={styles.bookBtn}
-                    onPress={() => {
-                      const single = findSinglePricedOption(option);
-                      if (single) {
-                        const bookingTitle = buildBookingTitle(option.title, single.line, single.priced);
+              <View key={option.id} style={styles.card}>
+                <Image
+                  source={resolvedSource}
+                  style={styles.cardImage}
+                  resizeMode="cover"
+                  onError={() => {
+                    setFailedImageIds((prev) => ({ ...prev, [option.id]: true }));
+                  }}
+                />
+                <View style={styles.cardContent}>
+                  <View style={styles.badgeRow}>
+                    {option.popular ? <Text style={styles.popularBadge}>POPULAR</Text> : null}
+                    <Text style={styles.verifiedBadge}>Nestiti Verified</Text>
+                  </View>
+                  <Text style={styles.optionTitle}>{option.title}</Text>
+                  <Text style={styles.optionDescription}>{option.description}</Text>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceText}>
+                      {countPricedOptions(option) > 1 ? `From ₹${option.price}` : `₹${option.price}`}
+                    </Text>
+                    <Pressable
+                      style={styles.bookBtn}
+                      onPress={() => {
+                        const single = findSinglePricedOption(option);
+                        if (single) {
+                          const bookingTitle = buildBookingTitle(option.title, single.line, single.priced);
+                          router.push({
+                            pathname: "/service-option-detail",
+                            params: {
+                              serviceKey: selectedService.key,
+                              serviceLabel: selectedService.label,
+                              optionId: option.id,
+                              pricedOptionId: single.priced.id,
+                              optionTitle: bookingTitle,
+                              optionDescription: option.description,
+                              optionPrice: String(single.priced.price),
+                            },
+                          } as never);
+                          return;
+                        }
                         router.push({
                           pathname: "/service-option-detail",
                           params: {
                             serviceKey: selectedService.key,
                             serviceLabel: selectedService.label,
                             optionId: option.id,
-                            pricedOptionId: single.priced.id,
-                            optionTitle: bookingTitle,
+                            optionTitle: option.title,
                             optionDescription: option.description,
-                            optionPrice: String(single.priced.price),
+                            optionPrice: String(option.price),
+                            needsVariantPick: countPricedOptions(option) > 1 ? "1" : "",
                           },
                         } as never);
-                        return;
-                      }
-                      router.push({
-                        pathname: "/service-option-detail",
-                        params: {
-                          serviceKey: selectedService.key,
-                          serviceLabel: selectedService.label,
-                          optionId: option.id,
-                          optionTitle: option.title,
-                          optionDescription: option.description,
-                          optionPrice: String(option.price),
-                          needsVariantPick: countPricedOptions(option) > 1 ? "1" : "",
-                        },
-                      } as never);
-                    }}
-                  >
-                    <Text style={styles.bookText}>Book</Text>
-                  </Pressable>
+                      }}
+                    >
+                      <Text style={styles.bookText}>Book</Text>
+                    </Pressable>
+                  </View>
                 </View>
               </View>
-            </View>
-          )})}
+            );
+          })}
         </ScrollView>
       </SafeAreaView>
     </>
@@ -199,6 +262,17 @@ export default function HomeServicesScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FAFAFA" },
+  loadingSafe: { justifyContent: "center", alignItems: "center", paddingHorizontal: rs(24) },
+  loadingBack: { position: "absolute", left: rs(16), padding: rs(8), zIndex: 1 },
+  loadingText: { marginTop: rvs(12), fontSize: rms(15), color: "#64748B" },
+  emptyTitle: { fontSize: rms(18), fontWeight: "600", color: "#0F172A", textAlign: "center" },
+  emptySubtitle: {
+    marginTop: rvs(8),
+    fontSize: rms(14),
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: rms(20),
+  },
   headerCard: {
     backgroundColor: "#FFFFFF",
     borderBottomLeftRadius: rs(24),
