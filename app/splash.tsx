@@ -39,7 +39,7 @@ const onboardingSlides = [
 ];
 
 type SplashStage = "BOOT" | "BRAND" | "ONBOARDING" | "ROLE_SELECT";
-type SelectedRole = "ADMIN" | "Owner" | "USER";
+type SelectedRole = "ADMIN" | "Owner" | "USER" | "VISITOR";
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -144,6 +144,10 @@ export default function SplashScreen() {
     } catch {
       // Allow onboarding to continue even if storage is unavailable.
     }
+    if (selectedRole === "VISITOR") {
+      router.replace("/visitor-check-in-options");
+      return;
+    }
     router.replace("/login");
   };
 
@@ -237,6 +241,12 @@ export default function SplashScreen() {
           title="Resident - Tenant"
           subtitle="I live in an apartment"
           onPress={() => setSelectedRole("USER")}
+        />
+        <RoleCard
+          selected={selectedRole === "VISITOR"}
+          title="Visitor"
+          subtitle="I am a visitor"
+          onPress={() => setSelectedRole("VISITOR")}
         />
       </View>
 

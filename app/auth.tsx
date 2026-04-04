@@ -221,6 +221,16 @@ export default function AuthScreen() {
                     />
                   </View>
 
+                  <TouchableOpacity
+                    onPress={() => router.push("/visitor-check-in-options" as never)}
+                    activeOpacity={0.7}
+                    style={styles.visitorEntryLink}
+                  >
+                    <Text style={styles.visitorEntryLinkText}>
+                      Are you a visitor? Tap here
+                    </Text>
+                  </TouchableOpacity>
+
                   {!!error && <Text style={styles.error}>{error}</Text>}
 
                   <TouchableOpacity
@@ -360,6 +370,17 @@ const styles = StyleSheet.create({
     fontSize: rms(12),
     color: PLACEHOLDER_COLOR,
     marginTop: rvs(8),
+  },
+  visitorEntryLink: {
+    marginTop: rvs(1),
+    marginBottom: rvs(1),
+    paddingVertical: rvs(8),
+  },
+  visitorEntryLinkText: {
+    fontSize: rms(14),
+    color: BRAND_BLUE,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
   forgotLink: {
     alignSelf: "flex-end",

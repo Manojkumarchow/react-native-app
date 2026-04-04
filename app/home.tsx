@@ -43,6 +43,13 @@ const quickActions = [
     role: ["ADMIN"],
   },
   {
+    key: "visitors",
+    label: "Visitors",
+    icon: "badge-account-outline",
+    route: "/visitors",
+    role: ["ADMIN"],
+  },
+  {
     key: "maintenance",
     label: "Maintenance",
     icon: "clipboard-text-outline",
