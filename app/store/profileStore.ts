@@ -1,5 +1,10 @@
 import { create } from "zustand";
 
+export type AdminBuildingSummary = {
+  buildingId: string;
+  buildingName: string;
+};
+
 interface ProfileState {
   userId: string | null;
   name: string | null;
@@ -13,6 +18,8 @@ interface ProfileState {
   upiId: string | null
   buildingName: string | null;
   flatNo: string | null;
+  /** Buildings this user may administer (from profile API); empty for residents. */
+  adminBuildings: AdminBuildingSummary[];
   setProfile: (data: Partial<ProfileState>) => void;
 }
 
@@ -29,6 +36,7 @@ const useProfileStore = create<ProfileState>((set) => ({
   upiId: null,
   buildingName: null,
   flatNo: null,
+  adminBuildings: [],
   setProfile: (data) => set((state) => ({ ...state, ...data }))
 }));
 

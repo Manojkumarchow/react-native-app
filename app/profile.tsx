@@ -14,7 +14,7 @@ import useProfileStore from "./store/profileStore";
 import useAuthStore from "./store/authStore";
 import useBuildingStore from "./store/buildingStore";
 import CustomAlert from "./components/CustomAlert";
-import { STORAGE_KEYS } from "@/constants/storage";
+import { STORAGE_KEYS, adminSelectedBuildingStorageKey } from "@/constants/storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { rms, rs, rvs } from "@/constants/responsive";
 
@@ -130,6 +130,7 @@ export default function ProfileScreen() {
   ];
 
   const doLogout = async () => {
+    const phoneKey = profile.phone?.trim();
     resetProfile({
       userId: null,
       name: null,
@@ -143,11 +144,15 @@ export default function ProfileScreen() {
       upiId: null,
       buildingName: null,
       flatNo: null,
+      adminBuildings: [],
     });
     resetAuth();
     resetBuilding();
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.LAST_LOGIN_PHONE);
+      if (phoneKey) {
+        await AsyncStorage.removeItem(adminSelectedBuildingStorageKey(phoneKey));
+      }
     } catch {
       // continue logout flow even if local storage cleanup fails
     }
