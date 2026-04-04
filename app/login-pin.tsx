@@ -26,6 +26,10 @@ import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
 import { requestNotificationPermission } from "./useNotificationPermission";
 import { getErrorMessage } from "./services/error";
+import {
+  normalizeAdminBuildingsFromApi,
+  resolveActiveAdminBuilding,
+} from "./services/adminBuildingContext";
 import { STORAGE_KEYS } from "@/constants/storage";
 import { rms, rs, rvs } from "@/constants/responsive";
 
@@ -120,7 +124,29 @@ export default function LoginPinScreen() {
         }
 
         const profileData = await getProfile(resolvedPhone);
-        setProfile(profileData);
+        const adminBuildings = normalizeAdminBuildingsFromApi(profileData.adminBuildings);
+        const roleUpper = String(profileData.role ?? "").toUpperCase();
+        const isAdminRole = roleUpper === "ADMIN" || roleUpper === "SYSTEM_ADMIN";
+
+        let adminActive: Awaited<ReturnType<typeof resolveActiveAdminBuilding>> = null;
+        if (isAdminRole && adminBuildings.length > 0) {
+          adminActive = await resolveActiveAdminBuilding(
+            resolvedPhone,
+            profileData.buildingId,
+            adminBuildings,
+          );
+          setProfile({
+            ...profileData,
+            buildingId: adminActive?.buildingId ?? String(profileData.buildingId ?? ""),
+            buildingName: adminActive?.buildingName ?? profileData.buildingName,
+            adminBuildings,
+          });
+        } else {
+          setProfile({
+            ...profileData,
+            adminBuildings: isAdminRole ? adminBuildings : [],
+          });
+        }
 
         const registration = await requestNotificationPermission();
         if (registration?.expoPushToken || registration?.fcmToken) {
@@ -136,11 +162,14 @@ export default function LoginPinScreen() {
           );
         }
         try {
-          const buildingId = profileData.buildingId;
-          const buildingRes = await axios.get(
-            `${BASE_URL}/building/${buildingId}`
-          );
-          setBuildingData(buildingRes.data);
+          let buildingId: string | undefined = adminActive?.buildingId;
+          if (!buildingId && profileData.buildingId != null && profileData.buildingId !== "") {
+            buildingId = String(profileData.buildingId);
+          }
+          if (buildingId) {
+            const buildingRes = await axios.get(`${BASE_URL}/building/${buildingId}`);
+            setBuildingData(buildingRes.data);
+          }
         } catch {
           // ignore
         }

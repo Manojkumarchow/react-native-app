@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -21,6 +21,7 @@ import {
   MaterialCommunityIcons,
   MaterialIcons,
 } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import useProfileStore from "./store/profileStore";
 import useBuildingStore from "./store/buildingStore";
 import { BASE_URL } from "./config";
@@ -28,6 +29,8 @@ import { getErrorMessage } from "./services/error";
 import { normalizeCatalogFromApi } from "./data/homeServicesData";
 import useHomeServicesCatalogStore from "./store/homeServicesCatalogStore";
 import { rms, rs, rvs } from "@/constants/responsive";
+import { adminSelectedBuildingStorageKey } from "@/constants/storage";
+import type { AdminBuildingSummary } from "./store/profileStore";
 
 const displayAd = require("../assets/images/heliq.jpeg");
 
@@ -86,10 +89,22 @@ type CommunityItem = {
 export default function Home() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { name, avatarUri, buildingName, role, flatNo, phone, userId, buildingId } = useProfileStore();
+  const {
+    name,
+    avatarUri,
+    buildingName,
+    role,
+    flatNo,
+    phone,
+    userId,
+    buildingId,
+    adminBuildings,
+    setProfile,
+  } = useProfileStore();
   const { watchmen, buildingName: storeBuildingName, setBuildingData } = useBuildingStore();
   const watchmanPhone = watchmen?.phone;
   const [showWatchmanSheet, setShowWatchmanSheet] = useState(false);
+  const [showBuildingPicker, setShowBuildingPicker] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [serviceCategories, setServiceCategories] = useState<HomeServiceCategory[]>([]);
@@ -126,6 +141,26 @@ export default function Home() {
   const isTenant = (role ?? "").toUpperCase() === "USER" || (role ?? "").toUpperCase() === "TENANT" || (role ?? "").toUpperCase() === "OWNER";
   const profileId = phone ?? userId ?? "";
   const resolvedBuildingId = buildingId ? String(buildingId) : "";
+
+  const selectAdminBuilding = useCallback(
+    async (b: AdminBuildingSummary) => {
+      if (!phone) return;
+      try {
+        await AsyncStorage.setItem(adminSelectedBuildingStorageKey(phone), b.buildingId);
+      } catch {
+        // ignore
+      }
+      setProfile({ buildingId: b.buildingId, buildingName: b.buildingName });
+      setShowBuildingPicker(false);
+      try {
+        const res = await axios.get(`${BASE_URL}/building/${b.buildingId}`);
+        setBuildingData(res.data);
+      } catch {
+        // ignore
+      }
+    },
+    [phone, setProfile, setBuildingData],
+  );
 
   const updates = useMemo(() => communityItems.slice(0, 3), [communityItems]);
 
@@ -533,9 +568,23 @@ export default function Home() {
 
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={14} color="#94A3B8" />
-            <Text style={styles.locationText}>
-              {buildingName || "Building"} {flatNo ? `· ${flatNo}` : ""}
-            </Text>
+            {adminBuildings.length > 1 ? (
+              <Pressable
+                style={styles.locationPickerRow}
+                onPress={() => setShowBuildingPicker(true)}
+              >
+                <Text style={[styles.locationText, styles.locationPickerText]} numberOfLines={1}>
+                  {buildingName || storeBuildingName || "Building"}
+                  {flatNo ? ` · ${flatNo}` : ""}
+                </Text>
+                <MaterialIcons name="keyboard-arrow-down" size={20} color="#64748B" />
+              </Pressable>
+            ) : (
+              <Text style={styles.locationText}>
+                {buildingName || storeBuildingName || "Building"}
+                {flatNo ? ` · ${flatNo}` : ""}
+              </Text>
+            )}
           </View>
         </View>
 
@@ -733,6 +782,47 @@ export default function Home() {
             </View>
           </TouchableWithoutFeedback>
         </Modal>
+
+        <Modal
+          transparent
+          visible={showBuildingPicker}
+          animationType="slide"
+          onRequestClose={() => setShowBuildingPicker(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setShowBuildingPicker(false)}>
+            <View style={styles.sheetBackdrop}>
+              <TouchableWithoutFeedback>
+                <View style={styles.buildingPickerSheet}>
+                  <View style={styles.sheetHandle} />
+                  <Text style={styles.buildingPickerTitle}>Select building</Text>
+                  <ScrollView
+                    style={styles.buildingPickerList}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {adminBuildings.map((b) => {
+                      const active = String(buildingId ?? "") === b.buildingId;
+                      return (
+                        <Pressable
+                          key={b.buildingId}
+                          style={[styles.buildingPickerItem, active && styles.buildingPickerItemActive]}
+                          onPress={() => void selectAdminBuilding(b)}
+                        >
+                          <Text style={styles.buildingPickerItemText} numberOfLines={2}>
+                            {b.buildingName || `Building ${b.buildingId}`}
+                          </Text>
+                          {active ? (
+                            <Ionicons name="checkmark-circle" size={22} color="#1C98ED" />
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
       </SafeAreaView>
     </>
   );
@@ -861,9 +951,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: rs(6),
   },
+  locationPickerRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: rs(4),
+    minWidth: 0,
+  },
+  locationPickerText: {
+    flex: 1,
+    minWidth: 0,
+  },
   locationText: {
     fontSize: rms(14),
     color: "#64748B",
+    flexShrink: 1,
   },
   container: { flex: 1 },
   contentContainer: {
@@ -1232,6 +1334,49 @@ const styles = StyleSheet.create({
   watchmanCallButtonText: {
     color: "#FAFAFA",
     fontSize: 22,
+    fontWeight: "500",
+  },
+  buildingPickerSheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: rs(16),
+    paddingTop: rvs(10),
+    paddingBottom: rvs(28),
+    maxHeight: "55%",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  buildingPickerTitle: {
+    fontSize: rms(18),
+    fontWeight: "600",
+    color: "#0F172A",
+    marginBottom: rvs(12),
+    textAlign: "center",
+  },
+  buildingPickerList: {
+    maxHeight: rvs(320),
+  },
+  buildingPickerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: rs(12),
+    paddingVertical: rvs(14),
+    paddingHorizontal: rs(12),
+    borderRadius: rs(12),
+    marginBottom: rvs(6),
+    backgroundColor: "#F8FAFC",
+  },
+  buildingPickerItemActive: {
+    backgroundColor: "#E6F4FA",
+  },
+  buildingPickerItemText: {
+    flex: 1,
+    fontSize: rms(15),
+    color: "#0F172A",
     fontWeight: "500",
   },
   bottomNav: {
